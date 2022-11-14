@@ -5,6 +5,7 @@
 *.ptx
 *.cubin
 *.fatbin
+*.so
 
 # Datasets
 sti2_data/
@@ -18,3 +19,12 @@ sti2_data/
 
 # ONNX
 *.onnx
+
+# Bin
+bin/
+
+# Data
+data/
+
+# Model
+model/
