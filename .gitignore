@@ -11,3 +11,10 @@ sti2_data/
 
 # ipynb
 .ipynb_checkpoints/
+
+# TensorRT
+*.plan
+*.cache
+
+# ONNX
+*.onnx
