@@ -3,7 +3,7 @@
 从[官网](https://aistudio.baidu.com/aistudio/datasetdetail/174570)下载数据集并放置到该目录
 
 目录结构为
-···
+```
 sti2_data/
 ├── data
 │   ├── label.test.txt
@@ -18,4 +18,4 @@ sti2_data/
 │       ├── __model__
 │       └── __params__
 └── README.md
-···
+```
