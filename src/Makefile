@@ -25,10 +25,7 @@ all: $(TARGET_EXE)
 test:
 	make clean
 	make
-	$(OUT_BIN)/$(TARGET_EXE) perf
-	python utils/local_evaluate.py ../perf.res.txt
-	$(OUT_BIN)/$(TARGET_EXE) label
-	python utils/local_evaluate.py ../label.res.txt
+	"TODO: test"
 
 .PHONY: clean
 clean:

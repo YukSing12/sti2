@@ -1,4 +1,4 @@
-# CUDA
+# CUDA C++
 *.i
 *.ii
 *.gpu
@@ -6,6 +6,8 @@
 *.cubin
 *.fatbin
 *.so
+*.d
+*.o
 
 # Datasets
 sti2_data/
