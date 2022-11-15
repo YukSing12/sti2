@@ -15,14 +15,72 @@
  */
 
 #include "cookbookHelper.hpp"
+#include <fstream>
+#include <string>
+#include <vector>
+#include <sstream>
+#include <sys/time.h>
 
 using namespace nvinfer1;
 
-const std::string trtFile {"./model.plan"};
+const std::string trtFile {"../Ernie.plan"};
+
 static Logger     gLogger(ILogger::Severity::kERROR);
 
-void run()
+void SplitString(const std::string& s, std::vector<std::string>& v, const std::string& c) {
+	v.clear();
+    std::string::size_type pos1, pos2;
+	pos2 = s.find(c);
+	pos1 = 0;
+	while (std::string::npos != pos2)
+	{
+		v.push_back(s.substr(pos1, pos2 - pos1));
+
+		pos1 = pos2 + c.size();
+		pos2 = s.find(c, pos1);
+	}
+	if (pos1 != s.length())
+		v.push_back(s.substr(pos1));
+}
+
+void SplitShape(const std::string& s, std::vector<int>& v, const std::string& c) {
+	v.clear();
+    std::string::size_type pos1, pos2;
+	pos2 = s.find(c);
+	pos1 = 0;
+	while (std::string::npos != pos2)
+	{
+		v.push_back(stoi(s.substr(pos1, pos2 - pos1)));
+
+		pos1 = pos2 + c.size();
+		pos2 = s.find(c, pos1);
+	}
+	if (pos1 != s.length())
+		v.push_back(stoi(s.substr(pos1)));
+}
+
+template<typename T>
+void SplitValue(const std::string& s, T* v, const std::string& c, const size_t& bs, const size_t& seq_len, const size_t& pad_len) {
+	std::stringstream ss(s);
+	for (size_t i = 0; i < bs; i++)
+	{
+		for (size_t j = 0; j < seq_len; j++)
+		{
+			ss >> *(v + i * pad_len + j);
+		}
+		// padding
+		for (size_t j = seq_len; j < pad_len; j++)
+		{
+			*(v + i * pad_len + j) = 0;
+		}
+	}
+	return;
+}
+
+
+void run(const std::string& testFile, const std::string& resFile)
 {
+    // Load engine
     ICudaEngine *engine = nullptr;
 
     if (access(trtFile.c_str(), F_OK) == 0)
@@ -53,124 +111,162 @@ void run()
     }
     else
     {
-        IBuilder *            builder = createInferBuilder(gLogger);
-        INetworkDefinition *  network = builder->createNetworkV2(1U << int(NetworkDefinitionCreationFlag::kEXPLICIT_BATCH));
-        IOptimizationProfile *profile = builder->createOptimizationProfile();
-        IBuilderConfig *      config  = builder->createBuilderConfig();
-        config->setMemoryPoolLimit(MemoryPoolType::kWORKSPACE, 1 << 30);
-
-        ITensor *inputTensor = network->addInput("inputT0", DataType::kFLOAT, Dims32 {4, {-1, -1, -1, -1}});
-        profile->setDimensions(inputTensor->getName(), OptProfileSelector::kMIN, Dims32 {4, {1, 1, 1, 1}});
-        profile->setDimensions(inputTensor->getName(), OptProfileSelector::kOPT, Dims32 {4, {2, 3, 4, 5}});
-        profile->setDimensions(inputTensor->getName(), OptProfileSelector::kMAX, Dims32 {4, {4, 6, 8, 10}});
-        config->addOptimizationProfile(profile);
-
-        IIdentityLayer *identityLayer = network->addIdentity(*inputTensor);
-        network->markOutput(*identityLayer->getOutput(0));
-        IHostMemory *engineString = builder->buildSerializedNetwork(*network, *config);
-        if (engineString == nullptr || engineString->size() == 0)
-        {
-            std::cout << "Failed building serialized engine!" << std::endl;
-            return;
-        }
-        std::cout << "Succeeded building serialized engine!" << std::endl;
-
-        IRuntime *runtime {createInferRuntime(gLogger)};
-        engine = runtime->deserializeCudaEngine(engineString->data(), engineString->size());
-        if (engine == nullptr)
-        {
-            std::cout << "Failed building engine!" << std::endl;
-            return;
-        }
-        std::cout << "Succeeded building engine!" << std::endl;
-
-        std::ofstream engineFile(trtFile, std::ios::binary);
-        if (!engineFile)
-        {
-            std::cout << "Failed opening file to write" << std::endl;
-            return;
-        }
-        engineFile.write(static_cast<char *>(engineString->data()), engineString->size());
-        if (engineFile.fail())
-        {
-            std::cout << "Failed saving .plan file!" << std::endl;
-            return;
-        }
-        std::cout << "Succeeded saving .plan file!" << std::endl;
+        std::cout << "Failed finding .plan file!" << std::endl;
+        return;
     }
+
+    // Load dataset
+    std::ifstream infile(testFile);
+    if(!infile.is_open())
+    {
+        std::cout << "Failed loading data!" << std::endl;
+        return;
+    }
+    std::string tmp_s;
+	std::string qid;
+	std::string label;
+    std::vector<std::string> data;
+    std::vector<int> shape;
+	const int dim = 3;
+
+    // Record result
+    std::stringstream ss;
 
     IExecutionContext *context = engine->createExecutionContext();
-    context->setBindingDimensions(0, Dims32 {4, {2, 3, 4, 5}});
-    std::cout << std::string("Binding all? ") << std::string(context->allInputDimensionsSpecified() ? "Yes" : "No") << std::endl;
     int nBinding = engine->getNbBindings();
-    int nInput   = 0;
-    for (int i = 0; i < nBinding; ++i)
-    {
-        nInput += int(engine->bindingIsInput(i));
-    }
-    int nOutput = nBinding - nInput;
-    for (int i = 0; i < nBinding; ++i)
-    {
-        std::cout << std::string("Bind[") << i << std::string(i < nInput ? "]:i[" : "]:o[") << (i < nInput ? i : i - nInput) << std::string("]->");
-        std::cout << dataTypeToString(engine->getBindingDataType(i)) << std::string(" ");
-        std::cout << shapeToString(context->getBindingDimensions(i)) << std::string(" ");
-        std::cout << engine->getBindingName(i) << std::endl;
-    }
-
     std::vector<int> vBindingSize(nBinding, 0);
-    for (int i = 0; i < nBinding; ++i)
-    {
-        Dims32 dim  = context->getBindingDimensions(i);
-        int    size = 1;
-        for (int j = 0; j < dim.nbDims; ++j)
-        {
-            size *= dim.d[j];
-        }
-        vBindingSize[i] = size * dataTypeToSize(engine->getBindingDataType(i));
-    }
 
+    // Allocate memory
     std::vector<void *> vBufferH {nBinding, nullptr};
     std::vector<void *> vBufferD {nBinding, nullptr};
-    for (int i = 0; i < nBinding; ++i)
+    // tmp_0 ~ tmp_3
+    for (size_t i = 0; i < 4; i++)
     {
-        vBufferH[i] = (void *)new char[vBindingSize[i]];
-        CHECK(cudaMalloc(&vBufferD[i], vBindingSize[i]));
+        vBufferH[i] = (void *)new char[10 * 128 * 1 * sizeof(float)];
+        CHECK(cudaMalloc(&vBufferD[i], 10 * 128 * 1 * sizeof(float)));
     }
-
-    float *pData = (float *)vBufferH[0];
-    for (int i = 0; i < vBindingSize[0] / dataTypeToSize(engine->getBindingDataType(0)); ++i)
+    // tmp_6 ~ tmp_13
+    for (size_t i = 4; i < 12; i++)
     {
-        pData[i] = float(i);
+        vBufferH[i] = (void *)new char[10 * 1 * 1 * sizeof(float)];
+        CHECK(cudaMalloc(&vBufferD[i], 10 * 1 * 1 * sizeof(float)));
     }
-    for (int i = 0; i < nInput; ++i)
+    // output
+    for (size_t i = 12; i < 13; i++)
     {
-        CHECK(cudaMemcpy(vBufferD[i], vBufferH[i], vBindingSize[i], cudaMemcpyHostToDevice));
+        vBufferH[i] = (void *)new char[10 * 1 * 1 * sizeof(float)];
+        CHECK(cudaMalloc(&vBufferD[i], 10 * 1 * 1 * sizeof(float)));
     }
+    
+    
 
-    context->executeV2(vBufferD.data());
-
-    for (int i = nInput; i < nBinding; ++i)
+    // Start loading data and inference
+    while(getline(infile, tmp_s))
     {
-        CHECK(cudaMemcpy(vBufferH[i], vBufferD[i], vBindingSize[i], cudaMemcpyDeviceToHost));
-    }
+        SplitString(tmp_s, data, ";");
+        qid = data[0].substr(data[0].find(":")+1);
+        label = data[1].substr(data[1].find(":")+1);
 
-    for (int i = 0; i < nBinding; ++i)
-    {
-        printArrayInfomation((float *)vBufferH[i], context->getBindingDimensions(i), std::string(engine->getBindingName(i)), true);
-    }
+        // 12 inputs
+        int nInput   = data.size() - 2;
+        for(size_t i = 0; i < nInput; ++i)
+        {
+            size_t pos = data[i + 2].find(":");
+            SplitShape(data[i + 2].substr(0, pos), shape, " ");
+            // Dynamicly binding intput shape
+            if(i == 3)
+            {
+                context->setBindingDimensions(i, Dims32 {3, {shape[0], 128, shape[2]}});
+                float *pData = (float *)vBufferH[i];
+                SplitValue<float>(data[i + 2].substr(pos + 1, data[i + 2].size()), pData, " ", shape[0], shape[1], 128);
+            }else if(i < 4)
+            {
+                context->setBindingDimensions(i, Dims32 {3, {shape[0], 128, shape[2]}});
+                int *pData = (int *)vBufferH[i];
+                SplitValue<int>(data[i + 2].substr(pos + 1, data[i + 2].size()), pData, " ", shape[0], shape[1], 128);
+            }else
+            {
+                context->setBindingDimensions(i, Dims32 {3, {shape[0], shape[1], shape[2]}});
+                int *pData = (int *)vBufferH[i];
+                SplitValue<int>(data[i + 2].substr(pos + 1, data[i + 2].size()), pData, " ", shape[0], shape[1], 1);
+            }
 
+            Dims32 in_dim  = context->getBindingDimensions(i);
+            int    size = 1;
+            for (size_t j = 0; j < in_dim.nbDims; ++j)
+            {
+                size *= in_dim.d[j];
+            }
+            vBindingSize[i] = size * dataTypeToSize(engine->getBindingDataType(i));
+
+            // Copy data from host to device
+            CHECK(cudaMemcpy(vBufferD[i], vBufferH[i], vBindingSize[i], cudaMemcpyHostToDevice));
+        }
+        // Check binding shape
+        // std::cout << std::string("Binding all? ") << std::string(context->allInputDimensionsSpecified() ? "Yes" : "No") << std::endl;
+        // for (int i = 0; i < nBinding; ++i)
+        // {
+        //     std::cout << std::string("Bind[") << i << std::string(i < nInput ? "]:i[" : "]:o[") << (i < nInput ? i : i - nInput) << std::string("]->");
+        //     std::cout << dataTypeToString(engine->getBindingDataType(i)) << std::string(" ");
+        //     std::cout << shapeToString(context->getBindingDimensions(i)) << std::string(" ");
+        //     std::cout << engine->getBindingName(i) << std::endl;
+        // }
+
+        // Binding output shape
+        Dims32 out_dim  = context->getBindingDimensions(12);
+        int    size = 1;
+        for (size_t i = 0; i < out_dim.nbDims; ++i)
+        {
+            size *= out_dim.d[i];
+        }
+        vBindingSize[12] = size * dataTypeToSize(engine->getBindingDataType(12));
+
+        // Allocate output memory
+        vBufferH[12] = (void *)new char[vBindingSize[12]];
+        CHECK(cudaMalloc(&vBufferD[12], vBindingSize[12])); 
+
+        // Inference
+        context->executeV2(vBufferD.data());
+        
+        // Get output from device to host
+        CHECK(cudaMemcpy(vBufferH[12], vBufferD[12], vBindingSize[12], cudaMemcpyDeviceToHost));
+
+        struct timeval tv;
+        gettimeofday(&tv, NULL);
+        // Write output data
+        float *pData = (float *)vBufferH[12];
+        ss << qid << "\t" << label << "\t";
+        for (size_t i = 0; i < shape[0]; i++)
+        {
+            ss << *(pData + i) << "\t";
+        }
+        ss << (tv.tv_sec * 1000000 + tv.tv_usec) << "\n";
+
+    }
+    // Release memory
     for (int i = 0; i < nBinding; ++i)
     {
         delete[] vBufferH[i];
         CHECK(cudaFree(vBufferD[i]));
     }
+
+    // Save result into file
+    std::ofstream outfile(resFile);
+    outfile << ss.str();
+    outfile.close();
     return;
 }
 
-int main()
+int main(int argc, char** argv)
 {
     CHECK(cudaSetDevice(0));
-    run();
-    run();
+    if(argc < 2)
+    {
+        std::cout << "Usage: main.exe [label/perf]" << std::endl;
+        return -1;
+    }
+    const std::string testFile {"../data/" + std::string(argv[1]) + ".test.txt"};
+    const std::string resFile {"../" + std::string(argv[1]) + ".res.txt"};
+    run(testFile, resFile);
     return 0;
 }
