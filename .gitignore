@@ -12,6 +12,7 @@ sti2_data/
 
 # ipynb
 .ipynb_checkpoints/
+__pycache__
 
 # TensorRT
 *.plan
@@ -28,3 +29,7 @@ data/
 
 # Model
 model/
+
+#output
+label.res.txt
+perf.res.txt
