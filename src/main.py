@@ -98,7 +98,7 @@ def run(mode):
     print(f"infr done,writing results in {SAVE_PATH}")
     with open(SAVE_PATH,"w+") as fp:
         for index,data in enumerate(datas):
-            line=("%d\t%s\t"+"%f\t"*len(result[index][0])+"%.3f\n")%(data["qid"],data["label"],*(result[index][0]),result[index][1])
+            line=("%d\t%s\t"+"%f,"*(len(result[index][0])-1)+"%f\t"+"%.3f\n")%(data["qid"],data["label"],*(result[index][0]),result[index][1])
             fp.write(line)
     print("write done")
 if __name__ == "__main__":  
