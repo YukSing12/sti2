@@ -7,28 +7,21 @@
 软件架构说明
 ```
 sti2/
-├── app
-│   └── app.cpp
-├── LICENSE
-├── onnx2trt
-│   └── onnx2trt.py
-├── pp2onnx
-│   └── pp2onnx.py
-├── README.md
-└── sti2_data
-    ├── data
-    │   ├── label.test.txt
-    │   └── perf.test.txt
-    ├── example.label.res.txt
-    ├── example.perf.res.txt
-    ├── local_evaluate.py
-    ├── model
-    │   ├── onnx_infer_model
-    │   │   └── model.onnx
-    │   └── paddle_infer_model
-    │       ├── __model__
-    │       └── __params__
-    └── README.md
+|-- Ernie.plan
+|-- LICENSE
+|-- README.md
+|-- bin    
+|-- build.sh
+|-- data
+|-- label.res.txt
+|-- model
+|-- onnx2trt.py
+|-- perf.res.txt
+|-- requirements.txt
+|-- run.sh
+|-- so
+|-- src
+`-- test.sh
 ```
 
 
@@ -48,8 +41,16 @@ pip install -r requirements.txt
 ## 使用说明
 
 1.  从paddlepaddle模型导出成onnx模型(可选)
-2.  从onnx模型导出成trt引擎
+2.  构建trt引擎、编译可执行文件
 ```
-python onnx2trt.py
+bash build.sh
 ```
-3.  编译并运行可执行文件
+3.  运行推理
+```
+bash run.sh data/label.test.txt
+bash run.sh data/perf.test.txt
+```
+4. 本地测试
+```
+bash test.sh
+```
