@@ -238,7 +238,12 @@ void run(const std::string& testFile, const std::string& resFile)
         ss << qid << "\t" << label << "\t";
         for (size_t i = 0; i < shape[0]; i++)
         {
-            ss << *(pData + i) << "\t";
+            ss << *(pData + i);
+            if (i == shape[0] - 1) {
+                ss << "\t";
+            } else {
+                ss << ","; 
+            }
         }
         ss << (tv.tv_sec * 1000000 + tv.tv_usec) << "\n";
 

@@ -33,5 +33,4 @@ data/
 model/
 
 #output
-label.res.txt
-perf.res.txt
+*.res.txt
