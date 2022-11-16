@@ -1,1 +1,5 @@
 tensorrt==8.5.1.7
+
+# TODO: add version
+numpy
+tqdm
