@@ -22,85 +22,87 @@ import sys
 from tqdm import tqdm
 import time
 from utils.loadLabelsandData import loadLabelsAndData
+import typer
 
 
-def run(mode):
+@typer.run
+def run(mode: str):
     trtFile = "Ernie.plan"
     testFile = f"data/{mode}.test.txt"
-    SAVE_PATH=f"{mode}.res.txt"
-    logger = trt.Logger(trt.Logger.ERROR)                                       # 指定 Logger，可用等级：VERBOSE，INFO，WARNING，ERRROR，INTERNAL_ERROR
-    if os.path.isfile(trtFile):                                                 # 如果有 .plan 文件则直接读取
+    SAVE_PATH = f"{mode}.res.txt"
+    logger = trt.Logger(trt.Logger.ERROR)  # 指定 Logger，可用等级：VERBOSE，INFO，WARNING，ERRROR，INTERNAL_ERROR
+    if os.path.isfile(trtFile):  # 如果有 .plan 文件则直接读取
         with open(trtFile, "rb") as f:
             engineString = f.read()
         if engineString == None:
             print("Failed getting serialized engine!")
             return
         print("Succeeded getting serialized engine!")
-    else:                                                                       # 没有 .plan 文件，从头开始创建
+    else:  # 没有 .plan 文件，从头开始创建
         print("Failed finding serialized engine!")
         exit(-1)
 
-    engine = trt.Runtime(logger).deserialize_cuda_engine(engineString)          # 使用 Runtime 来创建 engine
+    engine = trt.Runtime(logger).deserialize_cuda_engine(engineString)  # 使用 Runtime 来创建 engine
     if engine == None:
         print("Failed building engine!")
         return
     print("Succeeded building engine!")
 
-    context = engine.create_execution_context()                                 # 创建 context（相当于 GPU 进程）
+    context = engine.create_execution_context()  # 创建 context（相当于 GPU 进程）
 
-    datas=loadLabelsAndData(testFile)
-    nInput = [engine.get_tensor_mode(engine.get_tensor_name(i)) for i in range(engine.num_bindings)].count(trt.TensorIOMode.INPUT)
-    nOutput = [engine.get_tensor_mode(engine.get_tensor_name(i)) for i in range(engine.num_bindings)].count(trt.TensorIOMode.OUTPUT)
-    io_flags=[]
+    datas = loadLabelsAndData(testFile)
+    nInput = [engine.get_tensor_mode(engine.get_tensor_name(i)) for i in range(engine.num_bindings)].count(
+        trt.TensorIOMode.INPUT)
+    nOutput = [engine.get_tensor_mode(engine.get_tensor_name(i)) for i in range(engine.num_bindings)].count(
+        trt.TensorIOMode.OUTPUT)
+    io_flags = []
     for i in range(nInput):
-        name=engine.get_tensor_name(i)
-        shape=engine.get_tensor_shape(name)
-        dtype=engine.get_tensor_dtype(name)
-        flags_tuple=(name,shape,trt.nptype(dtype))
+        name = engine.get_tensor_name(i)
+        shape = engine.get_tensor_shape(name)
+        dtype = engine.get_tensor_dtype(name)
+        flags_tuple = (name, shape, trt.nptype(dtype))
         print("Bind[%2d]:i[%2d]->" % (i, i), dtype, shape, shape, name)
         io_flags.append(flags_tuple)
     for i in range(nInput, nInput + nOutput):
-        name=engine.get_tensor_name(i)
-        shape=engine.get_tensor_shape(name)
-        dtype=engine.get_tensor_dtype(name)
-        flags_tuple=(name,shape,trt.nptype(dtype))
+        name = engine.get_tensor_name(i)
+        shape = engine.get_tensor_shape(name)
+        dtype = engine.get_tensor_dtype(name)
+        flags_tuple = (name, shape, trt.nptype(dtype))
         io_flags.append(flags_tuple)
         print("Bind[%2d]:o[%2d]->" % (i, i - nInput), dtype, shape, shape, name)
 
-    
-    #Malloc cuda memory
+    # Malloc cuda memory
     bufferD = []
     for i in range(nInput + nOutput):
-        shape=io_flags[i][1]
-        shape[0]=10
-        input_size=np.zeros(shape,dtype=io_flags[i][2])
+        shape = io_flags[i][1]
+        shape[0] = 10
+        input_size = np.zeros(shape, dtype=io_flags[i][2])
         bufferD.append(cudart.cudaMalloc(input_size.nbytes)[1])
-    result=[]    
+    result = []
     # infr    
-    for _,data in enumerate(tqdm(datas)):
+    for _, data in enumerate(tqdm(datas)):
         # Host-> Device 
-        for index,value in enumerate(data["tensors"]) :
-            value=value.astype(io_flags[index][2])
+        for index, value in enumerate(data["tensors"]):
+            value = value.astype(io_flags[index][2])
             context.set_input_shape(io_flags[index][0], value.shape)
-            cudart.cudaMemcpy(bufferD[index], value.ctypes.data, value.nbytes, cudart.cudaMemcpyKind.cudaMemcpyHostToDevice)  
-        res=np.zeros((data["batch_size"],1),dtype=io_flags[-1][-1])
-        for i in range(nInput+nOutput):    
+            cudart.cudaMemcpy(bufferD[index], value.ctypes.data, value.nbytes,
+                              cudart.cudaMemcpyKind.cudaMemcpyHostToDevice)
+        res = np.zeros((data["batch_size"], 1), dtype=io_flags[-1][-1])
+        for i in range(nInput + nOutput):
             context.set_tensor_address(io_flags[i][0], int(bufferD[i]))
         # infr
-        context.execute_async_v3(0)  
-          
+        context.execute_async_v3(0)
+
         # Device->Host                                                           
         cudart.cudaMemcpy(res.ctypes.data, bufferD[-1], res.nbytes, cudart.cudaMemcpyKind.cudaMemcpyDeviceToHost)
-        timestamp=time.time_ns()
-        result.append([res,timestamp/1000.0])
-    for b in bufferD:                                                           # 释放 Device 端内存
+        timestamp = time.time_ns()
+        result.append([res, timestamp / 1000.0])
+    for b in bufferD:  # 释放 Device 端内存
         cudart.cudaFree(b)
     print(f"infr done,writing results in {SAVE_PATH}")
-    with open(SAVE_PATH,"w+") as fp:
-        for index,data in enumerate(datas):
-            line=("%d\t%s\t"+"%f,"*(len(result[index][0])-1)+"%f\t"+"%.3f\n")%(data["qid"],data["label"],*(result[index][0]),result[index][1])
+    with open(SAVE_PATH, "w+") as fp:
+        for index, data in enumerate(datas):
+            line = ("%d\t%s\t" + "%f," * (len(result[index][0]) - 1) + "%f\t" + "%.3f\n") % (
+                data["qid"], data["label"], *(result[index][0]), result[index][1])
             fp.write(line)
     print("write done")
-if __name__ == "__main__":  
-    mode=sys.argv[1]
-    run(mode)                                                                       
