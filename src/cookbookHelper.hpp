@@ -15,7 +15,8 @@
  */
 
 #pragma once
-#include <NvInfer.h>
+#include "NvInfer.h"
+#include "NvOnnxParser.h"
 #include <cassert>
 #include <cmath>
 #include <cuda_fp16.h>

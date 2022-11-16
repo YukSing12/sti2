@@ -34,3 +34,9 @@ model/
 
 #output
 *.res.txt
+
+# Include
+include/
+
+# So
+so/
