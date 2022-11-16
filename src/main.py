@@ -22,20 +22,14 @@ import sys
 from tqdm import tqdm
 import time
 from utils.loadLabelsandData import loadLabelsAndData
-import typer
 
 
-<<<<<<< HEAD
 def run(mode):
     trtFile = "Ernie_fp16.plan"
-=======
-@typer.run
-def run(mode: str):
-    trtFile = "Ernie.plan"
->>>>>>> 4edbbeef7c3cfa0886aaa59c2ad0b5340b03883a
     testFile = f"data/{mode}.test.txt"
     SAVE_PATH = f"{mode}.res.txt"
-    logger = trt.Logger(trt.Logger.ERROR)  # 指定 Logger，可用等级：VERBOSE，INFO，WARNING，ERRROR，INTERNAL_ERROR
+    # 指定 Logger，可用等级：VERBOSE，INFO，WARNING，ERRROR，INTERNAL_ERROR
+    logger = trt.Logger(trt.Logger.ERROR)
     if os.path.isfile(trtFile):  # 如果有 .plan 文件则直接读取
         with open(trtFile, "rb") as f:
             engineString = f.read()
@@ -47,54 +41,34 @@ def run(mode: str):
         print("Failed finding serialized engine!")
         exit(-1)
 
-    engine = trt.Runtime(logger).deserialize_cuda_engine(engineString)  # 使用 Runtime 来创建 engine
+    engine = trt.Runtime(logger).deserialize_cuda_engine(
+        engineString)  # 使用 Runtime 来创建 engine
     if engine == None:
         print("Failed building engine!")
         return
     print("Succeeded building engine!")
-
     context = engine.create_execution_context()  # 创建 context（相当于 GPU 进程）
-
-<<<<<<< HEAD
-    datas=loadLabelsAndData(testFile)
-    nInput =np.sum([engine.binding_is_input(i) for i in range(engine.num_bindings)])
-    nOutput = engine.num_bindings - nInput
-    io_flags=[]
-    for i in range(nInput):
-        name=engine.get_binding_name(i)
-        shape=engine.get_binding_shape(name)
-        dtype=engine.get_binding_dtype(name)
-        flags_tuple=(name,shape,trt.nptype(dtype))
-        print("Bind[%2d]:i[%2d]->" % (i, i), dtype, shape, shape, name)
-        io_flags.append(flags_tuple)
-    for i in range(nInput, nInput + nOutput):
-        name=engine.get_binding_name(i)
-        shape=engine.get_binding_shape(name)
-        dtype=engine.get_binding_dtype(name)
-        flags_tuple=(name,shape,trt.nptype(dtype))
-=======
     datas = loadLabelsAndData(testFile)
-    nInput = [engine.get_tensor_mode(engine.get_tensor_name(i)) for i in range(engine.num_bindings)].count(
-        trt.TensorIOMode.INPUT)
-    nOutput = [engine.get_tensor_mode(engine.get_tensor_name(i)) for i in range(engine.num_bindings)].count(
-        trt.TensorIOMode.OUTPUT)
+    nInput = np.sum([engine.binding_is_input(i)
+                    for i in range(engine.num_bindings)])
+    nOutput = engine.num_bindings - nInput
     io_flags = []
     for i in range(nInput):
-        name = engine.get_tensor_name(i)
-        shape = engine.get_tensor_shape(name)
-        dtype = engine.get_tensor_dtype(name)
+        name = engine.get_binding_name(i)
+        shape = engine.get_binding_shape(name)
+        dtype = engine.get_binding_dtype(name)
         flags_tuple = (name, shape, trt.nptype(dtype))
         print("Bind[%2d]:i[%2d]->" % (i, i), dtype, shape, shape, name)
         io_flags.append(flags_tuple)
     for i in range(nInput, nInput + nOutput):
-        name = engine.get_tensor_name(i)
-        shape = engine.get_tensor_shape(name)
-        dtype = engine.get_tensor_dtype(name)
+        name = engine.get_binding_name(i)
+        shape = engine.get_binding_shape(name)
+        dtype = engine.get_binding_dtype(name)
         flags_tuple = (name, shape, trt.nptype(dtype))
->>>>>>> 4edbbeef7c3cfa0886aaa59c2ad0b5340b03883a
-        io_flags.append(flags_tuple)
-        print("Bind[%2d]:o[%2d]->" % (i, i - nInput), dtype, shape, shape, name)
 
+        io_flags.append(flags_tuple)
+        print("Bind[%2d]:o[%2d]->" %
+              (i, i - nInput), dtype, shape, shape, name)
     # Malloc cuda memory
     bufferD = []
     for i in range(nInput + nOutput):
@@ -103,35 +77,22 @@ def run(mode: str):
         input_size = np.zeros(shape, dtype=io_flags[i][2])
         bufferD.append(cudart.cudaMalloc(input_size.nbytes)[1])
     result = []
-    # infr    
+    # infr
     for _, data in enumerate(tqdm(datas)):
-        # Host-> Device 
-<<<<<<< HEAD
-        for index,value in enumerate(data["tensors"]) :
-            value=value.astype(io_flags[index][2])
-            context.set_binding_shape(index, value.shape)
-            cudart.cudaMemcpy(bufferD[index], value.ctypes.data, value.nbytes, cudart.cudaMemcpyKind.cudaMemcpyHostToDevice)  
-        res=np.zeros((data["batch_size"],1),dtype=io_flags[-1][-1])
-        # for i in range(nInput+nOutput):    
-        #     context.set_tensor_address(io_flags[i][0], int(bufferD[i]))
-        # infr
-        context.execute_v2(bufferD)  
-          
-=======
+        # Host-> Device
         for index, value in enumerate(data["tensors"]):
             value = value.astype(io_flags[index][2])
-            context.set_input_shape(io_flags[index][0], value.shape)
-            cudart.cudaMemcpy(bufferD[index], value.ctypes.data, value.nbytes,
-                              cudart.cudaMemcpyKind.cudaMemcpyHostToDevice)
+            context.set_binding_shape(index, value.shape)
+            cudart.cudaMemcpy(bufferD[index], value.ctypes.data,
+                              value.nbytes, cudart.cudaMemcpyKind.cudaMemcpyHostToDevice)
         res = np.zeros((data["batch_size"], 1), dtype=io_flags[-1][-1])
-        for i in range(nInput + nOutput):
-            context.set_tensor_address(io_flags[i][0], int(bufferD[i]))
+        # for i in range(nInput+nOutput):
+        #     context.set_tensor_address(io_flags[i][0], int(bufferD[i]))
         # infr
-        context.execute_async_v3(0)
-
->>>>>>> 4edbbeef7c3cfa0886aaa59c2ad0b5340b03883a
-        # Device->Host                                                           
-        cudart.cudaMemcpy(res.ctypes.data, bufferD[-1], res.nbytes, cudart.cudaMemcpyKind.cudaMemcpyDeviceToHost)
+        context.execute_v2(bufferD)
+        # Device->Host
+        cudart.cudaMemcpy(
+            res.ctypes.data, bufferD[-1], res.nbytes, cudart.cudaMemcpyKind.cudaMemcpyDeviceToHost)
         timestamp = time.time_ns()
         result.append([res, timestamp / 1000.0])
     for b in bufferD:  # 释放 Device 端内存
