@@ -104,3 +104,7 @@ def run(mode):
                 data["qid"], data["label"], *(result[index][0]), result[index][1])
             fp.write(line)
     print("write done")
+
+if __name__ == "__main__":
+    mode=sys.argv[1]
+    run(mode)
