@@ -8,7 +8,6 @@ OBJ         = $(shell find . -name *.o 2>/dev/null)
 DEP         = $(OBJ:.o=.d)
 TARGET_EXE  = $(SOURCE_CPP:.cpp=.exe)
 OUT_BIN		= $(MAKEROOT)/../bin
-OUT_SO		= $(MAKEROOT)/../so
 
 -include $(DEP)
 
@@ -29,4 +28,4 @@ test:
 
 .PHONY: clean
 clean:
-	rm -rf ./*.d ./*.o $(OUT_SO)/*.so $(OUT_BIN)/*.exe ./*.plan
+	rm -rf ./*.d ./*.o ./*.so $(OUT_BIN)/*.exe ./*.plan
