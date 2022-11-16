@@ -5,3 +5,4 @@ onnx-graphsurgeon
 # TODO: add version
 numpy
 tqdm
+typer
