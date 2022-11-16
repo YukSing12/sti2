@@ -15,6 +15,8 @@ def get_args():
     parser.add_argument('--trt', default='', type=str, help='Path of trt engine to save')
     parser.add_argument('--fp16', action='store_true', default=False, help='Enable FP16 mode or not, default is TF32 if it is supported')
     parser.add_argument('--log_level', default=1, type=int, help='Logger level. (0:VERBOSE, 1:INFO, 2:WARNING, 3:ERROR, 4:INTERNAL_ERROR)')
+
+    parser.add_argument('--ln', action='store_true', default=True, help='Replace ops with LayernormPlugin or not')
     args = parser.parse_args()
     return args
 
@@ -22,7 +24,7 @@ args = get_args()
 if args.onnx:
     onnxFile = args.onnx
 else:
-    onnxFile = './model/model.onnx'
+    onnxFile = './model/modified_model.onnx'
 
 if args.trt == '':
     trtFile = './Ernie.plan'
@@ -31,6 +33,9 @@ else:
 
 if args.fp16:
     trtFile = trtFile.replace('.plan','_fp16.plan')
+
+if args.ln:
+    onnxFile = onnxFile.replace(".onnx", "_ln.onnx")
     
 timeCacheFile = "./Ernie.cache"
 soFileList = glob("./so/*.so")

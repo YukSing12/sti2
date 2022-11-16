@@ -1,11 +1,12 @@
 import onnx
 import onnx_graphsurgeon as gs
+from onnx import shape_inference
 import numpy as np
 import argparse
 
 def get_args():
     parser = argparse.ArgumentParser('Export ERNIE TensorRT', add_help=False)
-    parser.add_argument('--ln', action='store_true', default=True, help='Replace ops with LayernormPlugin or not')
+    parser.add_argument('--ln', action='store_true', default=False, help='Replace ops with LayernormPlugin or not')
     parser.add_argument('--slreshape', action='store_true', default=False, help='Replace ops with SliceReshapePlugin or not')
     parser.add_argument('--debug', '-D', action='store_true', default=False, help='Enable debug mode')
     args = parser.parse_args()
@@ -118,8 +119,10 @@ if DEBUG:
     # graph.toposort()
 else:
     graph.cleanup().toposort()
+
 print("Nodes:{}".format(len(graph.nodes)))
 onnx.save(gs.export_onnx(graph), dst_onnx_path)
+onnx.save(onnx.shape_inference.infer_shapes(onnx.load(dst_onnx_path)), dst_onnx_path)
 print("Save modified onnx model to {}".format(dst_onnx_path))
 print("layernorm_count:"+str(layernorm_count))
 print("slice_reshape_count:"+str(slice_reshape_count))

@@ -25,7 +25,7 @@ int main(int argc, char** argv)
     INetworkDefinition *    network = builder->createNetworkV2(1U << int(NetworkDefinitionCreationFlag::kEXPLICIT_BATCH));
     IOptimizationProfile *  profile = builder->createOptimizationProfile();
     IBuilderConfig *        config  = builder->createBuilderConfig();
-    config->setMemoryPoolLimit(MemoryPoolType::kWORKSPACE, 1 << 30);
+    // config->setMemoryPoolLimit(MemoryPoolType::kWORKSPACE, 1 << 30);
 
     IParser*  parser = createParser(*network, gLogger);
     parser->parseFromFile(argv[1], static_cast<int32_t>(ILogger::Severity::kWARNING));
