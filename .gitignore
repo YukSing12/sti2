@@ -16,6 +16,9 @@ sti2_data/
 .ipynb_checkpoints/
 __pycache__
 
+#vscode
+.vscode
+
 # TensorRT
 *.plan
 *.cache
@@ -40,3 +43,6 @@ include/
 
 # So
 so/
+
+# Lib
+lib/

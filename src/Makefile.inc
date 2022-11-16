@@ -8,4 +8,4 @@ CUFLAG          = -w -std=c++14 -O3 $(DEBUG_MACRO) -Xcompiler -fPIC $(GENCODE)
 CCFLAG          = -w -std=c++14 -O3 $(DEBUG_MACRO) -Xcompiler -fPIC -use_fast_math
 SOFLAG          = -shared
 INCLUDE         = -I. -I$(CUDA_PATH)/include -I$(TRT_INC_PATH)
-LDFLAG          = -L$(CUDA_PATH)/lib64 -lcudart -L$(TRT_LIB_PATH) -lnvinfer -lnvonnxparser
+LDFLAG          = -L$(CUDA_PATH)/lib64 -lcudart -L$(TRT_LIB_PATH) -lnvinfer -lnvinfer_plugin -lnvonnxparser
