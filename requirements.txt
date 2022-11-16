@@ -1,1 +1,1 @@
-tensorrt-8.5.1.7
+tensorrt==8.5.1.7
