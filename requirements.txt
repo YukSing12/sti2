@@ -5,3 +5,6 @@ onnx-graphsurgeon
 # TODO: add version
 numpy
 tqdm
+
+# install requirements in order:
+# cat requirements.txt | xargs -n 1 -L 1 pip install
