@@ -160,7 +160,7 @@ void line2sample(const std::string &line, sample *sout)
     return;
 }
 
-ICudaEngine *InitPredictor(const std::string &engine_file)
+ICudaEngine *InitEngine(const std::string &engine_file)
 {
     CHECK(cudaSetDevice(0));
     initLibNvInferPlugins(nullptr, "");
@@ -201,7 +201,7 @@ ICudaEngine *InitPredictor(const std::string &engine_file)
     }
 }
 
-void run(ICudaEngine *engine, IExecutionContext *context, sample &s, std::vector<void *> &vBufferH, std::vector<void *> &vBufferD, const int &nBinding)
+void run(ICudaEngine *engine, IExecutionContext *context, cudaStream_t stream, sample &s, std::vector<void *> &vBufferH, std::vector<void *> &vBufferD, const int &nBinding)
 {
     context->setBindingDimensions(0, Dims32{3, {s.shape_info_0[0], s.shape_info_0[1], s.shape_info_0[2]}});
     context->setBindingDimensions(1, Dims32{3, {s.shape_info_1[0], s.shape_info_1[1], s.shape_info_1[2]}});
@@ -240,25 +240,25 @@ void run(ICudaEngine *engine, IExecutionContext *context, sample &s, std::vector
         // std::cout << "vBindingSize[" << i << "] = " << vBindingSize[i] << std::endl;
     }
 
-    CHECK(cudaMemcpy(vBufferD[0], s.i0.data(), vBindingSize[0], cudaMemcpyHostToDevice));
-    CHECK(cudaMemcpy(vBufferD[1], s.i1.data(), vBindingSize[1], cudaMemcpyHostToDevice));
-    CHECK(cudaMemcpy(vBufferD[2], s.i2.data(), vBindingSize[2], cudaMemcpyHostToDevice));
-    CHECK(cudaMemcpy(vBufferD[3], s.i3.data(), vBindingSize[3], cudaMemcpyHostToDevice));
-    CHECK(cudaMemcpy(vBufferD[4], s.i4.data(), vBindingSize[4], cudaMemcpyHostToDevice));
-    CHECK(cudaMemcpy(vBufferD[5], s.i5.data(), vBindingSize[5], cudaMemcpyHostToDevice));
-    CHECK(cudaMemcpy(vBufferD[6], s.i6.data(), vBindingSize[6], cudaMemcpyHostToDevice));
-    CHECK(cudaMemcpy(vBufferD[7], s.i7.data(), vBindingSize[7], cudaMemcpyHostToDevice));
-    CHECK(cudaMemcpy(vBufferD[8], s.i8.data(), vBindingSize[8], cudaMemcpyHostToDevice));
-    CHECK(cudaMemcpy(vBufferD[9], s.i9.data(), vBindingSize[9], cudaMemcpyHostToDevice));
-    CHECK(cudaMemcpy(vBufferD[10], s.i10.data(), vBindingSize[10], cudaMemcpyHostToDevice));
-    CHECK(cudaMemcpy(vBufferD[11], s.i11.data(), vBindingSize[11], cudaMemcpyHostToDevice));
+    CHECK(cudaMemcpyAsync(vBufferD[0], s.i0.data(), vBindingSize[0], cudaMemcpyHostToDevice, stream));
+    CHECK(cudaMemcpyAsync(vBufferD[1], s.i1.data(), vBindingSize[1], cudaMemcpyHostToDevice, stream));
+    CHECK(cudaMemcpyAsync(vBufferD[2], s.i2.data(), vBindingSize[2], cudaMemcpyHostToDevice, stream));
+    CHECK(cudaMemcpyAsync(vBufferD[3], s.i3.data(), vBindingSize[3], cudaMemcpyHostToDevice, stream));
+    CHECK(cudaMemcpyAsync(vBufferD[4], s.i4.data(), vBindingSize[4], cudaMemcpyHostToDevice, stream));
+    CHECK(cudaMemcpyAsync(vBufferD[5], s.i5.data(), vBindingSize[5], cudaMemcpyHostToDevice, stream));
+    CHECK(cudaMemcpyAsync(vBufferD[6], s.i6.data(), vBindingSize[6], cudaMemcpyHostToDevice, stream));
+    CHECK(cudaMemcpyAsync(vBufferD[7], s.i7.data(), vBindingSize[7], cudaMemcpyHostToDevice, stream));
+    CHECK(cudaMemcpyAsync(vBufferD[8], s.i8.data(), vBindingSize[8], cudaMemcpyHostToDevice, stream));
+    CHECK(cudaMemcpyAsync(vBufferD[9], s.i9.data(), vBindingSize[9], cudaMemcpyHostToDevice, stream));
+    CHECK(cudaMemcpyAsync(vBufferD[10], s.i10.data(), vBindingSize[10], cudaMemcpyHostToDevice, stream));
+    CHECK(cudaMemcpyAsync(vBufferD[11], s.i11.data(), vBindingSize[11], cudaMemcpyHostToDevice, stream));
 
     // Inference
-    context->executeV2(vBufferD.data());
+    context->enqueueV2(vBufferD.data(), stream, nullptr);
 
     // Get output from device to host
     s.out_data.resize(size);
-    CHECK(cudaMemcpy(s.out_data.data(), vBufferD[12], vBindingSize[12], cudaMemcpyDeviceToHost));
+    CHECK(cudaMemcpyAsync(s.out_data.data(), vBufferD[12], vBindingSize[12], cudaMemcpyDeviceToHost, stream));
     
     struct timeval tv;
     gettimeofday(&tv, NULL);
@@ -281,12 +281,20 @@ int main(int argc, char *argv[])
 
     // init
     std::string engine_file = argv[1];
-    auto engine = InitPredictor(engine_file);
+    auto engine = InitEngine(engine_file);
     IExecutionContext *context = engine->createExecutionContext();
     int nBinding = engine->getNbBindings();
     std::vector<int> vBindingSize(nBinding, 0);
 
+    // stream
+    cudaStream_t stream;
+    CHECK(cudaStreamCreate(&stream));
+    // graph
+    cudaGraph_t     graph;
+    cudaGraphExec_t graphExec = nullptr;
+
     // allocate memory
+    // TODO(pinned memory)
     std::vector<void *> vBufferH{nBinding, nullptr};
     std::vector<void *> vBufferD{nBinding, nullptr};
     // tmp_0 ~ tmp_3
@@ -325,7 +333,7 @@ int main(int argc, char *argv[])
     // inference
     for (auto &s : sample_vec)
     {
-        run(engine, context, s, vBufferH, vBufferD, nBinding);
+        run(engine, context, stream, s, vBufferH, vBufferD, nBinding);
     }
 
     // postprocess
