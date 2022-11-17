@@ -21,9 +21,8 @@ from cuda import cudart  # 使用 cuda runtime API
 import tensorrt as trt
 import onnx
 import onnx_graphsurgeon as gs
-import numpy as np
 
-soFilePath      = './LayerNormPlugin.so'
+soFilePath      = './so/libLayerNormPlugin.so'
 nBS             = 1
 nH              = 56
 nW              = 84

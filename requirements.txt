@@ -1,8 +1,11 @@
 tensorrt    # 8.2.1.5
 onnx
+onnxruntime
 nvidia-pyindex
 onnx-graphsurgeon
-# TODO: add version
 numpy
 tqdm
 typer
+cuda-python
+colored
+# TODO: add version

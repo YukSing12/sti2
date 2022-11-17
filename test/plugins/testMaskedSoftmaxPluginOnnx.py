@@ -51,7 +51,7 @@ def masked_maskesoftmaxCPU(bufferH):
 
 
 def getMaskedSoftmaxOnnx():
-    onnx_file = "temp.onnx"
+    onnx_file = "../../plugins/MaskedSoftmaxPlugin/temp.onnx"
     shape = ('BH', 'L', nEmbedding)
     x = gs.Variable(name="x", dtype=npDataType, shape=shape)
     mask = gs.Constant(name="mask", values=np.int32(globalMask))
