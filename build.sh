@@ -22,7 +22,7 @@ do
 done
 
 # Modify TensorRT Engine
-cd $ROOT_DIR/model
+cd $ROOT_DIR
 python modify_ERNIE.py
 
 # Build TensorRT Engine

@@ -78,8 +78,8 @@ def replace_with_slice_reshape(nodes_dict, shape_node):
     return slicereshape
     
 
-src_onnx_path = './model.onnx'
-dst_onnx_path = './modified_model.onnx'
+src_onnx_path = './model/model.onnx'
+dst_onnx_path = './model/modified_model.onnx'
 
 print("Load onnx model from {}".format(src_onnx_path))
 graph = gs.import_onnx(onnx.load(src_onnx_path))
@@ -115,7 +115,7 @@ if ENABLE_SLICERESHAPE_PLUGIN:
 
 if DEBUG:
     graph.cleanup().toposort()
-    dst_onnx_path = './debug.onnx'
+    dst_onnx_path = './model/debug.onnx'
     # graph.toposort()
 else:
     graph.cleanup().toposort()
