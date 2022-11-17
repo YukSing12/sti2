@@ -16,6 +16,3 @@ link_directories(${CUDA_LIBRARIES})
 #link_directories(/target/TensorRT-8.2.5.1/lib)
 
 add_subdirectory(plugins)
-
-add_executable(main main.cpp)
-target_link_libraries(main nvinfer)
