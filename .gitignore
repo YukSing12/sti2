@@ -37,6 +37,7 @@ model/
 
 #output
 *.res.txt
+*.qdrep
 
 # Include
 include/
@@ -46,3 +47,5 @@ so/
 
 # Lib
 lib/
+
+
