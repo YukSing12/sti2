@@ -1,5 +1,7 @@
-tensorrt==8.5.1.7
-
+tensorrt    # 8.2.1.5
+onnx
+nvidia-pyindex
+onnx-graphsurgeon
 # TODO: add version
 numpy
 tqdm
