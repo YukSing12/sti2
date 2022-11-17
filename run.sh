@@ -9,8 +9,8 @@ plugins="
 "
 
 if [[ $perf_mode == 1 ]]; then
-    ./main.exe ../Ernie.plan ../data/perf.test.txt ../perf.res.txt ../so/LayerNormPlugin.so
+    ./main.exe ../Ernie.plan ../data/perf.test.txt ../perf.res.txt
 else
-    ./main.exe ../Ernie.plan ../data/label.test.txt ../label.res.txt ../so/LayerNormPlugin.so
+    ./main.exe ../Ernie.plan ../data/label.test.txt ../label.res.txt
 fi
 

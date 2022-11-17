@@ -18,7 +18,7 @@ do
     cd $plugin_dir
     make clean
     make all
-    cp "$plugin.so" $ROOT_DIR/so
+    cp "$plugin.so" $ROOT_DIR/so/plugins
 done
 
 # Modify TensorRT Engine
