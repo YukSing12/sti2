@@ -1,11 +1,16 @@
 tensorrt    # 8.2.1.5
 onnx
+onnxruntime
 nvidia-pyindex
 onnx-graphsurgeon
 paddleslim
 # TODO: add version
 numpy
 tqdm
+typer
+cuda-python
+colored
+# TODO: add version
 
 # install requirements in order:
 # cat requirements.txt | xargs -n 1 -L 1 pip install

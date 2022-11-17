@@ -1,0 +1,2 @@
+add_subdirectory(MaskedSoftmaxPlugin)
+add_subdirectory(LayerNormPlugin)

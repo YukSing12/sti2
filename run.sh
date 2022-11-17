@@ -13,4 +13,3 @@ if [[ $perf_mode == 1 ]]; then
 else
     ./main.exe ../Ernie.plan ../data/label.test.txt ../label.res.txt
 fi
-
