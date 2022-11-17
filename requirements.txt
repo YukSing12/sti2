@@ -2,6 +2,7 @@ tensorrt    # 8.2.1.5
 onnx
 nvidia-pyindex
 onnx-graphsurgeon
+paddleslim
 # TODO: add version
 numpy
 tqdm
