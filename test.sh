@@ -15,7 +15,7 @@ echo "========================== Evaluate performance of model =================
     # --plugins=./MaskedSoftmaxPlugin.so
 
 echo "========================== Evaluate accuracy of model ========================"
-./bin/main.exe ./Ernie.plan ./data/label.test.txt ./label.res.txt ./so/plugins/LayerNormPlugin.so
-./bin/main.exe ./Ernie.plan ./data/perf.test.txt ./perf.res.txt ./so/plugins/LayerNormPlugin.so
+./bin/main.exe ./Ernie.plan ./data/label.test.txt ./label.res.txt ./so/plugins
+./bin/main.exe ./Ernie.plan ./data/perf.test.txt ./perf.res.txt ./so/plugins
 python src/utils/local_evaluate.py ./label.res.txt
 python src/utils/local_evaluate.py ./perf.res.txt
