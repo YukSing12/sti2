@@ -7,13 +7,54 @@
 #include <sstream>
 #include <string>
 #include <vector>
+#include <list>
 #include <algorithm>
 #include <map>
 #include <dlfcn.h> 
+#if defined(_WIN32) || defined(_WIN64)
+#include <io.h>
+#elif defined(__linux) || defined(__unix)
+#include <dirent.h>
+#include <unistd.h>
+#endif
 #include "cookbookHelper.hpp"
 
 static Logger gLogger(ILogger::Severity::kERROR);
 static const int MAX_SEQ = 128;
+
+std::list<std::string> GetFileNameFromDir(const std::string &dir, const char *filter) {
+  std::list<std::string> files;
+#if defined(_WIN32) || defined(_WIN64)
+  int64_t hFile = 0;
+  struct _finddata_t fileinfo;
+  std::string path;
+  if ((hFile = _findfirst(path.assign(dir).append("/" + std::string(filter)).c_str(), &fileinfo)) != -1) {
+    do {
+      if (!(fileinfo.attrib & _A_SUBDIR)) {  // not directory
+        std::string file_path = dir + "/" + fileinfo.name;
+        files.push_back(file_path);
+      }
+    } while (_findnext(hFile, &fileinfo) == 0);
+    _findclose(hFile);
+  }
+#elif defined(__linux) || defined(__unix)
+  DIR *pDir = nullptr;
+  struct dirent *pEntry;
+  pDir = opendir(dir.c_str());
+  if (pDir != nullptr) {
+    while ((pEntry = readdir(pDir)) != nullptr) {
+      if (strcmp(pEntry->d_name, ".") == 0 || strcmp(pEntry->d_name, "..") == 0
+          || strstr(pEntry->d_name, strstr(filter, "*") + 1) == nullptr || pEntry->d_type != DT_REG) {  // regular file
+        continue;
+      }
+      std::string file_path = dir + "/" + pEntry->d_name;
+      files.push_back(file_path);
+    }
+    closedir(pDir);
+  }
+#endif
+  return files;
+}
 
 inline void loadLibrary(const std::string& path)
 {
@@ -306,13 +347,17 @@ int main(int argc, char *argv[])
 {
     if (argc < 4)
     {
-        std::cout << "Usage: main.exe <engine_file> <input_data_file> <output_data_file> [plugin_path1] [plugin_path2] ..." << std::endl;
+        std::cout << "Usage: main.exe <engine_file> <input_data_file> <output_data_file> [plugins_path]" << std::endl;
         return -1;
-    }
-    for(size_t i = 4; i < argc; ++i)
+    }else if(argc == 5)
     {
-        std::cout << "Loading supplied plugin library: " << argv[i] << std::endl;
-        loadLibrary(argv[i]);
+        auto so_files = GetFileNameFromDir(argv[4], "*.so");
+        std::cout << "Found " << so_files.size() << " plugin(s) in " << argv[4] << std::endl;
+        for(const auto &so_file : so_files)
+        {
+            std::cout << "Loading supplied plugin library: " << so_file << std::endl;
+            loadLibrary(so_file);
+        }
     }
 
     // init
