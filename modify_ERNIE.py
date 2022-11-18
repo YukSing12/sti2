@@ -7,6 +7,7 @@ import argparse
 def get_args():
     parser = argparse.ArgumentParser('Export ERNIE TensorRT', add_help=False)
     parser.add_argument('--ln', action='store_true', default=False, help='Replace ops with LayernormPlugin or not')
+    parser.add_argument('--aln', action='store_true', default=False, help='Replace ops with LayernormPlugin or not')
     parser.add_argument('--slreshape', action='store_true', default=False, help='Replace ops with SliceReshapePlugin or not')
     parser.add_argument('--addrelu', action='store_true', default=False, help='Replace ops with AddReluPlugin or not')
     parser.add_argument('--debug', '-D', action='store_true', default=False, help='Enable debug mode')
@@ -15,6 +16,7 @@ def get_args():
 
 args = get_args()
 ENABLE_LAYERNORM_PLUGIN = args.ln
+ENABLE_ADDLAYERNORM_PLUGIN = args.aln
 ENABLE_SLICERESHAPE_PLUGIN = args.slreshape
 ENABLE_FUSING_ADDRELU = args.addrelu
 DEBUG = args.debug
@@ -46,6 +48,37 @@ def replace_with_layernorm(nodes_dict, mean_node):
     sub_node.inputs.clear()
     add_node.outputs.clear()
     return layernorm
+
+def replace_with_addlayernorm(nodes_dict, mean_node):
+    node_id = int(mean_node.name.split(".")[-1])
+    if not (('p2o.Sub.{}'.format(node_id//2) in nodes_dict)  
+    and ('p2o.Pow.{}'.format(node_id//2) in nodes_dict) 
+    and ('p2o.Div.{}'.format(node_id//2) in nodes_dict)  
+    and ('p2o.Sqrt.{}'.format(node_id//2) in nodes_dict)):
+        return None
+
+    add1_node = mean_node.inputs[0].inputs[0]
+    add2_node = add1_node.inputs[0].inputs[0]
+    # sub_node = nodes_dict['p2o.Sub.{}'.format(node_id//2)]
+    div_node = nodes_dict['p2o.Div.{}'.format(node_id//2)]
+    mul_node = div_node.outputs[0].outputs[0]
+    add3_node = mul_node.outputs[0].outputs[0]
+
+    gamma = mul_node.inputs[1]
+    beta = add3_node.inputs[1]
+
+    
+    name = 'AddLayerNorm.{}'.format(node_id)
+    addlayernorm = gs.Node(op="AddLayerNorm", 
+                        name=name, 
+                        inputs=[add1_node.inputs[1],add2_node.inputs[0],add2_node.inputs[1],gamma,beta], 
+                        outputs=[add3_node.outputs[0]], 
+                        attrs={"epsilon": 1e-5})
+    add1_node.inputs.clear()
+    add2_node.inputs.clear()
+    # sub_node.inputs.clear()
+    add3_node.outputs.clear()
+    return addlayernorm
 
 def replace_with_slice_reshape(nodes_dict, shape_node):
     node_id = int(shape_node.name.split(".")[-1])
@@ -118,6 +151,19 @@ if ENABLE_LAYERNORM_PLUGIN:
             nodes.append(layernorm)
     print("Detected {} LayerNorms".format(count))
     dst_onnx_path =  dst_onnx_path.replace(".onnx", "_ln.onnx")
+
+if ENABLE_ADDLAYERNORM_PLUGIN:
+    print("Fuse ops into AddLayerNorm")
+    count = 0
+    for op_name in nodes_dict:
+        if 'ReduceMean' not in op_name:
+            continue
+        layernorm = replace_with_addlayernorm(nodes_dict, nodes_dict[op_name])
+        if layernorm:
+            count += 1
+            nodes.append(layernorm)
+    print("Detected {} AddLayerNorm".format(count))
+    dst_onnx_path =  dst_onnx_path.replace(".onnx", "_aln.onnx")
 
 if ENABLE_SLICERESHAPE_PLUGIN:
     print("Fuse ops into slicereshape")
