@@ -1,9 +1,9 @@
-#include "LayerNormPlugin.h"
+#include "AddLayerNormPlugin.h"
 
 using namespace nvinfer1;
 
-PluginFieldCollection    LayerNormPluginCreator::fc_ {};
-std::vector<PluginField> LayerNormPluginCreator::attr_;
+PluginFieldCollection    AddLayerNormPluginCreator::fc_ {};
+std::vector<PluginField> AddLayerNormPluginCreator::attr_;
 
 template <typename T, int TPB, int VPT>
 __global__ void ln_vec(
@@ -32,9 +32,15 @@ __global__ void ln_vec(
 #pragma unroll
     for (int it = 0; it < VPT; it++)
     {
-        in_local[it] = in_local1[it] + in_local2[it] + in_local3[it];;
+        in_local[it] = in_local2[it] + in_local3[it];;
     }
  
+#pragma unroll
+    for (int it = 0; it < VPT; it++)
+    {
+        in_local[it] = in_local[it] + in_local1[it];;
+    }
+
 #pragma unroll
     for (int it = 0; it < VPT; it++)
     {
@@ -70,7 +76,7 @@ __global__ void ln_vec(
     copy<sizeof(T) * VPT>(in_local, &output[idx]);
 }
 
-int32_t LayerNormPlugin::enqueue(const PluginTensorDesc *inputDesc, const PluginTensorDesc *outputDesc, const void *const *inputs, void *const *outputs, void *workspace, cudaStream_t stream) noexcept
+int32_t AddLayerNormPlugin::enqueue(const PluginTensorDesc *inputDesc, const PluginTensorDesc *outputDesc, const void *const *inputs, void *const *outputs, void *workspace, cudaStream_t stream) noexcept
 {
     WHERE_AM_I();
     int nBlock = 1;
@@ -91,4 +97,4 @@ int32_t LayerNormPlugin::enqueue(const PluginTensorDesc *inputDesc, const Plugin
     return 0;
 }
 
-REGISTER_TENSORRT_PLUGIN(LayerNormPluginCreator);
+REGISTER_TENSORRT_PLUGIN(AddLayerNormPluginCreator);
