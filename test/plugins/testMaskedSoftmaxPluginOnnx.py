@@ -22,7 +22,7 @@ import tensorrt as trt
 import onnx
 import onnx_graphsurgeon as gs
 
-soFilePath = './MaskedSoftmaxPlugin.so'
+soFilePath = './so/plugins/MaskedSoftmaxPlugin.so'
 nBS = 1
 nHead = 8
 nSL = 2500

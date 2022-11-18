@@ -22,11 +22,10 @@ import tensorrt as trt
 import onnx
 import onnx_graphsurgeon as gs
 
-soFilePath      = './so/plugins/libLayerNormPlugin.so'
-nBS             = 1
-nH              = 56
-nW              = 84
-nEmbedding      = 256
+soFilePath      = './so/plugins/libAddReluPlugin.so'
+nBS             = 4
+nSL             = 128
+nEmbedding      = 3072
 epsilon         = 1e-5
 npDataType      = np.float32
 np.random.seed(97)
@@ -39,34 +38,22 @@ def check(a, b, weak = False):
     else:
         return np.all( a == b )
 
-def layerNormCPU(bufferH):
+def addReluCPU(bufferH):
     _x = bufferH[0]
-    nEmbed = bufferH[0].shape[3]
-    _0  = np.mean(_x,3)[:,:,:,np.newaxis]
-    _1  = _x - _0
-    _2  = _1 * _1
-    _3  = np.mean(_2,3)[:,:,:,np.newaxis]
-    _4  = np.array(epsilon,dtype=np.float32)
-    _5  = _4.reshape(1,1,1,1)
-    _6  = _3 + _5
-    _7  = np.sqrt(_6)
-    _8  = 1 / _7                # 1/sqrt(...)
-    _9  = _1 * _8
-    return _9 * globalGamma + globalBeta
+    _out = np.maximum(_x + globalBeta, 0)
+    return _out
 
-def getLayerNormOnnx():
+def getAddReluOnnx():
     onnx_file = "temp.onnx"
-    shape = ('B', 'H', 'W', nEmbedding)
+    shape = ('B', nSL, nEmbedding)
     x = gs.Variable(name="x", dtype=npDataType, shape=shape)
-    gamma = gs.Constant(name="gamma", values=globalGamma)
     beta = gs.Constant(name="beta", values=globalBeta)
     y = gs.Variable(name="y", dtype=npDataType, shape=shape)
-    layernorm = gs.Node(op="LayerNorm", 
-                        name="LayerNorm_1", 
-                        inputs=[x, gamma, beta], 
-                        outputs=[y], 
-                        attrs={"epsilon":epsilon})
-    graph = gs.Graph(nodes=[layernorm], inputs=[x], outputs=[y])
+    add_relu = gs.Node(op="AddRelu", 
+                        name="AddRelu_1", 
+                        inputs=[x, beta], 
+                        outputs=[y])
+    graph = gs.Graph(nodes=[add_relu], inputs=[x], outputs=[y])
     onnx.save(gs.export_onnx(graph), onnx_file)
     return onnx_file
 
@@ -83,7 +70,7 @@ def run():
     profile = builder.create_optimization_profile()
     
     parser = trt.OnnxParser(network, logger)
-    onnxFile = getLayerNormOnnx()
+    onnxFile = getAddReluOnnx()
     if not os.path.exists(onnxFile):
         print("Failed finding onnx file!")
         exit()
@@ -98,14 +85,14 @@ def run():
     
     inputTensor = network.get_input(0)  # x
     print("inputTensor.name:{}".format(inputTensor.name))
-    profile.set_shape(inputTensor.name, (1, nH, nW, nEmbedding), (1, nH, nW, nEmbedding), (1, 2*nH, 2*nW, nEmbedding))  
+    profile.set_shape(inputTensor.name, (1, nSL, nEmbedding), (4, nSL, nEmbedding), (10, nSL, nEmbedding))  
     config.add_optimization_profile(profile)
 
     engineString = builder.build_serialized_network(network, config)
     engine = trt.Runtime(logger).deserialize_cuda_engine(engineString)
 
     context = engine.create_execution_context()
-    context.set_binding_shape(0,[nBS,nH,nW,nEmbedding])
+    context.set_binding_shape(0,[nBS,nSL,nEmbedding])
     print("Binding all? %s"%(["No","Yes"][int(context.all_binding_shapes_specified)]))
     
     nInput = np.sum([ engine.binding_is_input(i) for i in range(engine.num_bindings) ])
@@ -114,7 +101,7 @@ def run():
         print("input ->" if engine.binding_is_input(i) else "output->",engine.get_binding_dtype(i),engine.get_binding_shape(i),context.get_binding_shape(i))
 
     bufferH = []
-    bufferH.append( np.random.rand(nBS,nH,nW,nEmbedding).astype(npDataType).reshape(nBS,nH,nW,nEmbedding) * 2 - 1)
+    bufferH.append( np.random.rand(nBS,nSL,nEmbedding).astype(npDataType).reshape(nBS,nSL,nEmbedding) * 2 - 1)
     bufferH.append(np.empty(context.get_binding_shape(1),dtype=trt.nptype(engine.get_binding_dtype(1))))
 
     bufferD = []
@@ -131,7 +118,9 @@ def run():
 
     print("check result:")
     temp1 = bufferH[-1]
-    temp2 = layerNormCPU(bufferH[:1])
+    temp2 = addReluCPU(bufferH[:1])
+    print(temp1)
+    print(temp2)
     print(check(temp1,temp2,True), "max diff=%f"%(np.max(np.abs(temp1 - temp2))) )
     
     for b in bufferD:

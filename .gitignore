@@ -37,7 +37,10 @@ model/
 
 #output
 *.res.txt
+
 *.qdrep
+*.nsys-rep
+*.sqlite
 
 # Include
 include/
