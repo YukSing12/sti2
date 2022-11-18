@@ -105,7 +105,15 @@ public:
             res = (inOut[2].type == DataType::kFLOAT);
             // res = (inOut[2].type == DataType::kFLOAT) || (inOut[2].type == DataType::kHALF);
             break;
-        case 3: // output0
+        case 3: // input3
+            res = (inOut[3].type == DataType::kFLOAT);
+            // res = (inOut[2].type == DataType::kFLOAT) || (inOut[2].type == DataType::kHALF);
+            break;
+        case 4: // input4
+            res = (inOut[4].type == DataType::kFLOAT);
+            // res = (inOut[2].type == DataType::kFLOAT) || (inOut[2].type == DataType::kHALF);
+            break;                        
+        case 5: // output0
             res = inOut[pos].type == inOut[0].type;
             break;
         default: // should NOT be here
