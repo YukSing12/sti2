@@ -9,16 +9,19 @@
 #include <vector>
 #include <algorithm>
 #include <map>
-#include <dlfcn.h> 
+#include <dlfcn.h>
+#include <mutex>
+#include <thread>
+#include <queue>
 #include "cookbookHelper.hpp"
 
 static Logger gLogger(ILogger::Severity::kERROR);
 static const int MAX_SEQ = 128;
 
-inline void loadLibrary(const std::string& path)
+inline void loadLibrary(const std::string &path)
 {
     int32_t flags{RTLD_LAZY};
-    void* handle = dlopen(path.c_str(), flags);
+    void *handle = dlopen(path.c_str(), flags);
     if (handle == nullptr)
     {
         std::cout << "Could not load plugin library: " << path << ", due to: " << dlerror() << std::endl;
@@ -30,28 +33,40 @@ struct sample
     std::string qid;
     std::string label;
     std::vector<int> shape_info_0;
+    int size0;
     std::vector<int> i0;
     std::vector<int> shape_info_1;
+    int size1;
     std::vector<int> i1;
     std::vector<int> shape_info_2;
+    int size2;
     std::vector<int> i2;
     std::vector<int> shape_info_3;
+    int size3;
     std::vector<float> i3;
     std::vector<int> shape_info_4;
+    int size4;
     std::vector<int> i4;
     std::vector<int> shape_info_5;
+    int size5;
     std::vector<int> i5;
     std::vector<int> shape_info_6;
+    int size6;
     std::vector<int> i6;
     std::vector<int> shape_info_7;
+    int size7;
     std::vector<int> i7;
     std::vector<int> shape_info_8;
+    int size8;
     std::vector<int> i8;
     std::vector<int> shape_info_9;
+    int size9;
     std::vector<int> i9;
     std::vector<int> shape_info_10;
+    int size10;
     std::vector<int> i10;
     std::vector<int> shape_info_11;
+    int size11;
     std::vector<int> i11;
     std::vector<float> out_data;
     uint64_t timestamp;
@@ -81,6 +96,7 @@ void split_string(const std::string &str,
 void field2vec(const std::string &input_str,
                bool padding,
                std::vector<int> *shape_info,
+               int *size,
                std::vector<int> *i32_vec,
                std::vector<float> *f_vec = nullptr)
 {
@@ -90,6 +106,7 @@ void field2vec(const std::string &input_str,
     split_string(i_f[1], " ", i_v);
     std::vector<std::string> s_f;
     split_string(i_f[0], " ", s_f);
+    (*size)=0;
     for (auto &f : s_f)
     {
         shape_info->push_back(std::stoi(f));
@@ -130,6 +147,11 @@ void field2vec(const std::string &input_str,
     {
         (*shape_info)[1] = MAX_SEQ;
     }
+    for(int i=0;i<3;i++)
+    {
+         (*size)*=(*shape_info)[i];
+    }
+
 }
 
 void line2sample(const std::string &line, sample *sout)
@@ -146,18 +168,19 @@ void line2sample(const std::string &line, sample *sout)
     split_string(fields[1], ":", label_f);
     sout->label = label_f[1];
     // Parse input field
-    field2vec(fields[2], true, &(sout->shape_info_0), &(sout->i0));
-    field2vec(fields[3], true, &(sout->shape_info_1), &(sout->i1));
-    field2vec(fields[4], true, &(sout->shape_info_2), &(sout->i2));
-    field2vec(fields[5], true, &(sout->shape_info_3), nullptr, &(sout->i3));
-    field2vec(fields[6], false, &(sout->shape_info_4), &(sout->i4));
-    field2vec(fields[7], false, &(sout->shape_info_5), &(sout->i5));
-    field2vec(fields[8], false, &(sout->shape_info_6), &(sout->i6));
-    field2vec(fields[9], false, &(sout->shape_info_7), &(sout->i7));
-    field2vec(fields[10], false, &(sout->shape_info_8), &(sout->i8));
-    field2vec(fields[11], false, &(sout->shape_info_9), &(sout->i9));
-    field2vec(fields[12], false, &(sout->shape_info_10), &(sout->i10));
-    field2vec(fields[13], false, &(sout->shape_info_11), &(sout->i11));
+    field2vec(fields[2], true, &(sout->shape_info_0), &(sout->size0), &(sout->i0));
+    field2vec(fields[3], true, &(sout->shape_info_1), &(sout->size1), &(sout->i1));
+    field2vec(fields[4], true, &(sout->shape_info_2), &(sout->size2), &(sout->i2));
+    field2vec(fields[5], true, &(sout->shape_info_3), &(sout->size3), nullptr, &(sout->i3));
+    field2vec(fields[6], false, &(sout->shape_info_4), &(sout->size4), &(sout->i4));
+    field2vec(fields[7], false, &(sout->shape_info_5), &(sout->size5), &(sout->i5));
+    field2vec(fields[8], false, &(sout->shape_info_6), &(sout->size6), &(sout->i6));
+    field2vec(fields[9], false, &(sout->shape_info_7), &(sout->size7), &(sout->i7));
+    field2vec(fields[10], false, &(sout->shape_info_8), &(sout->size8), &(sout->i8));
+    field2vec(fields[11], false, &(sout->shape_info_9), &(sout->size9), &(sout->i9));
+    field2vec(fields[12], false, &(sout->shape_info_10), &(sout->size10), &(sout->i10));
+    field2vec(fields[13], false, &(sout->shape_info_11), &(sout->size11), &(sout->i11));
+    (sout->out_data).resize(sout->shape_info_0[0]);
     return;
 }
 
@@ -202,8 +225,8 @@ ICudaEngine *InitEngine(const std::string &engine_file)
     }
 }
 
-void run(ICudaEngine *engine, IExecutionContext *context, cudaStream_t stream, std::map<int, cudaGraphExec_t>& MapOfGraphs,
-            sample &s, std::vector<void *> &vBufferH, std::vector<void *> &vBufferD, std::vector<int>& vBindingSize, const int &nBinding)
+void run(ICudaEngine *engine, IExecutionContext *context, cudaStream_t stream, std::map<int, cudaGraphExec_t> &MapOfGraphs,
+         sample &s, std::vector<void *> &vBufferH, std::vector<void *> &vBufferD)
 {
     int batch_size = s.shape_info_0[0];
     context->setBindingDimensions(0, Dims32{3, {batch_size, s.shape_info_0[1], s.shape_info_0[2]}});
@@ -219,83 +242,56 @@ void run(ICudaEngine *engine, IExecutionContext *context, cudaStream_t stream, s
     context->setBindingDimensions(10, Dims32{3, {batch_size, s.shape_info_10[1], s.shape_info_10[2]}});
     context->setBindingDimensions(11, Dims32{3, {batch_size, s.shape_info_11[1], s.shape_info_11[2]}});
 
-    // // Check binding shape
-    // std::cout << std::string("Binding all? ") << std::string(context->allInputDimensionsSpecified() ? "Yes" : "No") << std::endl;
-    // for (int i = 0; i < nBinding; ++i)
-    // {
-    //     std::cout << std::string("Bind[") << i << std::string(i < 12 ? "]:i[" : "]:o[") << (i < 12 ? i : i - 12) << std::string("]->");
-    //     std::cout << dataTypeToString(engine->getBindingDataType(i)) << std::string(" ");
-    //     std::cout << shapeToString(context->getBindingDimensions(i)) << std::string(" ");
-    //     std::cout << engine->getBindingName(i) << std::endl;
-    // }
-
-    int size = 1;
-    for (int i = 0; i < nBinding; ++i)
-    {
-        Dims32 dim = context->getBindingDimensions(i);
-        size = 1;
-        for (int j = 0; j < dim.nbDims; ++j)
-        {
-            size *= dim.d[j];
-        }
-        vBindingSize[i] = size * dataTypeToSize(engine->getBindingDataType(i));
-        // std::cout << "vBindingSize[" << i << "] = " << vBindingSize[i] << std::endl;
-    }
-    memcpy(vBufferH[0], s.i0.data(), vBindingSize[0]);
-    memcpy(vBufferH[1], s.i1.data(), vBindingSize[1]);
-    memcpy(vBufferH[2], s.i2.data(), vBindingSize[2]);
-    memcpy(vBufferH[3], s.i3.data(), vBindingSize[3]);
-    memcpy(vBufferH[4], s.i4.data(), vBindingSize[4]);
-    memcpy(vBufferH[5], s.i5.data(), vBindingSize[5]);
-    memcpy(vBufferH[6], s.i6.data(), vBindingSize[6]);
-    memcpy(vBufferH[7], s.i7.data(), vBindingSize[7]);
-    memcpy(vBufferH[8], s.i8.data(), vBindingSize[8]);
-    memcpy(vBufferH[9], s.i9.data(), vBindingSize[9]);
-    memcpy(vBufferH[10], s.i10.data(), vBindingSize[10]);
-    memcpy(vBufferH[11], s.i11.data(), vBindingSize[11]);
+    memcpy(vBufferH[0], s.i0.data(), s.size0*dataTypeToSize(engine->getBindingDataType(0)));
+    memcpy(vBufferH[1], s.i1.data(), s.size1*dataTypeToSize(engine->getBindingDataType(1)));
+    memcpy(vBufferH[2], s.i2.data(), s.size2*dataTypeToSize(engine->getBindingDataType(2)));
+    memcpy(vBufferH[3], s.i3.data(), s.size3*dataTypeToSize(engine->getBindingDataType(3)));
+    memcpy(vBufferH[4], s.i4.data(), s.size4*dataTypeToSize(engine->getBindingDataType(4)));
+    memcpy(vBufferH[5], s.i5.data(), s.size5*dataTypeToSize(engine->getBindingDataType(5)));
+    memcpy(vBufferH[6], s.i6.data(), s.size6*dataTypeToSize(engine->getBindingDataType(6)));
+    memcpy(vBufferH[7], s.i7.data(), s.size7*dataTypeToSize(engine->getBindingDataType(7)));
+    memcpy(vBufferH[8], s.i8.data(), s.size8*dataTypeToSize(engine->getBindingDataType(8)));
+    memcpy(vBufferH[9], s.i9.data(), s.size9*dataTypeToSize(engine->getBindingDataType(9)));
+    memcpy(vBufferH[10], s.i10.data(), s.size10*dataTypeToSize(engine->getBindingDataType(10)));
+    memcpy(vBufferH[11], s.i11.data(), s.size11*dataTypeToSize(engine->getBindingDataType(11)));
 
     auto it = MapOfGraphs.find(batch_size);
-    if(it == MapOfGraphs.end())
+    if (it == MapOfGraphs.end())
     {
-        // new batch, so need to capture new graph
-        cudaGraph_t     graph;
+       // new batch, so need to capture new graph
+        cudaGraph_t graph;
         cudaGraphExec_t graphExec = nullptr;
         cudaStreamBeginCapture(stream, cudaStreamCaptureModeGlobal);
 
-        CHECK(cudaMemcpyAsync(vBufferD[0], vBufferH[0], vBindingSize[0], cudaMemcpyHostToDevice, stream));
-        CHECK(cudaMemcpyAsync(vBufferD[1], vBufferH[1], vBindingSize[1], cudaMemcpyHostToDevice, stream));
-        CHECK(cudaMemcpyAsync(vBufferD[2], vBufferH[2], vBindingSize[2], cudaMemcpyHostToDevice, stream));
-        CHECK(cudaMemcpyAsync(vBufferD[3], vBufferH[3], vBindingSize[3], cudaMemcpyHostToDevice, stream));
-        CHECK(cudaMemcpyAsync(vBufferD[4], vBufferH[4], vBindingSize[4], cudaMemcpyHostToDevice, stream));
-        CHECK(cudaMemcpyAsync(vBufferD[5], vBufferH[5], vBindingSize[5], cudaMemcpyHostToDevice, stream));
-        CHECK(cudaMemcpyAsync(vBufferD[6], vBufferH[6], vBindingSize[6], cudaMemcpyHostToDevice, stream));
-        CHECK(cudaMemcpyAsync(vBufferD[7], vBufferH[7], vBindingSize[7], cudaMemcpyHostToDevice, stream));
-        CHECK(cudaMemcpyAsync(vBufferD[8], vBufferH[8], vBindingSize[8], cudaMemcpyHostToDevice, stream));
-        CHECK(cudaMemcpyAsync(vBufferD[9], vBufferH[9], vBindingSize[9], cudaMemcpyHostToDevice, stream));
-        CHECK(cudaMemcpyAsync(vBufferD[10], vBufferH[10], vBindingSize[10], cudaMemcpyHostToDevice, stream));
-        CHECK(cudaMemcpyAsync(vBufferD[11], vBufferH[11], vBindingSize[11], cudaMemcpyHostToDevice, stream));
-        
+        CHECK(cudaMemcpyAsync(vBufferD[0], vBufferH[0], s.size0*dataTypeToSize(engine->getBindingDataType(0)), cudaMemcpyHostToDevice, stream));
+        CHECK(cudaMemcpyAsync(vBufferD[1], vBufferH[1], s.size1*dataTypeToSize(engine->getBindingDataType(1)), cudaMemcpyHostToDevice, stream));
+        CHECK(cudaMemcpyAsync(vBufferD[2], vBufferH[2], s.size2*dataTypeToSize(engine->getBindingDataType(2)), cudaMemcpyHostToDevice, stream));
+        CHECK(cudaMemcpyAsync(vBufferD[3], vBufferH[3], s.size3*dataTypeToSize(engine->getBindingDataType(3)), cudaMemcpyHostToDevice, stream));
+        CHECK(cudaMemcpyAsync(vBufferD[4], vBufferH[4], s.size4*dataTypeToSize(engine->getBindingDataType(4)), cudaMemcpyHostToDevice, stream));
+        CHECK(cudaMemcpyAsync(vBufferD[5], vBufferH[5], s.size5*dataTypeToSize(engine->getBindingDataType(5)), cudaMemcpyHostToDevice, stream));
+        CHECK(cudaMemcpyAsync(vBufferD[6], vBufferH[6], s.size6*dataTypeToSize(engine->getBindingDataType(6)), cudaMemcpyHostToDevice, stream));
+        CHECK(cudaMemcpyAsync(vBufferD[7], vBufferH[7], s.size7*dataTypeToSize(engine->getBindingDataType(7)), cudaMemcpyHostToDevice, stream));
+        CHECK(cudaMemcpyAsync(vBufferD[8], vBufferH[8], s.size8*dataTypeToSize(engine->getBindingDataType(8)), cudaMemcpyHostToDevice, stream));
+        CHECK(cudaMemcpyAsync(vBufferD[9], vBufferH[9], s.size9*dataTypeToSize(engine->getBindingDataType(9)), cudaMemcpyHostToDevice, stream));
+        CHECK(cudaMemcpyAsync(vBufferD[10], vBufferH[10], s.size10*dataTypeToSize(engine->getBindingDataType(10)), cudaMemcpyHostToDevice, stream));
+        CHECK(cudaMemcpyAsync(vBufferD[11], vBufferH[11], s.size11*dataTypeToSize(engine->getBindingDataType(11)), cudaMemcpyHostToDevice, stream));
+
         // Inference
         context->enqueueV2(vBufferD.data(), stream, nullptr);
-        
+        CHECK(cudaMemcpyAsync(vBufferH[12], vBufferD[12], batch_size*dataTypeToSize(engine->getBindingDataType(12)), cudaMemcpyDeviceToHost, stream));
         cudaStreamEndCapture(stream, &graph);
         cudaGraphInstantiate(&graphExec, graph, nullptr, nullptr, 0);
         cudaGraphDestroy(graph);
         // add this graph to the container of saved graphs
         MapOfGraphs[batch_size] = graphExec;
-        cudaGraphLaunch(graphExec, stream);
-    }else
+        }
+    else
     {
-         // recognized parameters, so can launch previously captured graph
+        // recognized parameters, so can launch previously captured graph
         cudaGraphLaunch(it->second, stream);
     }
 
-    // Get output from device to host
-    s.out_data.resize(size);
-    CHECK(cudaMemcpyAsync(s.out_data.data(), vBufferD[12], vBindingSize[12], cudaMemcpyDeviceToHost, stream));
-
-    
-    
+    memcpy(s.out_data.data(),  vBufferH[12], batch_size*dataTypeToSize(engine->getBindingDataType(12)));
     struct timeval tv;
     gettimeofday(&tv, NULL);
     s.timestamp = tv.tv_sec * 1000000 + tv.tv_usec;
@@ -309,7 +305,7 @@ int main(int argc, char *argv[])
         std::cout << "Usage: main.exe <engine_file> <input_data_file> <output_data_file> [plugin_path1] [plugin_path2] ..." << std::endl;
         return -1;
     }
-    for(size_t i = 4; i < argc; ++i)
+    for (size_t i = 4; i < argc; ++i)
     {
         std::cout << "Loading supplied plugin library: " << argv[i] << std::endl;
         loadLibrary(argv[i]);
@@ -319,12 +315,12 @@ int main(int argc, char *argv[])
     std::string engine_file = argv[1];
     auto engine = InitEngine(engine_file);
     IExecutionContext *context = engine->createExecutionContext();
-    
+
     // stream
     cudaStream_t stream;
     CHECK(cudaStreamCreate(&stream));
     // graph
-    std::map<int, cudaGraphExec_t> MapOfGraphs; 
+    std::map<int, cudaGraphExec_t> MapOfGraphs;
 
     // allocate memory
     int nBinding = engine->getNbBindings();
@@ -334,22 +330,22 @@ int main(int argc, char *argv[])
     // tmp_0 ~ tmp_3
     for (size_t i = 0; i < 4; i++)
     {
-        CHECK(cudaMallocHost(&vBufferH[i], 10 * 128 * 1 * sizeof(float)));
-        // vBufferH[i] = (void *)new char[10 * 128 * 1 * sizeof(float)];
+        // CHECK(cudaMallocHost(&vBufferH[i], 10 * 128 * 1 * sizeof(float)));
         CHECK(cudaMalloc(&vBufferD[i], 10 * 128 * 1 * sizeof(float)));
+        cudaHostAlloc(&vBufferH[i], 10 * 128 * 1 * sizeof(float),cudaHostAllocMapped);
     }
     // tmp_6 ~ tmp_13
     for (size_t i = 4; i < 12; i++)
     {
-        CHECK(cudaMallocHost(&vBufferH[i], 10 * 1 * 1 * sizeof(float)));
-        // vBufferH[i] = (void *)new char[10 * 1 * 1 * sizeof(float)];
+        // CHECK(cudaMallocHost(&vBufferH[i], 10 * 1 * 1 * sizeof(float)));
         CHECK(cudaMalloc(&vBufferD[i], 10 * 1 * 1 * sizeof(float)));
+        cudaHostAlloc(&vBufferH[i], 10 * 1 * 1 * sizeof(float),cudaHostAllocMapped);
     }
     // output
     for (size_t i = 12; i < 13; i++)
     {
         // CHECK(cudaMallocHost(&vBufferH[i], 10 * 1 * 1 * sizeof(float)));
-        vBufferH[i] = (void *)new char[10 * 1 * 1 * sizeof(float)];
+        cudaHostAlloc(&vBufferH[i], 10 * 1 * 1 * sizeof(float),cudaHostAllocMapped);
         CHECK(cudaMalloc(&vBufferD[i], 10 * 1 * 1 * sizeof(float)));
     }
 
@@ -370,7 +366,7 @@ int main(int argc, char *argv[])
     // inference
     for (auto &s : sample_vec)
     {
-        run(engine, context, stream, MapOfGraphs, s, vBufferH, vBufferD, vBindingSize, nBinding);
+        run(engine, context, stream, MapOfGraphs, s, vBufferH, vBufferD);
     }
 
     // postprocess
@@ -398,14 +394,11 @@ int main(int argc, char *argv[])
     ifs.close();
 
     // Release pinned memory
-    for (int i = 0; i < 12; ++i)
+    for (int i = 0; i < 13; ++i)
     {
         CHECK(cudaFreeHost(vBufferH[i]));
         CHECK(cudaFree(vBufferD[i]));
     }
-    
-    delete[] vBufferH[12];
-    CHECK(cudaFree(vBufferD[12]));
 
     return 0;
 }
