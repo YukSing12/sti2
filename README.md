@@ -3,25 +3,34 @@
 ## 介绍
 百度搜索技术创新挑战赛-赛道2
 
-## 软件架构
-软件架构说明
+## 目录架构
+目录架构说明
 ```
 sti2/
-|-- Ernie.plan
+|-- CMakeLists.txt
 |-- LICENSE
 |-- README.md
-|-- bin    
+|-- bin
 |-- build.sh
 |-- data
-|-- label.res.txt
+|-- include
+|   |-- plugins
+|   `-- tensorrt
+|       `-- include -> /opt/tensorrt/include/
 |-- model
-|-- onnx2trt.py
-|-- perf.res.txt
 |-- requirements.txt
 |-- run.sh
 |-- so
+|   |-- plugins
+|   `-- tensorrt
+|       `-- lib -> /opt/tensorrt/lib
 |-- src
-`-- test.sh
+|   |-- plugins
+|   `-- python
+|-- test
+|   |-- plugins
+|   `-- test.sh
+`-- tools
 ```
 
 
@@ -31,8 +40,13 @@ sti2/
 ```
 git clone https://gitee.com/YukSing12/sti2.git
 ```
-2.  下载数据集，详见[文档](./sti2_data/README.md)
-3.  准备docker(使用AIStudio 环境)
+2.  从[官网](https://aistudio.baidu.com/aistudio/competition/detail/674/0/introduction)下载数据集
+3.  准备TensorRT环境(准备NV NGC TensorRT Docker 或者使用AIStudio)
+```
+cd sti2
+ln -s /opt/tensorrt/include sti2/include/tensorrt/include
+ln -s /opt/tensorrt/lib sti2/so/tensorrt/lib
+```
 4.  安装依赖
 ```
 pip install -r requirements.txt
@@ -52,5 +66,5 @@ bash run.sh data/perf.test.txt
 ```
 4. 本地测试
 ```
-bash test.sh
+bash test/test.sh
 ```
