@@ -28,6 +28,7 @@ __pycache__
 
 # Bin
 bin/
+build/
 
 # Data
 data/
