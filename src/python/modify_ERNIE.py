@@ -6,6 +6,8 @@ import argparse
 
 def get_args():
     parser = argparse.ArgumentParser('Export ERNIE TensorRT', add_help=False)
+    parser.add_argument('--src', required=True, type=str, help='Path of onnx file to load')
+    parser.add_argument('--dst', required=True, type=str, help='Path of onnx file to save')
     parser.add_argument('--ln', action='store_true', default=False, help='Replace ops with LayernormPlugin or not')
     parser.add_argument('--aln', action='store_true', default=False, help='Replace ops with LayernormPlugin or not')
     parser.add_argument('--slreshape', action='store_true', default=False, help='Replace ops with SliceReshapePlugin or not')
@@ -125,8 +127,8 @@ def fuse_add_relu(nodes_dict, root_node):
     root_node.outputs.clear()
     return add_relu
 
-src_onnx_path = './model/model.onnx'
-dst_onnx_path = './model/modified_model.onnx'
+src_onnx_path = args.src
+dst_onnx_path = args.dst
 
 print("Load onnx model from {}".format(src_onnx_path))
 graph = gs.import_onnx(onnx.load(src_onnx_path))

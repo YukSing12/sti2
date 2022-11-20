@@ -1,36 +1,20 @@
 ROOT_DIR=$(cd $(dirname $0); pwd)
 echo $ROOT_DIR
 
-# Build so
-bash build_plugins.sh
-
-# Build cpp
-cd $ROOT_DIR/src
-make clean
-make
-
-# Build so
-plugins="
-    LayerNormPlugin
-"
-
-for plugin in $plugins
-do
-    echo "========================= Start building $plugin ========================"
-    plugin_dir="$ROOT_DIR/src/${plugin}"
-    cd $plugin_dir
-    make clean
-    make all
-    cp "$plugin.so" $ROOT_DIR/so/plugins
-done
+# Build cpp and so
+rm -rf build
+mkdir build
+cd build
+cmake ..
+make -j16
+make install
 
 # Modify TensorRT Engine
-cd $ROOT_DIR
-python modify_ERNIE.py
+python src/python/modify_ERNIE.py --src model/model.onnx --dst model/modified_model.onnx --ln
 
 # Build TensorRT Engine
-cd $ROOT_DIR
-python onnx2trt.py
+# cd $ROOT_DIR
+python src/python/onnx2trt.py --onnx model/modified_model_ln.onnx --fp6
 
 
 

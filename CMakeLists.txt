@@ -19,7 +19,7 @@ endif()
 
 # setting compiler flags
 set(CMAKE_C_FLAGS    "${CMAKE_C_FLAGS}")
-set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -w --std=c++${CXX_STD} -O3 -Xcompiler -fPIC -use_fast_math")
+set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -w --std=c++${CXX_STD} -O3 -use_fast_math")
 set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -w --std=c++${CXX_STD} -O3 -Xcompiler -fPIC")
 
 set(SM_SETS 52 60 61 70 75 80 86)
@@ -109,3 +109,4 @@ link_directories(
 )
 
 add_subdirectory(src)
+add_subdirectory(src/plugins)
