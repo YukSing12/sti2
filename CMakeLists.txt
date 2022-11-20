@@ -22,7 +22,7 @@ set(CMAKE_C_FLAGS    "${CMAKE_C_FLAGS}")
 set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -w --std=c++${CXX_STD} -O3 -use_fast_math")
 set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -w --std=c++${CXX_STD} -O3 -Xcompiler -fPIC")
 
-set(SM_SETS 52 60 61 70 75 80 86)
+set(SM_SETS 80 86)
 set(USING_WMMA False)
 set(FIND_SM False)
 
@@ -35,7 +35,7 @@ foreach(SM_NUM IN LISTS SM_SETS)
     set(FIND_SM True)
     set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode=arch=compute_${SM_NUM},code=sm_${SM_NUM}")
 
-    if (SM_NUM STREQUAL 70 OR SM_NUM STREQUAL 75 OR SM_NUM STREQUAL 80 OR SM_NUM STREQUAL 86)
+    if (SM_NUM STREQUAL 80 OR SM_NUM STREQUAL 86)
       set(USING_WMMA True)
     endif()
 
@@ -53,8 +53,6 @@ endforeach()
 
 if(NOT (FIND_SM STREQUAL True))
   set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS}  \
-                        -gencode=arch=compute_70,code=sm_70 \
-                        -gencode=arch=compute_75,code=sm_75 \
                         -gencode=arch=compute_80,code=sm_80 \
                         -gencode=arch=compute_86,code=sm_86 \
                         ")
@@ -62,8 +60,8 @@ if(NOT (FIND_SM STREQUAL True))
   # set(CMAKE_C_FLAGS    "${CMAKE_C_FLAGS}    -DWMMA")
   # set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS}  -DWMMA")
   # set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -DWMMA")
-  set(CMAKE_CUDA_ARCHITECTURES 70 75 80 86)
-  message("-- Assign GPU architecture (sm=70,75,80,86)")
+  set(CMAKE_CUDA_ARCHITECTURES 80 86)
+  message("-- Assign GPU architecture (sm=80,86)")
 endif()
 
 set(CMAKE_C_FLAGS_DEBUG    "${CMAKE_C_FLAGS_DEBUG}    -Wall -O0")
