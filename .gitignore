@@ -44,7 +44,7 @@ model/
 *.sqlite
 
 # Include
-include/
+include/tensorrt
 
 # So
 so/

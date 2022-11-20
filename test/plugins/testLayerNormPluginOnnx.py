@@ -70,7 +70,7 @@ def getLayerNormOnnx():
     return onnx_file
 
 def run():
-    logger = trt.Logger(trt.Logger.ERROR)
+    logger = trt.Logger(trt.Logger.VERBOSE)
     trt.init_libnvinfer_plugins(logger, '')
     ctypes.cdll.LoadLibrary(soFilePath)
 
@@ -97,7 +97,7 @@ def run():
     
     inputTensor = network.get_input(0)  # x
     print("inputTensor.name:{}".format(inputTensor.name))
-    profile.set_shape(inputTensor.name, (1, nSL, nEmbedding), (1, nSL, nEmbedding), (1, nSL, nEmbedding))  
+    profile.set_shape(inputTensor.name, (1, nSL, nEmbedding), (4, nSL, nEmbedding), (10, nSL, nEmbedding))  
     config.add_optimization_profile(profile)
 
     engineString = builder.build_serialized_network(network, config)

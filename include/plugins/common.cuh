@@ -18,7 +18,7 @@
 #define COMMON_CUH
 
 #include "cublas_v2.h"
-#include <cub/cub.cuh>
+#include "cub/cub.cuh"
 
 #define HDI inline __host__ __device__
 

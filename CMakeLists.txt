@@ -1,14 +1,31 @@
-cmake_minimum_required(VERSION 3.14)
+cmake_minimum_required(VERSION 3.8 FATAL_ERROR)
 
 project(sti2 LANGUAGES CXX CUDA)
-find_package(CUDA REQUIRED)
+find_package(CUDA 10.2 REQUIRED)
+
+option(BUILD_FAST_MATH "Build in fast math mode" ON)
+
+set(CXX_STD "14" CACHE STRING "C++ standard")
+set(CUDA_PATH ${CUDA_TOOLKIT_ROOT_DIR})
+
+list(APPEND CMAKE_MODULE_PATH ${CUDA_PATH}/lib64)
+
+# profiling
+option(USE_NVTX "Whether or not to use nvtx" OFF)
+if(USE_NVTX)
+  message(STATUS "NVTX is enabled.")
+  add_definitions("-DUSE_NVTX")
+endif()
 
 # setting compiler flags
 set(CMAKE_C_FLAGS    "${CMAKE_C_FLAGS}")
-set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS}")
-set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS}  -Xcompiler -Wall -ldl")
+set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -w --std=c++${CXX_STD} -O3 -Xcompiler -fPIC -use_fast_math")
+set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -w --std=c++${CXX_STD} -O3 -Xcompiler -fPIC")
 
 set(SM_SETS 52 60 61 70 75 80 86)
+set(USING_WMMA False)
+set(FIND_SM False)
+
 foreach(SM_NUM IN LISTS SM_SETS)
   string(FIND "${SM}" "${SM_NUM}" SM_POS)
   if(SM_POS GREATER -1)
@@ -16,16 +33,10 @@ foreach(SM_NUM IN LISTS SM_SETS)
       set(ENV{TORCH_CUDA_ARCH_LIST} "")
     endif()
     set(FIND_SM True)
-    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode=arch=compute_${SM_NUM},code=\\\"sm_${SM_NUM},compute_${SM_NUM}\\\"")
+    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode=arch=compute_${SM_NUM},code=sm_${SM_NUM}")
 
     if (SM_NUM STREQUAL 70 OR SM_NUM STREQUAL 75 OR SM_NUM STREQUAL 80 OR SM_NUM STREQUAL 86)
       set(USING_WMMA True)
-    endif()
-
-    if(BUILD_PYT)
-      string(SUBSTRING ${SM_NUM} 0 1 SM_MAJOR)
-      string(SUBSTRING ${SM_NUM} 1 1 SM_MINOR)
-      set(ENV{TORCH_CUDA_ARCH_LIST} "$ENV{TORCH_CUDA_ARCH_LIST}\;${SM_MAJOR}.${SM_MINOR}")
     endif()
 
     set(CMAKE_CUDA_ARCHITECTURES ${SM_NUM})
@@ -33,33 +44,68 @@ foreach(SM_NUM IN LISTS SM_SETS)
   endif()
 endforeach()
 
+# if(USING_WMMA STREQUAL True)
+#   set(CMAKE_C_FLAGS    "${CMAKE_C_FLAGS}    -DWMMA")
+#   set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS}  -DWMMA")
+#   set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -DWMMA")
+#   message("-- Use WMMA")
+# endif()
+
 if(NOT (FIND_SM STREQUAL True))
   set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS}  \
-                        -gencode=arch=compute_70,code=\\\"sm_70,compute_70\\\" \
-                        -gencode=arch=compute_75,code=\\\"sm_75,compute_75\\\" \
-                        -gencode=arch=compute_80,code=\\\"sm_80,compute_80\\\" \
-                        -gencode=arch=compute_86,code=\\\"sm_86,compute_86\\\" \
+                        -gencode=arch=compute_70,code=sm_70 \
+                        -gencode=arch=compute_75,code=sm_75 \
+                        -gencode=arch=compute_80,code=sm_80 \
+                        -gencode=arch=compute_86,code=sm_86 \
                         ")
   #                      -rdc=true")
-  set(CMAKE_C_FLAGS    "${CMAKE_C_FLAGS}    -DWMMA")
-  set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS}  -DWMMA")
-  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -DWMMA")
-  if(BUILD_PYT)
-    set(ENV{TORCH_CUDA_ARCH_LIST} "7.0;7.5;8.0;8.6")
-  endif()
+  # set(CMAKE_C_FLAGS    "${CMAKE_C_FLAGS}    -DWMMA")
+  # set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS}  -DWMMA")
+  # set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -DWMMA")
   set(CMAKE_CUDA_ARCHITECTURES 70 75 80 86)
   message("-- Assign GPU architecture (sm=70,75,80,86)")
 endif()
 
-if(BUILD_PYT)
-  set(TORCH_CUDA_ARCH_LIST $ENV{TORCH_CUDA_ARCH_LIST})
+set(CMAKE_C_FLAGS_DEBUG    "${CMAKE_C_FLAGS_DEBUG}    -Wall -O0")
+set(CMAKE_CXX_FLAGS_DEBUG  "${CMAKE_CXX_FLAGS_DEBUG}  -Wall -O0")
+# set(CMAKE_CUDA_FLAGS_DEBUG "${CMAKE_CUDA_FLAGS_DEBUG} -O0 -G -Xcompiler -Wall  --ptxas-options=-v --resource-usage")
+set(CMAKE_CUDA_FLAGS_DEBUG "${CMAKE_CUDA_FLAGS_DEBUG} -O0 -G -Xcompiler -Wall")
+
+set(CMAKE_CXX_STANDARD "${CXX_STD}")
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+set(CMAKE_CUDA_FLAGS_RELEASE "${CMAKE_CUDA_FLAGS} -O3")
+if(BUILD_FAST_MATH)
+set(CMAKE_CUDA_FLAGS_RELEASE "${CMAKE_CUDA_FLAGS_RELEASE} --use_fast_math")
 endif()
+message("-- CMAKE_CXX_FLAGS: ${CMAKE_CXX_FLAGS}")
+message("-- CMAKE_CUDA_FLAGS: ${CMAKE_CUDA_FLAGS}")
+message("-- CMAKE_CUDA_FLAGS_RELEASE: ${CMAKE_CUDA_FLAGS_RELEASE}")
 
-include_directories(include)
-#include_directories(${CUDA_INCLUDE_DIRS})
-#include_directories(/target/TensorRT-8.2.5.1/include)
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
-link_directories(${CUDA_LIBRARIES})
-#link_directories(/target/TensorRT-8.2.5.1/lib)
+set(COMMON_HEADER_DIRS
+  ${PROJECT_SOURCE_DIR}/include
+  ${PROJECT_SOURCE_DIR}/include/plugins
+  ${PROJECT_SOURCE_DIR}/include/tensorrt/include
+  ${CUDA_PATH}/include
+)
+message("-- COMMON_HEADER_DIRS: ${COMMON_HEADER_DIRS}")
 
-add_subdirectory(plugins)
+set(COMMON_LIB_DIRS
+  ${PROJECT_SOURCE_DIR}/so/tensorrt/lib
+  ${CUDA_PATH}/lib64
+)
+message("-- COMMON_LIB_DIRS: ${COMMON_LIB_DIRS}")
+
+include_directories(
+  ${COMMON_HEADER_DIRS}
+)
+
+link_directories(
+  ${COMMON_LIB_DIRS}
+)
+
+add_subdirectory(src)

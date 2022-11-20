@@ -62,13 +62,13 @@ int32_t LayerNormPlugin::enqueue(const PluginTensorDesc *inputDesc, const Plugin
         nBlock *= inputDesc[0].dims.d[i];
     if (inputDesc[0].type == DataType::kFLOAT)
     {
-        constexpr int VPT = 16 / sizeof(float);
+        constexpr int VPT = 4;
         constexpr int TPB = 768 / VPT;
         ln_vec<float, TPB, VPT><<<nBlock, TPB, 0, stream>>>(768, (float *)inputs[0], (float *)outputs[0], (float *)inputs[2], (float *)inputs[1]);
     }
     else if (inputDesc[0].type == DataType::kHALF)
     {
-        constexpr int VPT = 1;
+        constexpr int VPT = 4;
         constexpr int TPB = 768 / VPT;
         ln_vec<half, TPB, VPT><<<nBlock, TPB, 0, stream>>>(768, (half *)inputs[0], (half *)outputs[0], (half *)inputs[2], (half *)inputs[1]);
     }
