@@ -1,7 +1,7 @@
 import numpy as np
 import os
 
-def loadLabelsAndData(path):
+def loadLabelsAndData(path,padding=True):
   assert os.path.exists(path),"文件不存在"
   with open(path,"r") as fp:
       datalines=fp.readlines()
@@ -21,7 +21,7 @@ def loadLabelsAndData(path):
         value=[float(k) for k in temp[1]]
         # content=np.zeros(())
         value=np.array(value).reshape(shape)
-        if shape[1] !=128 and shape[1] !=1:
+        if shape[1] !=128 and shape[1] !=1 and padding:
           value=np.pad(value,((0,0),(0,128-shape[1]),(0,0)),"constant",constant_values=0)
         temp_dict["tensors"].append(np.ascontiguousarray(value))
       temp_dict["batch_size"]=shape[0]

@@ -3,11 +3,13 @@ import onnx_graphsurgeon as gs
 from onnx import shape_inference
 import numpy as np
 import argparse
+import onnxsim
 
 def get_args():
     parser = argparse.ArgumentParser('Export ERNIE TensorRT', add_help=False)
     parser.add_argument('--src', required=True, type=str, help='Path of onnx file to load')
     parser.add_argument('--dst', required=True, type=str, help='Path of onnx file to save')
+    parser.add_argument('--onnxsim', action='store_true', default=False, help='pre simplify onnx by onnxsim library')
     parser.add_argument('--ln', action='store_true', default=False, help='Replace ops with LayernormPlugin or not')
     parser.add_argument('--aln', action='store_true', default=False, help='Replace ops with LayernormPlugin or not')
     parser.add_argument('--slreshape', action='store_true', default=False, help='Replace ops with SliceReshapePlugin or not')
@@ -22,6 +24,7 @@ ENABLE_ADDLAYERNORM_PLUGIN = args.aln
 ENABLE_SLICERESHAPE_PLUGIN = args.slreshape
 ENABLE_FUSING_ADDRELU = args.addrelu
 DEBUG = args.debug
+SIM=args.onnxsim
 
 def replace_with_layernorm(nodes_dict, mean_node):
     node_id = int(mean_node.name.split(".")[-1])
@@ -201,6 +204,9 @@ else:
     graph.cleanup().toposort()
 
 print("Nodes:{}".format(len(graph.nodes)))
-onnx.save(gs.export_onnx(graph), dst_onnx_path)
-onnx.save(onnx.shape_inference.infer_shapes(onnx.load(dst_onnx_path)), dst_onnx_path)
+if SIM:
+    onnx_model, check = onnxsim.simplify(gs.export_onnx(graph))
+else:
+    onnx_model=gs.export_onnx(graph)
+onnx.save(onnx.shape_inference.infer_shapes(onnx_model), dst_onnx_path)
 print("Save modified onnx model to {}".format(dst_onnx_path))

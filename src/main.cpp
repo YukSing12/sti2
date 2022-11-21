@@ -168,8 +168,13 @@ void field2vec(const std::string &input_str,
     }
     if (padding)
     {
-        (*shape_info)[1] = MAX_SEQ;
+        if((*shape_info)[1]<32)
+        {
+            (*shape_info)[1]=32;
+        }
+        // (*shape_info)[1] = MAX_SEQ;
     }
+
 }
 
 void line2sample(const std::string &line, sample *sout)

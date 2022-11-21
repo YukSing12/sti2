@@ -77,7 +77,8 @@ else:
     network = builder.create_network(1 << int(trt.NetworkDefinitionCreationFlag.EXPLICIT_BATCH))
     profile = builder.create_optimization_profile()
     config = builder.create_builder_config()
-    config.max_workspace_size = 24 << 30                   
+    trt.IBuilderConfig.set_preview_feature(config,trt.PreviewFeature.FASTER_DYNAMIC_SHAPES_0805,enable=True)   
+    config.max_workspace_size = 24 << 30               
     if useTimeCache:
         cache = config.create_timing_cache(timeCache)
         config.set_timing_cache(cache, False)
@@ -113,19 +114,19 @@ else:
 
     inputTensor = network.get_input(0)  # tmp_0
     print("inputTensor.name:{}".format(inputTensor.name))
-    profile.set_shape(inputTensor.name, (1, 128, 1), (4, 128, 1), (10, 128, 1))             
+    profile.set_shape(inputTensor.name, (1, 32, 1), (4, 96, 1), (10, 128, 1))             
 
     inputTensor = network.get_input(1)  # tmp_1
     print("inputTensor.name:{}".format(inputTensor.name))
-    profile.set_shape(inputTensor.name, (1, 128, 1), (4, 128, 1), (10, 128, 1))        
+    profile.set_shape(inputTensor.name, (1, 32, 1), (4, 96, 1), (10, 128, 1))        
 
     inputTensor = network.get_input(2)  # tmp_2
     print("inputTensor.name:{}".format(inputTensor.name))
-    profile.set_shape(inputTensor.name, (1, 128, 1), (4, 128, 1), (10, 128, 1))        
+    profile.set_shape(inputTensor.name, (1, 32, 1), (4, 96, 1), (10, 128, 1))        
 
     inputTensor = network.get_input(3)  # tmp_3
     print("inputTensor.name:{}".format(inputTensor.name))
-    profile.set_shape(inputTensor.name, (1, 128, 1), (4, 128, 1), (10, 128, 1))        
+    profile.set_shape(inputTensor.name, (1, 32, 1), (4, 96, 1), (10, 128, 1))        
     
     inputTensor = network.get_input(4)  # tmp_6
     print("inputTensor.name:{}".format(inputTensor.name))
