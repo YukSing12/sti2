@@ -21,7 +21,7 @@ def create_input_shapes(shapes: Iterable[Optional[Iterable[Union[int, str]]]]):
         if shape is not None:
             shape = "x".join(map(str, shape))
             input_shapes.append(f"read_file_0.tmp_{i}:{shape}")
-    return input_shapes
+    return ",".join(input_shapes)
 
 
 @app.command()
@@ -41,8 +41,8 @@ def build(working_path: str = ".", enable_plugins: bool = True, rebuild: bool = 
     if not os.path.exists("build"):
         cmake_command.append("mkdir build")
     cmake_command.extend(["cd build", "cmake ..", f"make install -j{mp.cpu_count()}"])
-    rich.print(cmake_command)
     # TODO: run cmake when cmake changes and rm build if error
+    rich.print(cmake_command)
     sp.run("\n".join(cmake_command), shell=True)
 
     # TODO: import module in other method
@@ -60,6 +60,7 @@ def build(working_path: str = ".", enable_plugins: bool = True, rebuild: bool = 
         "python tools/onnx2trt.py",
         *[f"--plugins {plugin}" for plugin in plugins],
     ]
+    rich.print(onnx2trt_command)
     sp.run(" ".join(onnx2trt_command), shell=True)
 
 
@@ -109,10 +110,13 @@ def test(working_path: str = None, trtexec: str = "trtexec"):
             f"--minShapes={create_input_shapes(min_shapes)}",
             f"--optShapes={create_input_shapes(opt_shapes)}",
             f"--maxShapes={create_input_shapes(max_shapes)}",
-            f"--plugins=./so/LayerNormPlugin.so",  # TODO:more plugins so
+            # f"--plugins=./so/plugins/libAddReluPlugin.so",  # TODO:more plugins so
+            f"--plugins=./so/plugins/libLayerNormPlugin.so",  # TODO:more plugins so
+            # f"--plugins=./so/plugins/libMaskedSoftmaxPlugin.so",  # TODO:more plugins so
             # f"--plugins=./so/plugins.so",  # TODO:plugins.so
         ]
     )
+    print(" ".join(trtexec_command))
     sp.run(" ".join(trtexec_command), shell=True)
 
     # TODO: use python module
@@ -120,7 +124,7 @@ def test(working_path: str = None, trtexec: str = "trtexec"):
         sp.run(
             "\n".join(
                 [
-                    "./bin/main ./Ernie.plan ./data/label.test.txt ./label.res.txt ",
+                    "./bin/main ./Ernie.plan ./data/label.test.txt ./label.res.txt ./so/plugins",
                     "./bin/main ./Ernie.plan ./data/perf.test.txt ./perf.res.txt ./so/plugins",
                     "python src/python/utils/local_evaluate.py ./label.res.txt",
                     "python src/python/utils/local_evaluate.py ./perf.res.txt",
@@ -133,11 +137,6 @@ def test(working_path: str = None, trtexec: str = "trtexec"):
 def auto_test(config: str = "tests/auto_test.yaml"):
     pass
 
-
-# ./bin/main.exe ./Ernie.plan ./data/label.test.txt ./label.res.txt ./so/plugins
-# ./bin/main.exe ./Ernie.plan ./data/perf.test.txt ./perf.res.txt ./so/plugins
-# python src/utils/local_evaluate.py ./label.res.txt
-# python src/utils/local_evaluate.py ./perf.res.txt
 
 if __name__ == "__main__":
     app()
