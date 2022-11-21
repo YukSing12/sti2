@@ -27,7 +27,7 @@ sti2/
 |-- src
 |   |-- plugins
 |   `-- python
-|-- test
+|-- tests
 |   |-- plugins
 |   `-- test.sh
 `-- tools

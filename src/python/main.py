@@ -18,12 +18,10 @@ from cuda import cudart  # 使用 cuda runtime API
 import numpy as np
 import os
 import tensorrt as trt
-import sys
 from tqdm import tqdm
 import time
-from utils.loadLabelsandData import loadLabelsAndData
+from src.python.utils.loadLabelsandData import loadLabelsAndData
 import typer
-import rich
 
 
 @typer.run

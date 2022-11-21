@@ -8,6 +8,8 @@ import ctypes
 from glob import glob
 from time import time
 from pathlib import Path
+import typer
+
 
 def get_args():
     parser = argparse.ArgumentParser('Export Ernie TensorRT', add_help=False)

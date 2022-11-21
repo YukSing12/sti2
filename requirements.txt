@@ -4,12 +4,13 @@ onnxruntime
 nvidia-pyindex
 onnx-graphsurgeon
 paddleslim
-# TODO: add version
 numpy
 tqdm
 typer
 cuda-python
 colored
+rich
+
 # TODO: add version
 
 # install requirements in order:

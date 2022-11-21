@@ -25,10 +25,10 @@ DEBUG = args.debug
 
 def replace_with_layernorm(nodes_dict, mean_node):
     node_id = int(mean_node.name.split(".")[-1])
-    if not (('p2o.Sub.{}'.format(node_id//2) in nodes_dict)  
-    and ('p2o.Pow.{}'.format(node_id//2) in nodes_dict) 
-    and ('p2o.Div.{}'.format(node_id//2) in nodes_dict)  
-    and ('p2o.Sqrt.{}'.format(node_id//2) in nodes_dict)):
+    if not (('p2o.Sub.{}'.format(node_id//2) in nodes_dict)
+            and ('p2o.Pow.{}'.format(node_id//2) in nodes_dict)
+            and ('p2o.Div.{}'.format(node_id//2) in nodes_dict)
+            and ('p2o.Sqrt.{}'.format(node_id//2) in nodes_dict)):
         return None
 
     sub_node = nodes_dict['p2o.Sub.{}'.format(node_id//2)]
@@ -39,12 +39,12 @@ def replace_with_layernorm(nodes_dict, mean_node):
     gamma = mul_node.inputs[1]
     beta = add_node.inputs[1]
 
-    
+
     name = 'LayerNorm.{}'.format(node_id)
-    layernorm = gs.Node(op="LayerNorm", 
-                        name=name, 
-                        inputs=[mean_node.inputs[0],gamma,beta], 
-                        outputs=[add_node.outputs[0]], 
+    layernorm = gs.Node(op="LayerNorm",
+                        name=name,
+                        inputs=[mean_node.inputs[0],gamma,beta],
+                        outputs=[add_node.outputs[0]],
                         attrs={"epsilon": 1e-5})
     mean_node.inputs.clear()
     sub_node.inputs.clear()
@@ -97,11 +97,11 @@ def replace_with_slice_reshape(nodes_dict, shape_node):
     flatten_node = reshape_node.inputs[0].inputs[0].inputs[0].inputs[0]
     add_node = reshape_node.outputs[0].outputs[0]
     name = 'SliceReshape.{}'.format(node_id)
-    slicereshape = gs.Node(op="SliceReshape", 
-                        name=name, 
-                        inputs=[shape_node.inputs[0],concat_node.inputs[1], flatten_node.inputs[0]], 
-                        outputs=[add_node.outputs[0]], 
-                        attrs={"epsilon": 1e-6})
+    slicereshape = gs.Node(op="SliceReshape",
+                           name=name,
+                           inputs=[shape_node.inputs[0],concat_node.inputs[1], flatten_node.inputs[0]],
+                           outputs=[add_node.outputs[0]],
+                           attrs={"epsilon": 1e-6})
     shape_node.inputs.clear()
     concat_node.inputs.clear()
     flatten_node.inputs.clear()
@@ -112,16 +112,16 @@ def fuse_add_relu(nodes_dict, root_node):
     add_node = root_node.inputs[0].inputs[0]
     node_id = int(root_node.name.split(".")[-1])
     if ((add_node.op != 'Add')):
-       return None
+        return None
 
     if add_node.inputs[1].shape[0] != 3072:
         return None
-        
+
     name = 'AddRelu.{}'.format(node_id)
-    add_relu = gs.Node(op="AddRelu", 
-                        name=name, 
-                        inputs=[add_node.inputs[0],add_node.inputs[1]], 
-                        outputs=[root_node.outputs[0]])
+    add_relu = gs.Node(op="AddRelu",
+                       name=name,
+                       inputs=[add_node.inputs[0],add_node.inputs[1]],
+                       outputs=[root_node.outputs[0]])
 
     add_node.inputs.clear()
     root_node.outputs.clear()

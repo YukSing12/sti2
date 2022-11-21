@@ -1,10 +1,8 @@
-#pragma once
 #include <NvInfer.h>
-#include <cub/cub.cuh>
 #include <cuda_fp16.h>
-#include "common.cuh"
 #include <string>
 #include <vector>
+#include "reduce_kernel_utils.cuh"
 
 #define CEIL_DIVIDE(X, Y) (((X) + (Y)-1) / (Y))
 #define CEIL_TO(X, Y)     (((X) + (Y)-1) / (Y) * (Y))
@@ -21,33 +19,31 @@
 
 namespace nvinfer1
 {
-static const char *PLUGIN_NAME {"LayerNorm"};
+static const char *PLUGIN_NAME {"MaskedSoftmax"};
 static const char *PLUGIN_VERSION {"1"};
 
-class AddLayerNormPlugin : public IPluginV2DynamicExt
+class MaskedSoftmaxPlugin : public IPluginV2DynamicExt
 {
 private:
     std::string name_;
     std::string namespace_;
-    float       epsilon_;
 
 public:
-    AddLayerNormPlugin(const std::string &name, float epsilon):
-        name_(name), epsilon_(epsilon)
-    {
-        WHERE_AM_I();
-    }
-
-    AddLayerNormPlugin(const std::string &name, const void *data, size_t length):
+    MaskedSoftmaxPlugin(const std::string &name):
         name_(name)
     {
         WHERE_AM_I();
-        memcpy(&epsilon_, data, sizeof(epsilon_));
     }
 
-    AddLayerNormPlugin() = delete;
+    MaskedSoftmaxPlugin(const std::string &name, const void *data, size_t length):
+        name_(name)
+    {
+        WHERE_AM_I();
+    }
 
-    ~AddLayerNormPlugin()
+    MaskedSoftmaxPlugin() = delete;
+
+    ~MaskedSoftmaxPlugin()
     {
         WHERE_AM_I();
     }
@@ -55,19 +51,18 @@ public:
     size_t getSerializationSize() const noexcept override
     {
         WHERE_AM_I();
-        return sizeof(epsilon_);
+        return 0;
     }
 
     void serialize(void *buffer) const noexcept override
     {
         WHERE_AM_I();
-        memcpy(buffer, &epsilon_, sizeof(epsilon_));
     }
 
     IPluginV2DynamicExt *clone() const noexcept override
     {
         WHERE_AM_I();
-        return new AddLayerNormPlugin(name_, epsilon_);
+        return new MaskedSoftmaxPlugin(name_);
     }
 
     int getNbOutputs() const noexcept override
@@ -82,6 +77,7 @@ public:
         return inputs[0];
     }
 
+    using IPluginV2::getOutputDimensions;
     bool supportsFormatCombination(int32_t pos, const PluginTensorDesc *inOut, int32_t nbInputs, int32_t nbOutputs) noexcept override
     {
         WHERE_AM_I();       
@@ -94,26 +90,14 @@ public:
         switch (pos)
         {
         case 0: // input0
-            res = (inOut[0].type == DataType::kFLOAT);
-            // res = (inOut[0].type == DataType::kFLOAT) || (inOut[0].type == DataType::kHALF);
+            // res = (inOut[pos].type == DataType::kHALF);
+            res = (inOut[pos].type == DataType::kFLOAT) || (inOut[pos].type == DataType::kHALF);
             break;
         case 1: // input1
-            res = (inOut[1].type == DataType::kFLOAT);
-            // res = (inOut[1].type == DataType::kFLOAT) || (inOut[1].type == DataType::kHALF);
+            res = (inOut[pos].type == DataType::kINT32);
+            // res = (inOut[pos].type == DataType::kFLOAT) || (inOut[pos].type == DataType::kHALF);
             break;
-        case 2: // input2
-            res = (inOut[2].type == DataType::kFLOAT);
-            // res = (inOut[2].type == DataType::kFLOAT) || (inOut[2].type == DataType::kHALF);
-            break;
-        case 3: // input3
-            res = (inOut[3].type == DataType::kFLOAT);
-            // res = (inOut[2].type == DataType::kFLOAT) || (inOut[2].type == DataType::kHALF);
-            break;
-        case 4: // input4
-            res = (inOut[4].type == DataType::kFLOAT);
-            // res = (inOut[2].type == DataType::kFLOAT) || (inOut[2].type == DataType::kHALF);
-            break;                        
-        case 5: // output0
+        case 2: // output0
             res = inOut[pos].type == inOut[0].type;
             break;
         default: // should NOT be here
@@ -132,12 +116,14 @@ public:
     {
         WHERE_AM_I();
     }
+    using IPluginV2Ext::configurePlugin;
 
     size_t getWorkspaceSize(const PluginTensorDesc *inputs, int32_t nbInputs, const PluginTensorDesc *outputs, int32_t nbOutputs) const noexcept override
     {
         WHERE_AM_I();
         return 0;
     }
+    using IPluginV2::getWorkspaceSize;
 
     void setPluginNamespace(const char *szNamespace) noexcept override
     {
@@ -176,9 +162,10 @@ public:
     }
 
     int32_t enqueue(const PluginTensorDesc *inputDesc, const PluginTensorDesc *outputDesc, const void *const *inputs, void *const *outputs, void *workspace, cudaStream_t stream) noexcept override;
-}; // class AddLayerNormPlugin
+    using IPluginV2::enqueue;
+}; // class MaskedSoftmaxPlugin
 
-class AddLayerNormPluginCreator : public IPluginCreator
+class MaskedSoftmaxPluginCreator : public IPluginCreator
 {
 private:
     static PluginFieldCollection    fc_;
@@ -186,35 +173,25 @@ private:
     std::string                     namespace_;
 
 public:
-    AddLayerNormPluginCreator()
+    MaskedSoftmaxPluginCreator()
     {
         WHERE_AM_I();
-        attr_.emplace_back(PluginField("epsilon", nullptr, PluginFieldType::kFLOAT32, 1));
         fc_.nbFields = attr_.size();
         fc_.fields   = attr_.data();
     }
 
-    ~AddLayerNormPluginCreator() {}
+    ~MaskedSoftmaxPluginCreator() {}
 
     IPluginV2 *createPlugin(const char *name, const PluginFieldCollection *fc) noexcept override
     {
         WHERE_AM_I();
-        float epsilon {1.0e-5f};
-        for (int i = 0; i < fc->nbFields; i++)
-        {
-            std::string field_name(fc->fields[i].name);
-            if (field_name.compare("epsilon") == 0)
-            {
-                epsilon = *static_cast<const float *>(fc->fields[i].data);
-            }
-        }
-        return new AddLayerNormPlugin(name, epsilon);
+        return new MaskedSoftmaxPlugin(name);
     }
 
     IPluginV2 *deserializePlugin(const char *name, const void *serialData, size_t serialLength) noexcept override
     {
         WHERE_AM_I();
-        return new AddLayerNormPlugin(name, serialData, serialLength);
+        return new MaskedSoftmaxPlugin(name, serialData, serialLength);
     }
 
     void setPluginNamespace(const char *szNamespace) noexcept override
@@ -241,6 +218,6 @@ public:
     {
         return &fc_;
     }
-}; // class AddLayerNormPluginCreator
-REGISTER_TENSORRT_PLUGIN(AddLayerNormPluginCreator);
+}; // class MaskedSoftmaxPluginCreator
+
 } // namespace nvinfer1

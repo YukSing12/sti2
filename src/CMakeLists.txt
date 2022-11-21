@@ -8,3 +8,6 @@ target_link_libraries(pinned_graph cudart nvinfer nvinfer_plugin nvonnxparser nv
 
 install(TARGETS main onnx2trt pinned_graph
         RUNTIME DESTINATION ${PROJECT_SOURCE_DIR}/bin)
+
+
+
