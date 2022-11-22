@@ -19,6 +19,7 @@ def get_args():
     parser.add_argument('--log_level', default=1, type=int, help='Logger level. (0:VERBOSE, 1:INFO, 2:WARNING, 3:ERROR, 4:INTERNAL_ERROR)')
 
     parser.add_argument('--ln', action='store_true', default=False, help='Replace ops with LayernormPlugin or not')
+    parser.add_argument('--postemb', action='store_true', default=False, help='Replace ops with PostEmbeddingPlugin or not')
     args = parser.parse_args()
     return args
 
@@ -38,7 +39,9 @@ if args.fp16:
 
 if args.ln:
     onnxFile = onnxFile.replace(".onnx", "_ln.onnx")
-    
+if args.postemb:
+    onnxFile = onnxFile.replace(".onnx", "_postemb.onnx")
+
 timeCacheFile = "./Ernie.cache"
 soFileList = glob("./so/plugins/*.so")
 useTimeCache = False

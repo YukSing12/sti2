@@ -14,6 +14,7 @@ def get_args():
     parser.add_argument('--aln', action='store_true', default=False, help='Replace ops with LayernormPlugin or not')
     parser.add_argument('--slreshape', action='store_true', default=False, help='Replace ops with SliceReshapePlugin or not')
     parser.add_argument('--addrelu', action='store_true', default=False, help='Replace ops with AddReluPlugin or not')
+    parser.add_argument('--postemb', action='store_true', default=False, help='Replace ops with PostEmbeddingPlugin or not')
     parser.add_argument('--debug', '-D', action='store_true', default=False, help='Enable debug mode')
     args = parser.parse_args()
     return args
@@ -23,6 +24,7 @@ ENABLE_LAYERNORM_PLUGIN = args.ln
 ENABLE_ADDLAYERNORM_PLUGIN = args.aln
 ENABLE_SLICERESHAPE_PLUGIN = args.slreshape
 ENABLE_FUSING_ADDRELU = args.addrelu
+ENABLE_POSTEMBEDDING_PLUGIN = args.postemb
 DEBUG = args.debug
 SIM=args.onnxsim
 
@@ -130,6 +132,50 @@ def fuse_add_relu(nodes_dict, root_node):
     root_node.outputs.clear()
     return add_relu
 
+def replace_with_postembedding(nodes_dict, graph_inputs):
+    for i in range(8):
+        graph_inputs[i].outputs[0].attrs['to'] = onnx.TensorProto.FLOAT
+
+    
+        
+    squeeze_0 = graph_inputs[0].outputs[0].outputs[0].outputs[0]
+    squeeze_1 = graph_inputs[1].outputs[0].outputs[0].outputs[0]
+    squeeze_2 = graph_inputs[2].outputs[0].outputs[0].outputs[0]
+    squeeze_3 = graph_inputs[3].outputs[0].outputs[0].outputs[0]
+    squeeze_4 = graph_inputs[4].outputs[0].outputs[0].outputs[0]
+    squeeze_5 = graph_inputs[5].outputs[0].outputs[0].outputs[0]
+    squeeze_6 = graph_inputs[6].outputs[0].outputs[0].outputs[0]
+    squeeze_7 = graph_inputs[7].outputs[0].outputs[0].outputs[0]
+
+    emb_0 = squeeze_0.outputs[0].outputs[0].inputs[0]
+    emb_1 = squeeze_1.outputs[0].outputs[0].inputs[0]
+    emb_2 = squeeze_2.outputs[0].outputs[0].inputs[0]
+    emb_3 = squeeze_3.outputs[0].outputs[0].inputs[0]
+    emb_4 = squeeze_4.outputs[0].outputs[0].inputs[0]
+    emb_5 = squeeze_5.outputs[0].outputs[0].inputs[0]
+    emb_6 = squeeze_6.outputs[0].outputs[0].inputs[0]
+    emb_7 = squeeze_7.outputs[0].outputs[0].inputs[0]
+
+    reshape_node = graph_inputs[0].outputs[0].outputs[0].outputs[0].outputs[0].outputs[0].outputs[0].outputs[0].outputs[0].outputs[0]
+    output = reshape_node.outputs[0]
+    posemb = gs.Node(op="PostEmbedding",
+                       name="PostEmbedding",
+                       inputs=[squeeze_0.inputs[0], squeeze_1.inputs[0], squeeze_2.inputs[0], squeeze_3.inputs[0], squeeze_4.inputs[0], squeeze_5.inputs[0], squeeze_6.inputs[0], squeeze_7.inputs[0],
+                               emb_0, emb_1, emb_2, emb_3, emb_4, emb_5, emb_6, emb_7],
+                       outputs=[output])
+
+    squeeze_0.inputs.clear()
+    squeeze_1.inputs.clear()
+    squeeze_2.inputs.clear()
+    squeeze_3.inputs.clear()
+    squeeze_4.inputs.clear()
+    squeeze_5.inputs.clear()
+    squeeze_6.inputs.clear()
+    squeeze_7.inputs.clear()
+
+    reshape_node.outputs.clear()
+    return posemb
+
 src_onnx_path = args.src
 dst_onnx_path = args.dst
 
@@ -196,6 +242,14 @@ if ENABLE_FUSING_ADDRELU:
     print("Detected {} AddRelu".format(count))
     dst_onnx_path =  dst_onnx_path.replace(".onnx", "_addrelu.onnx")
 
+if ENABLE_POSTEMBEDDING_PLUGIN:
+    print("Fuse ops into PostEmbedding")
+    posemb = replace_with_postembedding(nodes_dict, graph.inputs[4:])
+    if posemb:
+        nodes.append(posemb)
+
+    dst_onnx_path =  dst_onnx_path.replace(".onnx", "_postemb.onnx")
+        
 if DEBUG:
     graph.cleanup().toposort()
     dst_onnx_path = './model/debug.onnx'
@@ -208,5 +262,6 @@ if SIM:
     onnx_model, check = onnxsim.simplify(gs.export_onnx(graph))
 else:
     onnx_model=gs.export_onnx(graph)
-onnx.save(onnx.shape_inference.infer_shapes(onnx_model), dst_onnx_path)
+onnx.save(onnx_model, dst_onnx_path)
+# onnx.save(onnx.shape_inference.infer_shapes(onnx_model), dst_onnx_path)
 print("Save modified onnx model to {}".format(dst_onnx_path))

@@ -32,6 +32,7 @@ build/
 
 # Data
 data/
+*.npy
 
 # Model
 model/
