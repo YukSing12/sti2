@@ -133,35 +133,8 @@ else:
     
     inputTensor = network.get_input(4)  # tmp_6
     print("inputTensor.name:{}".format(inputTensor.name))
-    profile.set_shape(inputTensor.name, (1, 1, 1), (4, 1, 1), (10, 1, 1))     
-
-    inputTensor = network.get_input(5)  # tmp_7
-    print("inputTensor.name:{}".format(inputTensor.name))
-    profile.set_shape(inputTensor.name, (1, 1, 1), (4, 1, 1), (10, 1, 1))
-
-    inputTensor = network.get_input(6)  # tmp_8
-    print("inputTensor.name:{}".format(inputTensor.name))
-    profile.set_shape(inputTensor.name, (1, 1, 1), (4, 1, 1), (10, 1, 1))
-
-    inputTensor = network.get_input(7)  # tmp_9
-    print("inputTensor.name:{}".format(inputTensor.name))
-    profile.set_shape(inputTensor.name, (1, 1, 1), (4, 1, 1), (10, 1, 1))
-
-    inputTensor = network.get_input(8)  # tmp_10
-    print("inputTensor.name:{}".format(inputTensor.name))
-    profile.set_shape(inputTensor.name, (1, 1, 1), (4, 1, 1), (10, 1, 1))
-
-    inputTensor = network.get_input(9)  # tmp_11
-    print("inputTensor.name:{}".format(inputTensor.name))
-    profile.set_shape(inputTensor.name, (1, 1, 1), (4, 1, 1), (10, 1, 1))
-
-    inputTensor = network.get_input(10)  # tmp_12
-    print("inputTensor.name:{}".format(inputTensor.name))
-    profile.set_shape(inputTensor.name, (1, 1, 1), (4, 1, 1), (10, 1, 1))
-
-    inputTensor = network.get_input(11)  # tmp_13
-    print("inputTensor.name:{}".format(inputTensor.name))
-    profile.set_shape(inputTensor.name, (1, 1, 1), (4, 1, 1), (10, 1, 1))    
+    profile.set_shape(inputTensor.name, (1, 8), (4,8), (10, 8))     
+   
     config.add_optimization_profile(profile)
 
     t0 = time()

@@ -100,52 +100,31 @@ public:
         case 0: // x_0
             res = (inOut[pos].type == DataType::kFLOAT) || (inOut[pos].type == DataType::kHALF);
             break;
-        case 1: // x_1
+        case 1: // emb_0
             res = (inOut[pos].type == DataType::kFLOAT) || (inOut[pos].type == DataType::kHALF);
             break;
-        case 2: // x_2
+        case 2: // emb_1
             res = (inOut[pos].type == DataType::kFLOAT) || (inOut[pos].type == DataType::kHALF);
             break;
-        case 3: // x_3
+        case 3: // emb_2
             res = (inOut[pos].type == DataType::kFLOAT) || (inOut[pos].type == DataType::kHALF);
             break;
-        case 4: // x_4
+        case 4: // emb_3
             res = (inOut[pos].type == DataType::kFLOAT) || (inOut[pos].type == DataType::kHALF);
             break;
-        case 5: // x_5
+        case 5: // emb_4
             res = (inOut[pos].type == DataType::kFLOAT) || (inOut[pos].type == DataType::kHALF);
             break;
-        case 6: // x_6
+        case 6: // emb_5
             res = (inOut[pos].type == DataType::kFLOAT) || (inOut[pos].type == DataType::kHALF);
             break;
-        case 7: // x_7
+        case 7: // emb_6
             res = (inOut[pos].type == DataType::kFLOAT) || (inOut[pos].type == DataType::kHALF);
             break;
-        case 8: // emb_0
+        case 8: // emb_7
             res = (inOut[pos].type == DataType::kFLOAT) || (inOut[pos].type == DataType::kHALF);
             break;
-        case 9: // emb_1
-            res = (inOut[pos].type == DataType::kFLOAT) || (inOut[pos].type == DataType::kHALF);
-            break;
-        case 10: // emb_2
-            res = (inOut[pos].type == DataType::kFLOAT) || (inOut[pos].type == DataType::kHALF);
-            break;
-        case 11: // emb_3
-            res = (inOut[pos].type == DataType::kFLOAT) || (inOut[pos].type == DataType::kHALF);
-            break;
-        case 12: // emb_4
-            res = (inOut[pos].type == DataType::kFLOAT) || (inOut[pos].type == DataType::kHALF);
-            break;
-        case 13: // emb_5
-            res = (inOut[pos].type == DataType::kFLOAT) || (inOut[pos].type == DataType::kHALF);
-            break;
-        case 14: // emb_6
-            res = (inOut[pos].type == DataType::kFLOAT) || (inOut[pos].type == DataType::kHALF);
-            break;
-        case 15: // emb_7
-            res = (inOut[pos].type == DataType::kFLOAT) || (inOut[pos].type == DataType::kHALF);
-            break;
-        case 16: // y
+        case 9: // y
             res = inOut[pos].type == inOut[0].type;
             break;
         default: // should NOT be here

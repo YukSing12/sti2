@@ -47,41 +47,25 @@ def check(a, b, weak = False):
         return np.all( a == b )
 
 def cpu_kernel(bufferH):
-        
-    _x_0 = np.int32(bufferH[0]).reshape(nBS)
-    _x_1 = np.int32(bufferH[1]).reshape(nBS)
-    _x_2 = np.int32(bufferH[2]).reshape(nBS)
-    _x_3 = np.int32(bufferH[3]).reshape(nBS)
-    _x_4 = np.int32(bufferH[4]).reshape(nBS)
-    _x_5 = np.int32(bufferH[5]).reshape(nBS)
-    _x_6 = np.int32(bufferH[6]).reshape(nBS)
-    _x_7 = np.int32(bufferH[7]).reshape(nBS)
+    _x =bufferH[0].reshape(nBS,8).astype(np.int32)
     
-    _emb_0 = global_emb_0[_x_0,:]
-    _emb_1 = global_emb_1[_x_1,:]
-    _emb_2 = global_emb_2[_x_2,:]
-    _emb_3 = global_emb_3[_x_3,:]
-    _emb_4 = global_emb_4[_x_4,:]
-    _emb_5 = global_emb_5[_x_5,:]
-    _emb_6 = global_emb_6[_x_6,:]
-    _emb_7 = global_emb_7[_x_7,:]
+    _emb_0 = global_emb_0[_x[:,0],:]
+    _emb_1 = global_emb_1[_x[:,1],:]
+    _emb_2 = global_emb_2[_x[:,2],:]
+    _emb_3 = global_emb_3[_x[:,3],:]
+    _emb_4 = global_emb_4[_x[:,4],:]
+    _emb_5 = global_emb_5[_x[:,5],:]
+    _emb_6 = global_emb_6[_x[:,6],:]
+    _emb_7 = global_emb_7[_x[:,7],:]
     rst = np.concatenate([_emb_0, _emb_1, _emb_2,_emb_3,_emb_4,_emb_5,_emb_6,_emb_7], axis=1)
 
     return rst
 
 def getPostEmbeddingOnnx():
     onnx_file = "temp.onnx"
-    shape = ('B', 1, 1)
+    shape = ('B', 8)
     
-    x_0 = gs.Variable(name="x_0", dtype=np.float32, shape=shape)
-    x_1 = gs.Variable(name="x_1", dtype=np.float32, shape=shape)
-    x_2 = gs.Variable(name="x_2", dtype=np.float32, shape=shape)
-    x_3 = gs.Variable(name="x_3", dtype=np.float32, shape=shape)
-    x_4 = gs.Variable(name="x_4", dtype=np.float32, shape=shape)
-    x_5 = gs.Variable(name="x_5", dtype=np.float32, shape=shape)
-    x_6 = gs.Variable(name="x_6", dtype=np.float32, shape=shape)
-    x_7 = gs.Variable(name="x_7", dtype=np.float32, shape=shape)
-
+    x= gs.Variable(name="x", dtype=np.float32, shape=shape)
     emb_0 = gs.Constant(name="emb_0", values=global_emb_0)
     emb_1 = gs.Constant(name="emb_1", values=global_emb_1)
     emb_2 = gs.Constant(name="emb_2", values=global_emb_2)
@@ -94,11 +78,10 @@ def getPostEmbeddingOnnx():
     y = gs.Variable(name="y", dtype=npDataType, shape=('B', 8 * nEmbedding))
     embedding = gs.Node(op="PostEmbedding", 
                         name="PostEmbedding_1", 
-                        inputs=[x_0, x_1, x_2, x_3, x_4, x_5, x_6, x_7, # TODO: Fused to a large input
+                        inputs=[x, # TODO: Fused to a large input
                                 emb_0, emb_1, emb_2, emb_3, emb_4, emb_5, emb_6, emb_7], 
                         outputs=[y])
-    graph = gs.Graph(nodes=[embedding], inputs=[x_0, x_1, x_2, x_3, x_4, x_5, x_6, x_7,
-                                                emb_0, emb_1, emb_2, emb_3, emb_4, emb_5, emb_6, emb_7], outputs=[y])
+    graph = gs.Graph(nodes=[embedding], inputs=[x,emb_0, emb_1, emb_2, emb_3, emb_4, emb_5, emb_6, emb_7], outputs=[y])
     onnx.save(gs.export_onnx(graph), onnx_file)
     return onnx_file
 
@@ -130,35 +113,7 @@ def run():
     
     inputTensor = network.get_input(0)  # x_0
     print("inputTensor.name:{}".format(inputTensor.name))
-    profile.set_shape(inputTensor.name, (1, 1, 1), (4, 1, 1), (10, 1, 1))     
-
-    inputTensor = network.get_input(1)  # x_1
-    print("inputTensor.name:{}".format(inputTensor.name))
-    profile.set_shape(inputTensor.name, (1, 1, 1), (4, 1, 1), (10, 1, 1))
-
-    inputTensor = network.get_input(2)  # x_2
-    print("inputTensor.name:{}".format(inputTensor.name))
-    profile.set_shape(inputTensor.name, (1, 1, 1), (4, 1, 1), (10, 1, 1))
-
-    inputTensor = network.get_input(3)  # x_3
-    print("inputTensor.name:{}".format(inputTensor.name))
-    profile.set_shape(inputTensor.name, (1, 1, 1), (4, 1, 1), (10, 1, 1))
-
-    inputTensor = network.get_input(4)  # x_4
-    print("inputTensor.name:{}".format(inputTensor.name))
-    profile.set_shape(inputTensor.name, (1, 1, 1), (4, 1, 1), (10, 1, 1))
-
-    inputTensor = network.get_input(5)  # x_5
-    print("inputTensor.name:{}".format(inputTensor.name))
-    profile.set_shape(inputTensor.name, (1, 1, 1), (4, 1, 1), (10, 1, 1))
-
-    inputTensor = network.get_input(6)  # x_6
-    print("inputTensor.name:{}".format(inputTensor.name))
-    profile.set_shape(inputTensor.name, (1, 1, 1), (4, 1, 1), (10, 1, 1))
-
-    inputTensor = network.get_input(7)  # x_7
-    print("inputTensor.name:{}".format(inputTensor.name))
-    profile.set_shape(inputTensor.name, (1, 1, 1), (4, 1, 1), (10, 1, 1))    
+    profile.set_shape(inputTensor.name, (1, 8), (4, 8), (10, 8))     
 
     config.add_optimization_profile(profile)
 
@@ -166,14 +121,7 @@ def run():
     engine = trt.Runtime(logger).deserialize_cuda_engine(engineString)
 
     context = engine.create_execution_context()
-    context.set_binding_shape(0,[nBS,1,1])
-    context.set_binding_shape(1,[nBS,1,1])
-    context.set_binding_shape(2,[nBS,1,1])
-    context.set_binding_shape(3,[nBS,1,1])
-    context.set_binding_shape(4,[nBS,1,1])
-    context.set_binding_shape(5,[nBS,1,1])
-    context.set_binding_shape(6,[nBS,1,1])
-    context.set_binding_shape(7,[nBS,1,1])
+    context.set_binding_shape(0,[nBS,8])
     print("Binding all? %s"%(["No","Yes"][int(context.all_binding_shapes_specified)]))
     
     nInput = np.sum([ engine.binding_is_input(i) for i in range(engine.num_bindings) ])
@@ -182,10 +130,10 @@ def run():
         print("input ->" if engine.binding_is_input(i) else "output->",engine.get_binding_dtype(i),engine.get_binding_shape(i),context.get_binding_shape(i))
 
     bufferH = []
-    for i in range(nInput):
-        bufferH.append( np.array(np.random.randint(0, 10, [nBS, 1, 1]), dtype=np.float32))
+    input_tensor=np.array(np.random.randint(0, 10, [nBS, 8]), dtype=np.float32)
 
-    bufferH.append(np.empty(context.get_binding_shape(8),dtype=trt.nptype(engine.get_binding_dtype(8))))
+    bufferH.append(input_tensor)
+    bufferH.append(np.empty(context.get_binding_shape(1),dtype=trt.nptype(engine.get_binding_dtype(1))))
 
     bufferD = []
     for i in range(engine.num_bindings):

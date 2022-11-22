@@ -131,13 +131,8 @@ def fuse_add_relu(nodes_dict, root_node):
     add_node.inputs.clear()
     root_node.outputs.clear()
     return add_relu
-
+     
 def replace_with_postembedding(nodes_dict, graph_inputs):
-    for i in range(8):
-        graph_inputs[i].outputs[0].attrs['to'] = onnx.TensorProto.FLOAT
-
-    
-        
     squeeze_0 = graph_inputs[0].outputs[0].outputs[0].outputs[0]
     squeeze_1 = graph_inputs[1].outputs[0].outputs[0].outputs[0]
     squeeze_2 = graph_inputs[2].outputs[0].outputs[0].outputs[0]
@@ -158,12 +153,12 @@ def replace_with_postembedding(nodes_dict, graph_inputs):
 
     reshape_node = graph_inputs[0].outputs[0].outputs[0].outputs[0].outputs[0].outputs[0].outputs[0].outputs[0].outputs[0].outputs[0]
     output = reshape_node.outputs[0]
+    graph_inputs[0].shape=(-1,8)
+    graph_inputs[0].dtype=np.float32
     posemb = gs.Node(op="PostEmbedding",
                        name="PostEmbedding",
-                       inputs=[squeeze_0.inputs[0], squeeze_1.inputs[0], squeeze_2.inputs[0], squeeze_3.inputs[0], squeeze_4.inputs[0], squeeze_5.inputs[0], squeeze_6.inputs[0], squeeze_7.inputs[0],
-                               emb_0, emb_1, emb_2, emb_3, emb_4, emb_5, emb_6, emb_7],
+                       inputs=[graph_inputs[0],emb_0, emb_1, emb_2, emb_3, emb_4, emb_5, emb_6, emb_7],
                        outputs=[output])
-
     squeeze_0.inputs.clear()
     squeeze_1.inputs.clear()
     squeeze_2.inputs.clear()
@@ -246,6 +241,10 @@ if ENABLE_POSTEMBEDDING_PLUGIN:
     print("Fuse ops into PostEmbedding")
     posemb = replace_with_postembedding(nodes_dict, graph.inputs[4:])
     if posemb:
+        graph.inputs=graph.inputs[:5]
+        graph.inputs[4].shape=(-1,8)
+        graph.inputs[4].dtype=np.float32
+        graph.inputs[4].name="read_file_0.tmp_6-13"
         nodes.append(posemb)
 
     dst_onnx_path =  dst_onnx_path.replace(".onnx", "_postemb.onnx")
