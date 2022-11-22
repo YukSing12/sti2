@@ -3,6 +3,7 @@ onnx
 onnxruntime
 nvidia-pyindex
 onnx-graphsurgeon
+onnx-simplifier
 paddleslim
 numpy
 tqdm
@@ -10,8 +11,11 @@ typer
 cuda-python
 colored
 rich
-
+pyyaml
 # TODO: add version
+
+# type hint
+mypy
 
 # install requirements in order:
 # cat requirements.txt | xargs -n 1 -L 1 pip install
