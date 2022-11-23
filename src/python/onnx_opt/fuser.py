@@ -2,7 +2,15 @@ import onnx
 import onnx_graphsurgeon as gs
 
 from typing import Dict, Union, Tuple, List
-from .passes import Pass, MaskedSoftmaxFuser
+from .passes import (
+    Pass,
+    CustomPass,
+    PostEmbeddingPass,
+    LayernormPass,
+    MaskedSoftmaxPass,
+    AddOpPass,
+    SliceReshapePass,
+)
 
 
 def clear(node):
@@ -19,7 +27,8 @@ def clear(node):
 
 
 class Fuser:
-    def __init__(self, graph: gs.Graph, passes: List[Pass]):
+    def __init__(self, graph: gs.Graph, passes):
+        # TODO:passes type hint to List[Pass]
         self.graph = graph
         self.passes = passes
         # self.info_level = 0
@@ -34,7 +43,10 @@ class Fuser:
 
     def fuse(self):
         for p in self.passes:
-            p(self.nodes)
+            if isinstance(p, Pass):
+                p(self.nodes)
+            else:
+                p(self.graph)
 
     # def fuse(self, old_nodes: Union[Tuple[str, list, list], str] = ("Add", ["Add"], []), new_nodes="AddAdd"):
     #     # fuse inputs
@@ -100,12 +112,18 @@ class Fuser:
 def fuse():
     src_onnx_path = "./model/model.onnx"
     dst_onnx_path = "./model/modified_model_ms.onnx"
-
     print("Load onnx model from {}".format(src_onnx_path))
     graph = gs.import_onnx(onnx.load(src_onnx_path))
     graph.fold_constants().cleanup()
+    # global _deprecated_nodes_dict
+    # _deprecated_nodes_dict.update(graph.nodes)
 
-    fuser = Fuser(graph, passes=[MaskedSoftmaxFuser()])
+    fuser = Fuser(
+        graph,
+        passes=[
+            MaskedSoftmaxPass(),
+        ],
+    )
     fuser.fuse()
     graph.cleanup().toposort()
 
