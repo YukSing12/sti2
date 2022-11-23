@@ -1,7 +1,5 @@
 import onnx
 import onnx_graphsurgeon as gs
-from onnx import shape_inference
-import numpy as np
 import argparse
 import onnxsim
 

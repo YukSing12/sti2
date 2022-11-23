@@ -1,14 +1,10 @@
 import os
-import sys
-import numpy as np
 import argparse
 import tensorrt as trt
 import ctypes
 
 from glob import glob
 from time import time
-from pathlib import Path
-import typer
 
 
 def get_args():

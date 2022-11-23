@@ -1,11 +1,5 @@
 import onnx
 import onnx_graphsurgeon as gs
-from onnx import shape_inference
-import numpy as np
-import argparse
-import typer
-import re
-import rich
 
 from typing import Dict, Union, Tuple, List
 from .passes import Pass, MaskedSoftmaxFuser
