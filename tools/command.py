@@ -42,7 +42,7 @@ def build(
     if rebuild:
         clean_command = [
             "rm *.plan",
-            "rm so/plugins.so",
+            "rm so/plugins/libPlugins.so",
             "rm -rf build",
             "mkdir build",
         ]
@@ -136,7 +136,7 @@ def test(trtexec: str = "trtexec", working_path: str = "."):
             f"--minShapes={create_input_shapes(min_shapes)}",
             f"--optShapes={create_input_shapes(opt_shapes)}",
             f"--maxShapes={create_input_shapes(max_shapes)}",
-            f"--plugins=./so/plugins.so",  # TODO:more plugins so
+            f"--plugins=./so/plugins/libPlugins.so",  # TODO:more plugins so
             # f"--plugins=./so/plugins/libMaskedSoftmaxPlugin.so",  # TODO:more plugins so
         ]
     )
