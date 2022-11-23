@@ -9,6 +9,7 @@ def get_args():
     parser = argparse.ArgumentParser('Export ERNIE TensorRT', add_help=False)
     parser.add_argument('--src', required=True, type=str, help='Path of onnx file to load')
     parser.add_argument('--dst', required=True, type=str, help='Path of onnx file to save')
+    parser.add_argument('--dymshape', action='store_true', default=False, help='modify dim2 dynamic shape')
     parser.add_argument('--onnxsim', action='store_true', default=False, help='pre simplify onnx by onnxsim library')
     parser.add_argument('--ln', action='store_true', default=False, help='Replace ops with LayernormPlugin or not')
     parser.add_argument('--aln', action='store_true', default=False, help='Replace ops with LayernormPlugin or not')
@@ -27,7 +28,7 @@ ENABLE_FUSING_ADDRELU = args.addrelu
 ENABLE_POSTEMBEDDING_PLUGIN = args.postemb
 DEBUG = args.debug
 SIM=args.onnxsim
-
+DYNAMIC=args.dymshape
 def replace_with_layernorm(nodes_dict, mean_node):
     node_id = int(mean_node.name.split(".")[-1])
     if not (('p2o.Sub.{}'.format(node_id//2) in nodes_dict)
@@ -178,8 +179,12 @@ print("Load onnx model from {}".format(src_onnx_path))
 graph = gs.import_onnx(onnx.load(src_onnx_path))
 print("Nodes:{}".format(len(graph.nodes)))
 graph.fold_constants().cleanup()
-nodes = graph.nodes
 
+if DYNAMIC:
+    for i in range(4):
+        graph.inputs[i].shape=[-1,-1,1]
+        
+nodes = graph.nodes
 nodes_dict = {}
 for node in nodes:
     name = node.name
