@@ -17,6 +17,10 @@
 #endif
 #include "cookbookHelper.hpp"
 
+
+#define DYMSHAPE
+#define POSTEMB
+
 static Logger gLogger(ILogger::Severity::kERROR);
 static const int MAX_SEQ = 128;
 
@@ -82,7 +86,25 @@ struct sample
   std::vector<int> shape_info_3;
   std::vector<float> i3;
   std::vector<int> shape_info_4;
+#ifdef POSTEMB
   std::vector<float> i4;
+#elif
+  std::vector<int> i4;
+#endif
+  std::vector<int> shape_info_5;
+  std::vector<int> i5;
+  std::vector<int> shape_info_6;
+  std::vector<int> i6;
+  std::vector<int> shape_info_7;
+  std::vector<int> i7;
+  std::vector<int> shape_info_8;
+  std::vector<int> i8;
+  std::vector<int> shape_info_9;
+  std::vector<int> i9;
+  std::vector<int> shape_info_10;
+  std::vector<int> i10;
+  std::vector<int> shape_info_11;
+  std::vector<int> i11;
   std::vector<float> out_data;
   uint64_t timestamp;
 };
@@ -158,11 +180,14 @@ void field2vec(const std::string &input_str,
     }
     if (padding)
     {
+#ifdef DYMSHAPE
         if((*shape_info)[1]<32)
         {
             (*shape_info)[1]=32;
         }
-        // (*shape_info)[1] = MAX_SEQ;
+#elif
+      (*shape_info)[1] = MAX_SEQ;
+#endif
     }
 
 }
