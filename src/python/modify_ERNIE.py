@@ -183,7 +183,8 @@ graph.fold_constants().cleanup()
 if DYNAMIC:
     for i in range(4):
         graph.inputs[i].shape=[-1,-1,1]
-        
+    dst_onnx_path =  dst_onnx_path.replace(".onnx", "_dymshape.onnx")    
+    
 nodes = graph.nodes
 nodes_dict = {}
 for node in nodes:

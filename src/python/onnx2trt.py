@@ -32,7 +32,9 @@ else:
 
 if args.fp16:
     trtFile = trtFile.replace('.plan','_fp16.plan')
-
+    
+if args.dymshape:
+    onnxFile = onnxFile.replace(".onnx", "_dymshape.onnx")
 if args.ln:
     onnxFile = onnxFile.replace(".onnx", "_ln.onnx")
 if args.postemb:
@@ -117,7 +119,7 @@ else:
     if args.dymshape:
         min_dim2=32
         opt_dim2=96
-        
+        print("Use dynamic shape with dim2")
     inputTensor = network.get_input(0)  # tmp_0
     print("inputTensor.name:{}".format(inputTensor.name))
     profile.set_shape(inputTensor.name, (1, min_dim2, 1), (4, opt_dim2, 1), (10, max_dim2, 1))             
@@ -134,7 +136,7 @@ else:
     print("inputTensor.name:{}".format(inputTensor.name))
     profile.set_shape(inputTensor.name, (1, min_dim2, 1), (4, opt_dim2, 1), (10, max_dim2, 1))        
     
-    if args.args.postemb:
+    if args.postemb:
         inputTensor = network.get_input(4)  # tmp_6
         print("inputTensor.name:{}".format(inputTensor.name))
         profile.set_shape(inputTensor.name, (1, 8), (4,8), (10, 8))     
@@ -170,7 +172,8 @@ else:
         inputTensor = network.get_input(11)  # tmp_13
         print("inputTensor.name:{}".format(inputTensor.name))
         profile.set_shape(inputTensor.name, (1, 1, 1), (4, 1, 1), (10, 1, 1))   
-        config.add_optimization_profile(profile)
+    
+    config.add_optimization_profile(profile)
 
     t0 = time()
     engineString = builder.build_serialized_network(network, config)     
