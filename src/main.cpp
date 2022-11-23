@@ -88,9 +88,8 @@ struct sample
   std::vector<int> shape_info_4;
 #ifdef POSTEMB
   std::vector<float> i4;
-#elif
+#else
   std::vector<int> i4;
-#endif
   std::vector<int> shape_info_5;
   std::vector<int> i5;
   std::vector<int> shape_info_6;
@@ -105,6 +104,7 @@ struct sample
   std::vector<int> i10;
   std::vector<int> shape_info_11;
   std::vector<int> i11;
+#endif
   std::vector<float> out_data;
   uint64_t timestamp;
 };
@@ -185,8 +185,8 @@ void field2vec(const std::string &input_str,
         {
             (*shape_info)[1]=32;
         }
-#elif
-      (*shape_info)[1] = MAX_SEQ;
+#else
+       (*shape_info)[1] = MAX_SEQ;
 #endif
     }
 
