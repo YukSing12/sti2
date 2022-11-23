@@ -12,7 +12,7 @@ make install
 cd $ROOT_DIR
 # Modify TensorRT Engine
 # python src/python/modify_ERNIE.py --src model/model.onnx --dst model/modified_model.onnx --ln --postemb
-python src/python/modify_ERNIE.py --src model/model_dymshape.onnx --dst model/modified_model.onnx --ln --postemb
+python src/python/modify_ERNIE.py --src model/model.onnx --dst model/modified_model.onnx  -- dymshape --ln --postemb
 
 # # Build TensorRT Engine
 # # cd $ROOT_DIR
