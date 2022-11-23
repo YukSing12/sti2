@@ -23,7 +23,7 @@ import onnx
 import onnx_graphsurgeon as gs
 import numpy as np
 
-soFilePath      = './AddLayerNormPlugin.so'
+soFilePath      = './so/plugins/libPlugins.so'
 nBS             = 7
 # nH              = 50
 nW              = 128
@@ -68,8 +68,8 @@ def getLayerNormOnnx():
     gamma = gs.Constant(name="gamma", values=globalGamma)
     beta = gs.Constant(name="beta", values=globalBeta)
     y = gs.Variable(name="y", dtype=npDataType, shape=shape)
-    layernorm = gs.Node(op="LayerNorm", 
-                        name="LayerNorm_1", 
+    layernorm = gs.Node(op="AddLayerNorm", 
+                        name="AddLayerNorm_1", 
                         inputs=[x1, x2, x3, gamma, beta], 
                         outputs=[y], 
                         attrs={"epsilon":epsilon})
@@ -160,6 +160,5 @@ def run():
         cudart.cudaFree(b)
 
 if __name__ == '__main__':
-    os.system("rm -f ./*.trt")
     np.set_printoptions(precision = 4, linewidth = 200, suppress = True)
     run()

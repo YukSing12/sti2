@@ -22,7 +22,7 @@ import tensorrt as trt
 import onnx
 import onnx_graphsurgeon as gs
 
-soFilePath      = './so/plugins/libAddReluPlugin.so'
+soFilePath      = './so/plugins/libPlugins.so'
 nBS             = 4
 nSL             = 128
 nEmbedding      = 3072
@@ -119,14 +119,11 @@ def run():
     print("check result:")
     temp1 = bufferH[-1]
     temp2 = addReluCPU(bufferH[:1])
-    print(temp1)
-    print(temp2)
     print(check(temp1,temp2,True), "max diff=%f"%(np.max(np.abs(temp1 - temp2))) )
     
     for b in bufferD:
         cudart.cudaFree(b)
 
 if __name__ == '__main__':
-    os.system("rm -f ./*.trt")
     np.set_printoptions(precision = 4, linewidth = 200, suppress = True)
     run()

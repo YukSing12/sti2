@@ -22,7 +22,7 @@ import tensorrt as trt
 import onnx
 import onnx_graphsurgeon as gs
 
-soFilePath = "./so/libPlugins.so"
+soFilePath      = './so/plugins/libPlugins.so'
 nBS = 1
 nHead = 8
 nSL = 2500
@@ -168,8 +168,6 @@ def run():
     print("check result:")
     temp1 = bufferH[-1]
     temp2 = masked_maskesoftmaxCPU(bufferH[:1])
-    print(temp1.dtype)
-    print(temp2.dtype)
     print(check(temp1, temp2, True), "max diff=%f" % (np.max(np.abs(temp1 - temp2))))
 
     for b in bufferD:
@@ -177,6 +175,5 @@ def run():
 
 
 if __name__ == "__main__":
-    os.system("rm -f ./*.trt")
     np.set_printoptions(precision=4, linewidth=200, suppress=True)
     run()

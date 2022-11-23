@@ -23,7 +23,7 @@ import onnx
 import onnx_graphsurgeon as gs
 import numpy as np
 
-soFilePath      = './so/plugins/libPostEmbeddingPlugin.so'
+soFilePath      = './so/plugins/libPlugins.so'
 nBS             = 4
 nEmbedding      = 20
 epsilon         = 1e-5
@@ -103,7 +103,7 @@ def getPostEmbeddingOnnx():
     return onnx_file
 
 def run():
-    logger = trt.Logger(trt.Logger.VERBOSE)
+    logger = trt.Logger(trt.Logger.ERROR)
     trt.init_libnvinfer_plugins(logger, '')
     ctypes.cdll.LoadLibrary(soFilePath)
 
