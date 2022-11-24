@@ -8,7 +8,6 @@ std::vector<PluginField> EmbLayerNormPluginCreator::attr_;
 template <typename T, typename R, int TPB, int VPT>
 __device__ void ln_vec(const int ld, kvp<R> threadData,  const float* gamma, const float* beta, T* output){
 
-    // const int idx = ld * blockIdx.x + threadIdx.x * VPT;
     const int idx = ld * blockIdx.x;
 
     using BlockReduce = cub::BlockReduce<kvp<R>, TPB>;
@@ -71,7 +70,6 @@ __global__ void embedding(const int ld,  const T* tokEmb, const T* wordEmb, cons
     if (wordId >= 0 && wordId < 50000 && tokenId >= 0 && tokenId < 4 && posId >= 0 && posId < 513)
     {
         for (int it = threadIdx.x; it < ld; it += TPB )
-        // for (int it = 0; it < VPT; it ++)
         {
             T val =  wordEmb[woffset + it] + tokEmb[toffset + it]  + posEmb[poffset + it];
             output[outOffset + it] = val;
@@ -87,8 +85,6 @@ int32_t EmbLayerNormPlugin::enqueue(const PluginTensorDesc *inputDesc, const Plu
 {
     WHERE_AM_I();
     int nBlock = 128;
-    // for(int i = 0; i < inputDesc[0].dims.nbDims - 1; ++i)
-    //     nBlock *= inputDesc[0].dims.d[i]; 
     if (inputDesc[0].type == DataType::kFLOAT)
     {
 
