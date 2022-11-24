@@ -135,7 +135,7 @@ fuser.fuse()
 if ENABLE_POSTEMBEDDING_PLUGIN:
     graph.inputs=graph.inputs[:5]
     graph.inputs[4].shape=(-1,8)
-    graph.inputs[4].dtype=np.float32
+    graph.inputs[4].dtype=np.int32
     graph.inputs[4].name="read_file_0.tmp_6-13"
     
 if DEBUG:

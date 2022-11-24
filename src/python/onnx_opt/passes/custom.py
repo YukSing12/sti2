@@ -124,7 +124,7 @@ class PostEmbeddingPass(CustomPass):
         )
         output = reshape_node.outputs[0]
         graph_inputs[0].shape=(-1,8)
-        graph_inputs[0].dtype=np.float32
+        graph_inputs[0].dtype=np.int32
         posemb = gs.Node(
             op="PostEmbedding",
             name="PostEmbedding",

@@ -27,8 +27,8 @@ soFilePath      = './so/plugins/libPlugins.so'
 nBS             = 4
 nEmbedding      = 20
 epsilon         = 1e-5
-npDataType      = np.float32
-np.random.seed(97)
+npDataType      = np.float16
+# np.random.seed(97)
 global_emb_0     = npDataType(np.random.randn(11, nEmbedding))
 global_emb_1     = npDataType(np.random.randn(13, nEmbedding))
 global_emb_2     = npDataType(np.random.randn(11, nEmbedding))
@@ -65,7 +65,7 @@ def getPostEmbeddingOnnx():
     onnx_file = "temp.onnx"
     shape = ('B', 8)
     
-    x= gs.Variable(name="x", dtype=np.float32, shape=shape)
+    x= gs.Variable(name="x", dtype=np.int32, shape=shape)
     emb_0 = gs.Constant(name="emb_0", values=global_emb_0)
     emb_1 = gs.Constant(name="emb_1", values=global_emb_1)
     emb_2 = gs.Constant(name="emb_2", values=global_emb_2)
@@ -130,7 +130,7 @@ def run():
         print("input ->" if engine.binding_is_input(i) else "output->",engine.get_binding_dtype(i),engine.get_binding_shape(i),context.get_binding_shape(i))
 
     bufferH = []
-    input_tensor=np.array(np.random.randint(0, 10, [nBS, 8]), dtype=np.float32)
+    input_tensor=np.array(np.random.randint(0, 10, [nBS, 8]), dtype=np.int32)
 
     bufferH.append(input_tensor)
     bufferH.append(np.empty(context.get_binding_shape(1),dtype=trt.nptype(engine.get_binding_dtype(1))))

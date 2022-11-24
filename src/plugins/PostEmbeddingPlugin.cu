@@ -6,7 +6,7 @@ PluginFieldCollection    PostEmbeddingPluginCreator::fc_ {};
 std::vector<PluginField> PostEmbeddingPluginCreator::attr_;
 
 template<typename T, int TPB, int VPT, int LEN>
-__global__ void post_embedding(const T* x, const T* emb_0, const T* emb_1, const T* emb_2, const T* emb_3, const T* emb_4, const T* emb_5, const T* emb_6, const T* emb_7, T* output)
+__global__ void post_embedding(const int* x, const T* emb_0, const T* emb_1, const T* emb_2, const T* emb_3, const T* emb_4, const T* emb_5, const T* emb_6, const T* emb_7, T* output)
 {
     // shared memory
     __shared__ int local_x_0;
@@ -19,14 +19,14 @@ __global__ void post_embedding(const T* x, const T* emb_0, const T* emb_1, const
     __shared__ int local_x_7;
     if(threadIdx.x == 0)
     {
-        local_x_0 = (int)(x[0+blockIdx.x*8])* LEN;
-        local_x_1 = (int)(x[1+blockIdx.x*8])* LEN;
-        local_x_2 = (int)(x[2+blockIdx.x*8])* LEN;
-        local_x_3 = (int)(x[3+blockIdx.x*8])* LEN;
-        local_x_4 = (int)(x[4+blockIdx.x*8])* LEN;
-        local_x_5 = (int)(x[5+blockIdx.x*8])* LEN;
-        local_x_6 = (int)(x[6+blockIdx.x*8])* LEN;
-        local_x_7 = (int)(x[7+blockIdx.x*8])* LEN;
+        local_x_0 = x[0+blockIdx.x*8]* LEN;
+        local_x_1 = x[1+blockIdx.x*8]* LEN;
+        local_x_2 = x[2+blockIdx.x*8]* LEN;
+        local_x_3 = x[3+blockIdx.x*8]* LEN;
+        local_x_4 = x[4+blockIdx.x*8]* LEN;
+        local_x_5 = x[5+blockIdx.x*8]* LEN;
+        local_x_6 = x[6+blockIdx.x*8]* LEN;
+        local_x_7 = x[7+blockIdx.x*8]* LEN;
         
     }
     __syncthreads();
@@ -49,26 +49,27 @@ int32_t PostEmbeddingPlugin::enqueue(const PluginTensorDesc *inputDesc, const Pl
 {
     WHERE_AM_I();
     int nBlock = inputDesc[0].dims.d[0];    // batch
-    if (inputDesc[0].type == DataType::kFLOAT)
+    // if (inputDesc[0].type == DataType::kFLOAT)
+    // {
+    //     constexpr int VPT = 1;
+    //     constexpr int TPB = 32;
+    //     post_embedding<float, TPB, VPT, 20><<<nBlock, TPB, 0, stream>>>((int *)inputs[0],
+    //                                                                 (float *)inputs[1],
+    //                                                                 (float *)inputs[2],
+    //                                                                 (float *)inputs[3],
+    //                                                                 (float *)inputs[4],
+    //                                                                 (float *)inputs[5],
+    //                                                                 (float *)inputs[6],
+    //                                                                 (float *)inputs[7],
+    //                                                                 (float *)inputs[8],
+    //                                                                 (float *)outputs[0]);
+    // }
+    // else 
+    if (inputDesc[1].type == DataType::kHALF)
     {
         constexpr int VPT = 1;
         constexpr int TPB = 32;
-        post_embedding<float, TPB, VPT, 20><<<nBlock, TPB, 0, stream>>>((float *)inputs[0],
-                                                                    (float *)inputs[1],
-                                                                    (float *)inputs[2],
-                                                                    (float *)inputs[3],
-                                                                    (float *)inputs[4],
-                                                                    (float *)inputs[5],
-                                                                    (float *)inputs[6],
-                                                                    (float *)inputs[7],
-                                                                    (float *)inputs[8],
-                                                                    (float *)outputs[0]);
-    }
-    else if (inputDesc[0].type == DataType::kHALF)
-    {
-        constexpr int VPT = 1;
-        constexpr int TPB = 32;
-        post_embedding<half, TPB, VPT, 20><<<nBlock, TPB, 0, stream>>>((half *)inputs[0],
+        post_embedding<half, TPB, VPT, 20><<<nBlock, TPB, 0, stream>>>((int *)inputs[0],
                                                                     (half *)inputs[1],
                                                                     (half *)inputs[2],
                                                                     (half *)inputs[3],

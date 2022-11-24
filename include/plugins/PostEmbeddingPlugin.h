@@ -98,34 +98,34 @@ public:
         switch (pos)
         {
         case 0: // x_0
-            res = (inOut[pos].type == DataType::kFLOAT) || (inOut[pos].type == DataType::kHALF);
+            res = inOut[pos].type == DataType::kINT32;
             break;
         case 1: // emb_0
-            res = (inOut[pos].type == DataType::kFLOAT) || (inOut[pos].type == DataType::kHALF);
+            res = inOut[pos].type == DataType::kHALF;
             break;
         case 2: // emb_1
-            res = (inOut[pos].type == DataType::kFLOAT) || (inOut[pos].type == DataType::kHALF);
+            res = inOut[pos].type == DataType::kHALF;
             break;
         case 3: // emb_2
-            res = (inOut[pos].type == DataType::kFLOAT) || (inOut[pos].type == DataType::kHALF);
+            res = inOut[pos].type == DataType::kHALF;
             break;
         case 4: // emb_3
-            res = (inOut[pos].type == DataType::kFLOAT) || (inOut[pos].type == DataType::kHALF);
+            res = inOut[pos].type == DataType::kHALF;
             break;
         case 5: // emb_4
-            res = (inOut[pos].type == DataType::kFLOAT) || (inOut[pos].type == DataType::kHALF);
+            res = inOut[pos].type == DataType::kHALF;
             break;
         case 6: // emb_5
-            res = (inOut[pos].type == DataType::kFLOAT) || (inOut[pos].type == DataType::kHALF);
+            res = inOut[pos].type == DataType::kHALF;
             break;
         case 7: // emb_6
-            res = (inOut[pos].type == DataType::kFLOAT) || (inOut[pos].type == DataType::kHALF);
+            res = inOut[pos].type == DataType::kHALF;
             break;
         case 8: // emb_7
-            res = (inOut[pos].type == DataType::kFLOAT) || (inOut[pos].type == DataType::kHALF);
+            res = inOut[pos].type == DataType::kHALF;
             break;
         case 9: // y
-            res = inOut[pos].type == inOut[0].type;
+            res = inOut[pos].type == inOut[1].type;
             break;
         default: // should NOT be here
             break;
@@ -136,7 +136,7 @@ public:
     DataType getOutputDataType(int outputIndex, const DataType *inputTypes, int nbInputs) const noexcept override
     {
         WHERE_AM_I();
-        return inputTypes[0];
+        return inputTypes[1];
     }
 
     void configurePlugin(const DynamicPluginTensorDesc *in, int32_t nbInputs, const DynamicPluginTensorDesc *out, int32_t nbOutputs) noexcept override
