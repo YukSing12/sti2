@@ -212,6 +212,7 @@ void line2sample(const std::string &line, sample *sout)
   field2vec(fields[3], true, &(sout->shape_info_1), &(sout->i1));
   field2vec(fields[4], true, &(sout->shape_info_2), &(sout->i2));
   field2vec(fields[5], true, &(sout->shape_info_3), nullptr, &(sout->i3));
+#ifdef POSTEMB
   field2vec(fields[6], false, &shape_info[0], &f_vec[0]);
   field2vec(fields[7], false, &shape_info[1], &f_vec[1]);
   field2vec(fields[8], false, &shape_info[2], &f_vec[2]);
@@ -230,6 +231,16 @@ void line2sample(const std::string &line, sample *sout)
   (sout->shape_info_4).resize(2);
   (sout->shape_info_4)[0]=shape_info[0][0];
   (sout->shape_info_4)[1]=8;
+#else
+    field2vec(fields[6], false, &(sout->shape_info_4), &(sout->i4));
+    field2vec(fields[7], false, &(sout->shape_info_5), &(sout->i5));
+    field2vec(fields[8], false, &(sout->shape_info_6), &(sout->i6));
+    field2vec(fields[9], false, &(sout->shape_info_7), &(sout->i7));
+    field2vec(fields[10], false, &(sout->shape_info_8), &(sout->i8));
+    field2vec(fields[11], false, &(sout->shape_info_9), &(sout->i9));
+    field2vec(fields[12], false, &(sout->shape_info_10), &(sout->i10));
+    field2vec(fields[13], false, &(sout->shape_info_11), &(sout->i11));
+#endif
   return;
 }
 
@@ -280,7 +291,18 @@ void run(ICudaEngine *engine, IExecutionContext *context, cudaStream_t stream, s
     context->setBindingDimensions(1, Dims32{3, {s.shape_info_1[0], s.shape_info_1[1], s.shape_info_1[2]}});
     context->setBindingDimensions(2, Dims32{3, {s.shape_info_2[0], s.shape_info_2[1], s.shape_info_2[2]}});
     context->setBindingDimensions(3, Dims32{3, {s.shape_info_3[0], s.shape_info_3[1], s.shape_info_3[2]}});
+#ifdef POSTEMB
     context->setBindingDimensions(4, Dims32{2, {s.shape_info_4[0], 8}});
+#else
+    context->setBindingDimensions(4, Dims32{3, {s.shape_info_4[0], s.shape_info_4[1], s.shape_info_4[2]}});
+    context->setBindingDimensions(5, Dims32{3, {s.shape_info_5[0], s.shape_info_5[1], s.shape_info_5[2]}});
+    context->setBindingDimensions(6, Dims32{3, {s.shape_info_6[0], s.shape_info_6[1], s.shape_info_6[2]}});
+    context->setBindingDimensions(7, Dims32{3, {s.shape_info_7[0], s.shape_info_7[1], s.shape_info_7[2]}});
+    context->setBindingDimensions(8, Dims32{3, {s.shape_info_8[0], s.shape_info_8[1], s.shape_info_8[2]}});
+    context->setBindingDimensions(9, Dims32{3, {s.shape_info_9[0], s.shape_info_9[1], s.shape_info_9[2]}});
+    context->setBindingDimensions(10, Dims32{3, {s.shape_info_10[0], s.shape_info_10[1], s.shape_info_10[2]}});
+    context->setBindingDimensions(11, Dims32{3, {s.shape_info_11[0], s.shape_info_11[1], s.shape_info_11[2]}});
+#endif
 
   std::vector<int> vBindingSize(nBinding, 0);
   int size = 1;
@@ -301,12 +323,28 @@ void run(ICudaEngine *engine, IExecutionContext *context, cudaStream_t stream, s
     CHECK(cudaMemcpyAsync(vBufferD[2], s.i2.data(), vBindingSize[2], cudaMemcpyHostToDevice, stream));
     CHECK(cudaMemcpyAsync(vBufferD[3], s.i3.data(), vBindingSize[3], cudaMemcpyHostToDevice, stream));
     CHECK(cudaMemcpyAsync(vBufferD[4], s.i4.data(), vBindingSize[4], cudaMemcpyHostToDevice, stream));
+#ifdef POSTEMB
+
+#else
+    CHECK(cudaMemcpyAsync(vBufferD[5], s.i5.data(), vBindingSize[5], cudaMemcpyHostToDevice, stream));
+    CHECK(cudaMemcpyAsync(vBufferD[6], s.i6.data(), vBindingSize[6], cudaMemcpyHostToDevice, stream));
+    CHECK(cudaMemcpyAsync(vBufferD[7], s.i7.data(), vBindingSize[7], cudaMemcpyHostToDevice, stream));
+    CHECK(cudaMemcpyAsync(vBufferD[8], s.i8.data(), vBindingSize[8], cudaMemcpyHostToDevice, stream));
+    CHECK(cudaMemcpyAsync(vBufferD[9], s.i9.data(), vBindingSize[9], cudaMemcpyHostToDevice, stream));
+    CHECK(cudaMemcpyAsync(vBufferD[10], s.i10.data(), vBindingSize[10], cudaMemcpyHostToDevice, stream));
+    CHECK(cudaMemcpyAsync(vBufferD[11], s.i11.data(), vBindingSize[11], cudaMemcpyHostToDevice, stream));
+#endif
+
     // Inference
     context->enqueueV2(vBufferD.data(), stream, nullptr);
 
     // Get output from device to host
     s.out_data.resize(size);
+#ifdef POSTEMB
     CHECK(cudaMemcpyAsync(s.out_data.data(), vBufferD[5], vBindingSize[5],cudaMemcpyDeviceToHost, stream));
+#else
+    CHECK(cudaMemcpyAsync(s.out_data.data(), vBufferD[12], vBindingSize[12],cudaMemcpyDeviceToHost, stream));
+#endif
 
   struct timeval tv;
   gettimeofday(&tv, NULL);
@@ -354,6 +392,8 @@ int main(int argc, char *argv[])
     vBufferH[i] = (void *)new char[10 * 128 * 1 * sizeof(float)];
     CHECK(cudaMalloc(&vBufferD[i], 10 * 128 * 1 * sizeof(float)));
   }
+  
+#ifdef POSTEMB
   // tmp_6 ~ tmp_13
   vBufferH[4] = (void *)new char[10 * 8  * sizeof(float)];
   CHECK(cudaMalloc(&vBufferD[4], 10 * 8  * sizeof(float)));
@@ -361,7 +401,19 @@ int main(int argc, char *argv[])
   // output
   vBufferH[5] = (void *)new char[10 * 1 * 1 * sizeof(float)];
   CHECK(cudaMalloc(&vBufferD[5], 10 * 1 * 1 * sizeof(float)));
-
+#else
+  for (size_t i = 4; i < 12; i++)
+  {
+      vBufferH[i] = (void *)new char[10 * 1 * 1 * sizeof(float)];
+      CHECK(cudaMalloc(&vBufferD[i], 10 * 1 * 1 * sizeof(float)));
+  }
+  // output
+  for (size_t i = 12; i < 13; i++)
+  {
+      vBufferH[i] = (void *)new char[10 * 1 * 1 * sizeof(float)];
+      CHECK(cudaMalloc(&vBufferD[i], 10 * 1 * 1 * sizeof(float)));
+  }
+#endif
   // preprocess
   std::string aline;
   std::ifstream ifs;
