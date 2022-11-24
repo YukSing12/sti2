@@ -153,3 +153,52 @@ class PostEmbeddingPass(CustomPass):
 
         reshape_node.outputs.clear()
         return [posemb]
+
+
+class EmbLayerNormPass(Pass):
+    def replace(self, node, count):
+        if node.op == "ReduceMean":    
+            node_id = int(node.name.split(".")[-1])
+            if not (('p2o.Sub.{}'.format(node_id//2) in _deprecated_nodes_dict)  
+            and ('p2o.Pow.{}'.format(node_id//2) in _deprecated_nodes_dict) 
+            and ('p2o.Div.{}'.format(node_id//2) in _deprecated_nodes_dict)  
+            and ('p2o.Sqrt.{}'.format(node_id//2) in _deprecated_nodes_dict)):
+                return None
+
+            
+            add1_node = node.inputs[0].inputs[0]
+
+            if add1_node.inputs[1].inputs[0].op != "Gather":
+                return LayernormPass.replace(_deprecated_nodes_dict, node, count)
+            gather2_node = add1_node.inputs[1].inputs[0]
+            add2_node = add1_node.inputs[0].inputs[0]
+            gather0_node = add2_node.inputs[0].inputs[0]
+            gather1_node = add2_node.inputs[1].inputs[0]
+            squeeze2_node = gather2_node.inputs[1].inputs[0]
+            squeeze0_node = gather0_node.inputs[1].inputs[0]
+            squeeze1_node = gather1_node.inputs[1].inputs[0]
+
+            div_node = _deprecated_nodes_dict['p2o.Div.{}'.format(node_id//2)]
+            mul_node = div_node.outputs[0].outputs[0]
+            add3_node = mul_node.outputs[0].outputs[0]
+
+            gamma = mul_node.inputs[1]
+            beta = add3_node.inputs[1]
+
+            
+            name = 'EmbLayerNorm.{}'.format(node_id)
+            emblayernorm = gs.Node(op="EmbLayerNorm", 
+                                name=name, 
+                                inputs=[gather2_node.inputs[0],gather0_node.inputs[0],gather1_node.inputs[0],
+                                squeeze2_node.inputs[0],squeeze0_node.inputs[0],squeeze1_node.inputs[0],
+                                gamma,beta], 
+                                outputs=[add3_node.outputs[0]], 
+                                attrs={"epsilon": 1e-5})
+            gather0_node.inputs.clear()
+            gather1_node.inputs.clear()
+            gather2_node.inputs.clear()
+            squeeze0_node.inputs.clear()
+            squeeze1_node.inputs.clear()
+            squeeze2_node.inputs.clear()
+            add3_node.outputs.clear()
+            return emblayernorm

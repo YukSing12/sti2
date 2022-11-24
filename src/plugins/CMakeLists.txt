@@ -1,4 +1,4 @@
-set(plugin_files AddReluPlugin.cu LayerNormPlugin.cu MaskedSoftmaxPlugin.cu PostEmbeddingPlugin.cu)
+set(plugin_files AddReluPlugin.cu LayerNormPlugin.cu EmbLayerNormPlugin.cu MaskedSoftmaxPlugin.cu PostEmbeddingPlugin.cu)
 
 set(LIB_NAME "Plugins")
 add_library(${LIB_NAME} SHARED ${plugin_files})

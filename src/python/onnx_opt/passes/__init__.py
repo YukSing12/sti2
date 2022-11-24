@@ -7,6 +7,7 @@ from .base import Pass, CustomPass, TowOpPass
 from .custom import (
     PostEmbeddingPass,
     LayernormPass,
+    EmbLayerNormPass,
     MaskedSoftmaxPass,
     AddOpPass,
     SliceReshapePass,
