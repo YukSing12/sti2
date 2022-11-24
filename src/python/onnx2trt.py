@@ -78,7 +78,7 @@ else:
     network = builder.create_network(1 << int(trt.NetworkDefinitionCreationFlag.EXPLICIT_BATCH))
     profile = builder.create_optimization_profile()
     config = builder.create_builder_config()
-    trt.IBuilderConfig.set_preview_feature(config,trt.PreviewFeature.FASTER_DYNAMIC_SHAPES_0805,enable=True)   
+    # trt.IBuilderConfig.set_preview_feature(config,trt.PreviewFeature.FASTER_DYNAMIC_SHAPES_0805,enable=True)   
     config.max_workspace_size = 24 << 30               
     if useTimeCache:
         cache = config.create_timing_cache(timeCache)
