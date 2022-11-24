@@ -3,12 +3,9 @@
 # @Time : 2022/11/21 18:17
 # @Author : Rongrui Zhan
 # @desc : 本代码未经授权禁止商用
-import re
 
-import onnx
 import onnx_graphsurgeon as gs
-from typing import Optional, List, Tuple
-from rich import print
+import numpy as np
 from .base import Pass, CustomPass, TowOpPass
 
 
@@ -95,9 +92,6 @@ class SliceReshapePass(TowOpPass):
 class PostEmbeddingPass(CustomPass):
     def replace(self, graph: gs.Graph):
         graph_inputs = graph.inputs[4:]
-        for i in range(8):
-            graph_inputs[i].outputs[0].attrs["to"] = onnx.TensorProto.FLOAT
-
         squeeze_0 = graph_inputs[0].outputs[0].outputs[0].outputs[0]
         squeeze_1 = graph_inputs[1].outputs[0].outputs[0].outputs[0]
         squeeze_2 = graph_inputs[2].outputs[0].outputs[0].outputs[0]
@@ -129,18 +123,13 @@ class PostEmbeddingPass(CustomPass):
             .outputs[0]
         )
         output = reshape_node.outputs[0]
+        graph_inputs[0].shape=(-1,8)
+        graph_inputs[0].dtype=np.float32
         posemb = gs.Node(
             op="PostEmbedding",
             name="PostEmbedding",
             inputs=[
-                squeeze_0.inputs[0],
-                squeeze_1.inputs[0],
-                squeeze_2.inputs[0],
-                squeeze_3.inputs[0],
-                squeeze_4.inputs[0],
-                squeeze_5.inputs[0],
-                squeeze_6.inputs[0],
-                squeeze_7.inputs[0],
+                graph_inputs[0],
                 emb_0,
                 emb_1,
                 emb_2,

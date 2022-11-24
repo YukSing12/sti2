@@ -13,8 +13,8 @@ def get_args():
     parser.add_argument('--trt', default='', type=str, help='Path of trt engine to save')
     parser.add_argument('--fp16', action='store_true', default=False, help='Enable FP16 mode or not, default is TF32 if it is supported')
     parser.add_argument('--log_level', default=1, type=int, help='Logger level. (0:VERBOSE, 1:INFO, 2:WARNING, 3:ERROR, 4:INTERNAL_ERROR)')
-
     parser.add_argument('--ln', action='store_true', default=False, help='Replace ops with LayernormPlugin or not')
+    parser.add_argument('--dymshape', action='store_true', default=False, help='Modify dims2 dynamic or not')
     parser.add_argument('--postemb', action='store_true', default=False, help='Replace ops with PostEmbeddingPlugin or not')
     args = parser.parse_args()
     return args
@@ -32,7 +32,9 @@ else:
 
 if args.fp16:
     trtFile = trtFile.replace('.plan','_fp16.plan')
-
+    
+if args.dymshape:
+    onnxFile = onnxFile.replace(".onnx", "_dymshape.onnx")
 if args.ln:
     onnxFile = onnxFile.replace(".onnx", "_ln.onnx")
 if args.postemb:
@@ -111,53 +113,66 @@ else:
                 layer.precision = trt.float32
                 layer.set_output_type(0, trt.float32)
 
+    min_dim2=128
+    opt_dim2=128
+    max_dim2=128
+    if args.dymshape:
+        min_dim2=32
+        opt_dim2=96
+        print("Use dynamic shape with dim2")
     inputTensor = network.get_input(0)  # tmp_0
     print("inputTensor.name:{}".format(inputTensor.name))
-    profile.set_shape(inputTensor.name, (1, 32, 1), (4, 96, 1), (10, 128, 1))             
+    profile.set_shape(inputTensor.name, (1, min_dim2, 1), (4, opt_dim2, 1), (10, max_dim2, 1))             
 
     inputTensor = network.get_input(1)  # tmp_1
     print("inputTensor.name:{}".format(inputTensor.name))
-    profile.set_shape(inputTensor.name, (1, 32, 1), (4, 96, 1), (10, 128, 1))        
+    profile.set_shape(inputTensor.name, (1, min_dim2, 1), (4, opt_dim2, 1), (10, max_dim2, 1))        
 
     inputTensor = network.get_input(2)  # tmp_2
     print("inputTensor.name:{}".format(inputTensor.name))
-    profile.set_shape(inputTensor.name, (1, 32, 1), (4, 96, 1), (10, 128, 1))        
+    profile.set_shape(inputTensor.name, (1, min_dim2, 1), (4, opt_dim2, 1), (10, max_dim2, 1))        
 
     inputTensor = network.get_input(3)  # tmp_3
     print("inputTensor.name:{}".format(inputTensor.name))
-    profile.set_shape(inputTensor.name, (1, 32, 1), (4, 96, 1), (10, 128, 1))        
+    profile.set_shape(inputTensor.name, (1, min_dim2, 1), (4, opt_dim2, 1), (10, max_dim2, 1))        
     
-    inputTensor = network.get_input(4)  # tmp_6
-    print("inputTensor.name:{}".format(inputTensor.name))
-    profile.set_shape(inputTensor.name, (1, 1, 1), (4, 1, 1), (10, 1, 1))     
+    if args.postemb:
+        inputTensor = network.get_input(4)  # tmp_6
+        print("inputTensor.name:{}".format(inputTensor.name))
+        profile.set_shape(inputTensor.name, (1, 8), (4,8), (10, 8))     
+    else:
+        inputTensor = network.get_input(4)  # tmp_6
+        print("inputTensor.name:{}".format(inputTensor.name))
+        profile.set_shape(inputTensor.name, (1, 1, 1), (4, 1, 1), (10, 1, 1))     
 
-    inputTensor = network.get_input(5)  # tmp_7
-    print("inputTensor.name:{}".format(inputTensor.name))
-    profile.set_shape(inputTensor.name, (1, 1, 1), (4, 1, 1), (10, 1, 1))
+        inputTensor = network.get_input(5)  # tmp_7
+        print("inputTensor.name:{}".format(inputTensor.name))
+        profile.set_shape(inputTensor.name, (1, 1, 1), (4, 1, 1), (10, 1, 1))
 
-    inputTensor = network.get_input(6)  # tmp_8
-    print("inputTensor.name:{}".format(inputTensor.name))
-    profile.set_shape(inputTensor.name, (1, 1, 1), (4, 1, 1), (10, 1, 1))
+        inputTensor = network.get_input(6)  # tmp_8
+        print("inputTensor.name:{}".format(inputTensor.name))
+        profile.set_shape(inputTensor.name, (1, 1, 1), (4, 1, 1), (10, 1, 1))
 
-    inputTensor = network.get_input(7)  # tmp_9
-    print("inputTensor.name:{}".format(inputTensor.name))
-    profile.set_shape(inputTensor.name, (1, 1, 1), (4, 1, 1), (10, 1, 1))
+        inputTensor = network.get_input(7)  # tmp_9
+        print("inputTensor.name:{}".format(inputTensor.name))
+        profile.set_shape(inputTensor.name, (1, 1, 1), (4, 1, 1), (10, 1, 1))
 
-    inputTensor = network.get_input(8)  # tmp_10
-    print("inputTensor.name:{}".format(inputTensor.name))
-    profile.set_shape(inputTensor.name, (1, 1, 1), (4, 1, 1), (10, 1, 1))
+        inputTensor = network.get_input(8)  # tmp_10
+        print("inputTensor.name:{}".format(inputTensor.name))
+        profile.set_shape(inputTensor.name, (1, 1, 1), (4, 1, 1), (10, 1, 1))
 
-    inputTensor = network.get_input(9)  # tmp_11
-    print("inputTensor.name:{}".format(inputTensor.name))
-    profile.set_shape(inputTensor.name, (1, 1, 1), (4, 1, 1), (10, 1, 1))
+        inputTensor = network.get_input(9)  # tmp_11
+        print("inputTensor.name:{}".format(inputTensor.name))
+        profile.set_shape(inputTensor.name, (1, 1, 1), (4, 1, 1), (10, 1, 1))
 
-    inputTensor = network.get_input(10)  # tmp_12
-    print("inputTensor.name:{}".format(inputTensor.name))
-    profile.set_shape(inputTensor.name, (1, 1, 1), (4, 1, 1), (10, 1, 1))
+        inputTensor = network.get_input(10)  # tmp_12
+        print("inputTensor.name:{}".format(inputTensor.name))
+        profile.set_shape(inputTensor.name, (1, 1, 1), (4, 1, 1), (10, 1, 1))
 
-    inputTensor = network.get_input(11)  # tmp_13
-    print("inputTensor.name:{}".format(inputTensor.name))
-    profile.set_shape(inputTensor.name, (1, 1, 1), (4, 1, 1), (10, 1, 1))    
+        inputTensor = network.get_input(11)  # tmp_13
+        print("inputTensor.name:{}".format(inputTensor.name))
+        profile.set_shape(inputTensor.name, (1, 1, 1), (4, 1, 1), (10, 1, 1))   
+    
     config.add_optimization_profile(profile)
 
     t0 = time()

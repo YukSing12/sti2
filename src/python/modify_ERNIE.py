@@ -3,7 +3,7 @@ import onnx
 import onnx_graphsurgeon as gs
 import argparse
 import onnxsim
-
+import numpy as np
 
 def get_args():
     parser = argparse.ArgumentParser("Export ERNIE TensorRT", add_help=False)
@@ -12,6 +12,12 @@ def get_args():
     )
     parser.add_argument(
         "--dst", required=True, type=str, help="Path of onnx file to save"
+    )
+    parser.add_argument(
+        '--dymshape', 
+        action='store_true', 
+        default=False, 
+        help='modify dim2 dynamic shape'
     )
     parser.add_argument(
         "--onnxsim",
@@ -64,7 +70,7 @@ ENABLE_FUSING_ADDRELU = args.addrelu
 ENABLE_POSTEMBEDDING_PLUGIN = args.postemb
 DEBUG = args.debug
 SIM = args.onnxsim
-
+DYNAMIC =args.dymshape
 src_onnx_path = args.src
 dst_onnx_path = args.dst
 
@@ -72,8 +78,13 @@ print("Load onnx model from {}".format(src_onnx_path))
 graph = gs.import_onnx(onnx.load(src_onnx_path))
 print("Nodes:{}".format(len(graph.nodes)))
 graph.fold_constants().cleanup()
-nodes = graph.nodes
 
+if DYNAMIC:
+    for i in range(4):
+        graph.inputs[i].shape=[-1,-1,1]
+    dst_onnx_path =  dst_onnx_path.replace(".onnx", "_dymshape.onnx")    
+    
+nodes = graph.nodes
 nodes_dict = {}
 for node in nodes:
     name = node.name
@@ -112,7 +123,6 @@ if ENABLE_POSTEMBEDDING_PLUGIN:
     from onnx_opt.passes import PostEmbeddingPass
 
     passes.append(PostEmbeddingPass())
-
     dst_onnx_path = dst_onnx_path.replace(".onnx", "_postemb.onnx")
 
 from onnx_opt.passes import _deprecated_nodes_dict
@@ -122,7 +132,12 @@ _deprecated_nodes_dict.update(nodes_dict)
 
 fuser = Fuser(graph, passes=passes)
 fuser.fuse()
-
+if ENABLE_POSTEMBEDDING_PLUGIN:
+    graph.inputs=graph.inputs[:5]
+    graph.inputs[4].shape=(-1,8)
+    graph.inputs[4].dtype=np.float32
+    graph.inputs[4].name="read_file_0.tmp_6-13"
+    
 if DEBUG:
     graph.cleanup().toposort()
     dst_onnx_path = "./model/debug.onnx"
