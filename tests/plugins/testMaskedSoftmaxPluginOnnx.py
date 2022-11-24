@@ -22,7 +22,7 @@ import tensorrt as trt
 import onnx
 import onnx_graphsurgeon as gs
 
-soFilePath = './so/plugins/MaskedSoftmaxPlugin.so'
+soFilePath      = './so/plugins/libPlugins.so'
 nBS = 1
 nHead = 8
 nSL = 2500
@@ -30,7 +30,9 @@ nEmbedding = 50
 epsilon = 1e-6
 npDataType = np.float16
 np.random.seed(97)
-globalMask = npDataType(np.round(np.ones([1, nEmbedding]) - np.random.rand(1, nEmbedding)))
+globalMask = npDataType(
+    np.round(np.ones([1, nEmbedding]) - np.random.rand(1, nEmbedding))
+)
 
 
 def check(a, b, weak=False):
@@ -51,16 +53,18 @@ def masked_maskesoftmaxCPU(bufferH):
 
 
 def getMaskedSoftmaxOnnx():
-    onnx_file = "../../../plugins/MaskedSoftmaxPlugin/temp.onnx"
-    shape = ('BH', 'L', nEmbedding)
+    onnx_file = "tests/plugins/model_temp/MaskedSoftmaxPlugin.onnx"
+    shape = ("BH", "L", nEmbedding)
     x = gs.Variable(name="x", dtype=npDataType, shape=shape)
     mask = gs.Constant(name="mask", values=np.int32(globalMask))
     y = gs.Variable(name="y", dtype=npDataType, shape=shape)
-    layernorm = gs.Node(op="MaskedSoftmaxPlugin",
-                        name="MaskedSoftmax_1",
-                        inputs=[x, mask],
-                        outputs=[y],
-                        attrs={"epsilon": epsilon})
+    layernorm = gs.Node(
+        op="MaskedSoftmax",
+        name="MaskedSoftmax_1",
+        inputs=[x, mask],
+        outputs=[y],
+        attrs={"epsilon": epsilon},
+    )
     graph = gs.Graph(nodes=[layernorm], inputs=[x], outputs=[y])
     onnx.save(gs.export_onnx(graph), onnx_file)
     return onnx_file
@@ -68,14 +72,18 @@ def getMaskedSoftmaxOnnx():
 
 def run():
     logger = trt.Logger(trt.Logger.ERROR)
-    trt.init_libnvinfer_plugins(logger, '')
+    trt.init_libnvinfer_plugins(logger, "")
     ctypes.cdll.LoadLibrary(soFilePath)
 
     builder = trt.Builder(logger)
-    network = builder.create_network(1 << int(trt.NetworkDefinitionCreationFlag.EXPLICIT_BATCH))
+    network = builder.create_network(
+        1 << int(trt.NetworkDefinitionCreationFlag.EXPLICIT_BATCH)
+    )
     config = builder.create_builder_config()
     config.max_workspace_size = 6 << 30
-    config.flags = 1 << int(trt.BuilderFlag.FP16) if int(npDataType == np.float16) else 0
+    config.flags = (
+        1 << int(trt.BuilderFlag.FP16) if int(npDataType == np.float16) else 0
+    )
     profile = builder.create_optimization_profile()
 
     parser = trt.OnnxParser(network, logger)
@@ -84,7 +92,7 @@ def run():
         print("Failed finding onnx file!")
         exit()
     print("Succeeded finding onnx file!")
-    with open(onnxFile, 'rb') as model:
+    with open(onnxFile, "rb") as model:
         if not parser.parse(model.read()):
             print("Failed parsing onnx file!")
             for error in range(parser.num_errors):
@@ -94,8 +102,12 @@ def run():
 
     inputTensor = network.get_input(0)  # x
     print("inputTensor.name:{}".format(inputTensor.name))
-    profile.set_shape(inputTensor.name, (nBS * nHead, nSL, nEmbedding), (nBS * nHead, nSL, nEmbedding),
-                      (nBS * nHead * 2, nSL * 2, nEmbedding))
+    profile.set_shape(
+        inputTensor.name,
+        (nBS * nHead, nSL, nEmbedding),
+        (nBS * nHead, nSL, nEmbedding),
+        (nBS * nHead * 2, nSL * 2, nEmbedding),
+    )
     config.add_optimization_profile(profile)
 
     engineString = builder.build_serialized_network(network, config)
@@ -103,32 +115,55 @@ def run():
 
     context = engine.create_execution_context()
     context.set_binding_shape(0, [nBS * nHead, nSL, nEmbedding])
-    print("Binding all? %s" % (["No", "Yes"][int(context.all_binding_shapes_specified)]))
+    print(
+        "Binding all? %s" % (["No", "Yes"][int(context.all_binding_shapes_specified)])
+    )
 
     nInput = np.sum([engine.binding_is_input(i) for i in range(engine.num_bindings)])
     nOutput = engine.num_bindings - nInput
     for i in range(engine.num_bindings):
-        print("input ->" if engine.binding_is_input(i) else "output->", engine.get_binding_dtype(i),
-              engine.get_binding_shape(i), context.get_binding_shape(i))
+        print(
+            "input ->" if engine.binding_is_input(i) else "output->",
+            engine.get_binding_dtype(i),
+            engine.get_binding_shape(i),
+            context.get_binding_shape(i),
+        )
 
     bufferH = []
     bufferH.append(
-        np.random.rand(nBS * nHead, nSL, nEmbedding).astype(npDataType).reshape(nBS * nHead, nSL, nEmbedding) * 2 - 1)
-    bufferH.append(np.empty(context.get_binding_shape(1), dtype=trt.nptype(engine.get_binding_dtype(1))))
+        np.random.rand(nBS * nHead, nSL, nEmbedding)
+        .astype(npDataType)
+        .reshape(nBS * nHead, nSL, nEmbedding)
+        * 2
+        - 1
+    )
+    bufferH.append(
+        np.empty(
+            context.get_binding_shape(1), dtype=trt.nptype(engine.get_binding_dtype(1))
+        )
+    )
 
     bufferD = []
     for i in range(engine.num_bindings):
         bufferD.append(cudart.cudaMalloc(bufferH[i].nbytes)[1])
 
     for i in range(nInput):
-        cudart.cudaMemcpy(bufferD[i], bufferH[i].ctypes.data, bufferH[i].nbytes,
-                          cudart.cudaMemcpyKind.cudaMemcpyHostToDevice)
+        cudart.cudaMemcpy(
+            bufferD[i],
+            bufferH[i].ctypes.data,
+            bufferH[i].nbytes,
+            cudart.cudaMemcpyKind.cudaMemcpyHostToDevice,
+        )
 
     context.execute_v2(bufferD)
 
     for i in range(nInput, nInput + nOutput):
-        cudart.cudaMemcpy(bufferH[i].ctypes.data, bufferD[i], bufferH[i].nbytes,
-                          cudart.cudaMemcpyKind.cudaMemcpyDeviceToHost)
+        cudart.cudaMemcpy(
+            bufferH[i].ctypes.data,
+            bufferD[i],
+            bufferH[i].nbytes,
+            cudart.cudaMemcpyKind.cudaMemcpyDeviceToHost,
+        )
 
     print("check result:")
     temp1 = bufferH[-1]
@@ -139,7 +174,6 @@ def run():
         cudart.cudaFree(b)
 
 
-if __name__ == '__main__':
-    os.system("rm -f ./*.trt")
+if __name__ == "__main__":
     np.set_printoptions(precision=4, linewidth=200, suppress=True)
     run()

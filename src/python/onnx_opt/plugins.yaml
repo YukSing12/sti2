@@ -1,0 +1,6 @@
+- name: MaskedSoftmax
+  short_name: ms
+  type: plugin
+- name: LayerNorm
+  short_name: ln
+  type: undefined

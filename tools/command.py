@@ -10,7 +10,8 @@ import subprocess as sp
 import multiprocessing as mp
 import os
 import rich
-from typing import Iterable, Union, Optional
+from typing import Iterable, Union, Optional, List
+from typer import Option
 
 app = typer.Typer()
 
@@ -24,20 +25,31 @@ def create_input_shapes(shapes: Iterable[Optional[Iterable[Union[int, str]]]]):
     return ",".join(input_shapes)
 
 
-@app.command()
-def build(working_path: str = ".", enable_plugins: bool = True, rebuild: bool = False):
+def enable_working_path(working_path: str):
     sys.path.append(working_path)
     sys.path.append(f"{working_path}/src/python")
+    os.chdir(working_path)
+
+
+@app.command()
+def build(
+    enable_plugins: bool = True,
+    rebuild: bool = False,
+    plugins: List[str] = Option(None, help="Replace ops with these plugins."),
+    working_path: str = ".",
+):
+    enable_working_path(working_path)
     if rebuild:
         clean_command = [
-            f"cd {working_path}",
             "rm *.plan",
+            "rm so/plugins/libPlugins.so",
             "rm -rf build",
             "mkdir build",
         ]
+        rich.print(clean_command)
         sp.run("\n".join(clean_command), shell=True)
 
-    cmake_command = [f"cd {working_path}"]
+    cmake_command = []
     if not os.path.exists("build"):
         cmake_command.append("mkdir build")
     cmake_command.extend(["cd build", "cmake ..", f"make install -j{mp.cpu_count()}"])
@@ -48,39 +60,53 @@ def build(working_path: str = ".", enable_plugins: bool = True, rebuild: bool = 
     # TODO: import module in other method
     # TODO: now use cl because typer Option class cannot directly use in python
 
+    # for plugin in plugins:
+    #     sp.run(
+    #         f"python src/python/modify_ERNIE.py --src model/model.onnx --dst model/modified_model.onnx --{plugin}",
+    #         shell=True,
+    #     )
+
     sp.run(
-        "python src/python/modify_ERNIE.py --src model/model.onnx --dst model/modified_model.onnx --ln",
+        f"python src/python/modify_ERNIE.py --src model/model.onnx --dst model/modified_model.onnx --ln",
         shell=True,
     )
+    sp.run(
+        f"python src/python/modify_ERNIE.py --src model/model.onnx --dst model/modified_model.onnx",
+        shell=True,
+    )
+    from src.python.onnx_opt.fuser import fuse
 
-    # from tools.onnx2trt import onnx2trt
-    # onnx2trt(plugins=["ln"])
-    plugins = ["ln"]
-    onnx2trt_command = [
-        "python tools/onnx2trt.py",
-        *[f"--plugins {plugin}" for plugin in plugins],
-    ]
-    rich.print(onnx2trt_command)
-    sp.run(" ".join(onnx2trt_command), shell=True)
+    fuse()
+
+    from tools.onnx2trt import onnx2trt
+
+    onnx2trt("./model/modified_model.onnx", "./Ernie.plan", False, 1, plugins)
 
 
 @app.command()
-def run(working_path: str = None, perf_mode=0):
+def run(
+    perf_mode=0,
+    working_path: str = ".",
+):
+    enable_working_path(working_path)
+    exec_file = "./bin/main"
+    plan_file = "./Ernie.plan"
     # TODO: auto compilation
     if perf_mode == 1:
         sp.run(
-            "./bin/main ./Ernie.plan ./data/perf.test.txt ./perf.res.txt ./so/plugins/",
+            f"{exec_file} {plan_file} ./data/perf.test.txt ./perf.res.txt ./so",
             shell=True,
         )
     else:
         sp.run(
-            "./bin/main ./Ernie.plan ./data/label.test.txt ./label.res.txt ./so/plugins/",
+            f"{exec_file} {plan_file} ./data/label.test.txt ./label.res.txt ./so",
             shell=True,
         )
 
 
 @app.command()
-def test(working_path: str = None, trtexec: str = "trtexec"):
+def test(trtexec: str = "trtexec", working_path: str = "."):
+    enable_working_path(working_path)
     # TODO: auto compilation
     typer.echo("Evaluate performance of model")
     trtexec_command = [f"{trtexec}"]
@@ -110,22 +136,27 @@ def test(working_path: str = None, trtexec: str = "trtexec"):
             f"--minShapes={create_input_shapes(min_shapes)}",
             f"--optShapes={create_input_shapes(opt_shapes)}",
             f"--maxShapes={create_input_shapes(max_shapes)}",
-            # f"--plugins=./so/plugins/libAddReluPlugin.so",  # TODO:more plugins so
-            f"--plugins=./so/plugins/libLayerNormPlugin.so",  # TODO:more plugins so
+            f"--plugins=./so/plugins/libPlugins.so",  # TODO:more plugins so
             # f"--plugins=./so/plugins/libMaskedSoftmaxPlugin.so",  # TODO:more plugins so
-            # f"--plugins=./so/plugins.so",  # TODO:plugins.so
         ]
     )
-    print(" ".join(trtexec_command))
+    rich.print(trtexec_command)
+    rich.print(" ".join(trtexec_command))
     sp.run(" ".join(trtexec_command), shell=True)
 
     # TODO: use python module
+    run(perf_mode=0)
+    run(perf_mode=1)
+    evaluate_command = [
+        "python src/python/utils/local_evaluate.py ./label.res.txt",
+        "python src/python/utils/local_evaluate.py ./perf.res.txt",
+    ]
     if os.path.exists("bin/main"):
         sp.run(
             "\n".join(
                 [
-                    "./bin/main ./Ernie.plan ./data/label.test.txt ./label.res.txt ./so/plugins",
-                    "./bin/main ./Ernie.plan ./data/perf.test.txt ./perf.res.txt ./so/plugins",
+                    "./bin/main ./Ernie.plan ./data/label.test.txt ./label.res.txt ./so",
+                    "./bin/main ./Ernie.plan ./data/perf.test.txt ./perf.res.txt ./so",
                     "python src/python/utils/local_evaluate.py ./label.res.txt",
                     "python src/python/utils/local_evaluate.py ./perf.res.txt",
                 ]

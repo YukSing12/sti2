@@ -23,7 +23,7 @@ import onnx
 import onnx_graphsurgeon as gs
 import numpy as np
 
-soFilePath      = './so/plugins/libLayerNormPlugin.so'
+soFilePath      = './so/plugins/libPlugins.so'
 nBS             = 1
 nSL             = 128
 nEmbedding      = 768
@@ -70,7 +70,7 @@ def getLayerNormOnnx():
     return onnx_file
 
 def run():
-    logger = trt.Logger(trt.Logger.VERBOSE)
+    logger = trt.Logger(trt.Logger.ERROR)
     trt.init_libnvinfer_plugins(logger, '')
     ctypes.cdll.LoadLibrary(soFilePath)
 
@@ -131,14 +131,11 @@ def run():
     print("check result:")
     temp1 = bufferH[-1]
     temp2 = layerNormCPU(bufferH[:1])
-    print(temp1)
-    print(temp2)
     print(check(temp1,temp2,True), "max diff=%f"%(np.max(np.abs(temp1 - temp2))) )
     
     for b in bufferD:
         cudart.cudaFree(b)
 
 if __name__ == '__main__':
-    os.system("rm -f ./*.trt")
     np.set_printoptions(precision = 4, linewidth = 200, suppress = True)
     run()

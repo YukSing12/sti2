@@ -1,13 +1,16 @@
 import onnx
 import onnx_graphsurgeon as gs
-from onnx import shape_inference
-import numpy as np
-import argparse
-import typer
-import re
-import rich
 
-from typing import Dict, Union, Tuple
+from typing import Dict, Union, Tuple, List
+from .passes import (
+    Pass,
+    CustomPass,
+    PostEmbeddingPass,
+    LayernormPass,
+    MaskedSoftmaxPass,
+    AddOpPass,
+    SliceReshapePass,
+)
 
 
 def clear(node):
@@ -24,9 +27,10 @@ def clear(node):
 
 
 class Fuser:
-    def __init__(self, graph: gs.Graph, pattern: str = r"\S+\.(\S+)\.(\d+)"):
+    def __init__(self, graph: gs.Graph, passes):
+        # TODO:passes type hint to List[Pass]
         self.graph = graph
-        self.pattern = re.compile(pattern)
+        self.passes = passes
         # self.info_level = 0
 
     # def info(self):
@@ -35,10 +39,14 @@ class Fuser:
     @property
     def nodes(self):
         nodes: Dict[str, gs.Node] = {node.name: node for node in self.graph.nodes}
-        return nodes
+        return self.graph.nodes
 
-    def match(self):
-        pass
+    def fuse(self):
+        for p in self.passes:
+            if isinstance(p, Pass):
+                p(self.nodes)
+            else:
+                p(self.graph)
 
     # def fuse(self, old_nodes: Union[Tuple[str, list, list], str] = ("Add", ["Add"], []), new_nodes="AddAdd"):
     #     # fuse inputs
@@ -73,82 +81,60 @@ class Fuser:
     #     return count
 
 
-class MaskedSoftmaxFuser(Fuser):
-
-    def replace(self):
-        count = 0
-        nodes = self.nodes
-        for name, node in nodes.items():
-            name, number = self.pattern.findall(name)[0]
-            if name == "Softmax":
-                node2 = node.inputs[0].inputs[0]
-                name2, number2 = self.pattern.findall(node2.name)[0]
-                if name2 == "Add":
-                    masked_softmax_node = gs.Node(op='MaskedSoftmaxPlugin',
-                                                  name='plugin.MaskedSoftmaxPlugin.{}'.format(number),
-                                                  inputs=[
-                                                      node2.inputs[1].inputs[0].inputs[0].inputs[0].inputs[0].inputs[
-                                                          0].inputs[0].inputs[0].inputs[0].inputs[0].inputs[0],
-                                                      node2.inputs[0]],
-                                                  outputs=[node.outputs[0]])
-                    node2.inputs.clear()
-                    node.inputs.clear()
-                    node.outputs.clear()
-
-                    self.graph.nodes.append(masked_softmax_node)
-                    # clear(node)
-                    count += 1
-        print(count)
-        return count
-
-
-class ElementwiseFuser(Fuser):
-
-    def replace(self):
-        count = 0
-        nodes = self.nodes
-        for name, node in nodes.items():
-            print(node.name)
-            name, number = self.pattern.findall(name)[0]
-            if name in ["Add"]:
-                node2 = node.outputs[0].outputs[0]
-                name2, number2 = self.pattern.findall(node2.name)[0]
-                if name2 in ["Relu"]:
-                    print(node2)
-                    add_relu_node = gs.Node(op='AddReluPlugin',
-                                            name=f'plugin.AddRelu.{number}',
-                                            inputs=node.inputs,
-                                            outputs=node2.outputs)
-                    node2.inputs.clear()
-                    node2.outputs.clear()
-                    node.inputs.clear()
-
-                    self.graph.nodes.append(add_relu_node)
-                    # clear(node)
-                    count += 1
-        print(count)
-        return count
+#
+# class ElementwiseFuser(Fuser):
+#     def replace(self):
+#         count = 0
+#         nodes = self.nodes
+#         for name, node in nodes.items():
+#             name, number = self.pattern.findall(name)[0]
+#             if name in ["Add"]:
+#                 node2 = node.outputs[0].outputs[0]
+#                 name2, number2 = self.pattern.findall(node2.name)[0]
+#                 if name2 in ["Relu"]:
+#                     add_relu_node = gs.Node(
+#                         op="AddReluPlugin",
+#                         name=f"plugin.AddRelu.{number}",
+#                         inputs=node.inputs,
+#                         outputs=node2.outputs,
+#                     )
+#                     node2.inputs.clear()
+#                     node2.outputs.clear()
+#                     node.inputs.clear()
+#
+#                     self.graph.nodes.append(add_relu_node)
+#                     # clear(node)
+#                     count += 1
+#         print(count)
+#         return count
 
 
-if __name__ == '__main__':
-    src_onnx_path = './model/model.onnx'
-    dst_onnx_path = './model/modified_model.onnx'
-
+def fuse():
+    src_onnx_path = "./model/model.onnx"
+    dst_onnx_path = "./model/modified_model_ms.onnx"
     print("Load onnx model from {}".format(src_onnx_path))
     graph = gs.import_onnx(onnx.load(src_onnx_path))
     graph.fold_constants().cleanup()
+    # global _deprecated_nodes_dict
+    # _deprecated_nodes_dict.update(graph.nodes)
 
-    fuser = MaskedSoftmaxFuser(graph)
-    fuser.replace()
+    fuser = Fuser(
+        graph,
+        passes=[
+            MaskedSoftmaxPass(),
+        ],
+    )
+    fuser.fuse()
     graph.cleanup().toposort()
 
-    fuser = ElementwiseFuser(graph)
-    fuser.replace()
-    graph.cleanup().toposort()
-
+    # fuser = ElementwiseFuser(graph)
+    # fuser.replace()
+    # graph.cleanup().toposort()
 
     onnx.save(gs.export_onnx(graph), dst_onnx_path)
-    onnx.save(onnx.shape_inference.infer_shapes(onnx.load(dst_onnx_path)), dst_onnx_path)
+    onnx.save(
+        onnx.shape_inference.infer_shapes(onnx.load(dst_onnx_path)), dst_onnx_path
+    )
 
     print("Save onnx model to {}".format(dst_onnx_path))
 
@@ -157,6 +143,7 @@ if __name__ == '__main__':
     # N = [h, [], []]
     #
     # [b, [N, e], [q, w]]
+
 
 # def get_args():
 #     parser = argparse.ArgumentParser('Export ERNIE TensorRT', add_help=False)

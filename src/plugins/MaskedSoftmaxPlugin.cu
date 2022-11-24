@@ -75,26 +75,26 @@ int32_t MaskedSoftmaxPlugin::enqueue(const PluginTensorDesc *inputDesc, const Pl
         if (block.x > 3072 && block.x <= 4096) {
             block.x /= 4;
             assert(block.x <= 1024);
-            masked_softmax_kernel_v4<4, float>                                                                   
-                <<<grid, block, 0, stream>>>((float *)outputs[0], (const float *)inputs[0], (const int *)inputs[1], batch_size, head_num, tgt_seq_len, src_seq_len);        
+            masked_softmax_kernel_v4<4, float>
+                <<<grid, block, 0, stream>>>((float *)outputs[0], (const float *)inputs[0], (const int *)inputs[1], batch_size, head_num, tgt_seq_len, src_seq_len);
         }
         if (block.x > 2048) {
             block.x /= 3;
             assert(block.x <= 1024);
-            masked_softmax_kernel_v4<3, float>                                                                   
-                <<<grid, block, 0, stream>>>((float *)outputs[0], (const float *)inputs[0], (const int *)inputs[1], batch_size, head_num, tgt_seq_len, src_seq_len);        
+            masked_softmax_kernel_v4<3, float>
+                <<<grid, block, 0, stream>>>((float *)outputs[0], (const float *)inputs[0], (const int *)inputs[1], batch_size, head_num, tgt_seq_len, src_seq_len);
         }
         else if (block.x > 1024) {
             block.x /= 2;
             assert(block.x <= 1024);
-            masked_softmax_kernel_v4<2, float>                                                                   
-                <<<grid, block, 0, stream>>>((float *)outputs[0], (const float *)inputs[0], (const int *)inputs[1], batch_size, head_num, tgt_seq_len, src_seq_len);        
+            masked_softmax_kernel_v4<2, float>
+                <<<grid, block, 0, stream>>>((float *)outputs[0], (const float *)inputs[0], (const int *)inputs[1], batch_size, head_num, tgt_seq_len, src_seq_len);
         }
         else if (block.x > 0) {
             block.x /= 1;
             assert(block.x <= 1024);
-            masked_softmax_kernel_v4<1, float>                                                                   
-                <<<grid, block, 0, stream>>>((float *)outputs[0], (const float *)inputs[0], (const int *)inputs[1], batch_size, head_num, tgt_seq_len, src_seq_len);        
+            masked_softmax_kernel_v4<1, float>
+                <<<grid, block, 0, stream>>>((float *)outputs[0], (const float *)inputs[0], (const int *)inputs[1], batch_size, head_num, tgt_seq_len, src_seq_len);
         }
         else {
             printf("Error: tgt_seq_len can not meet tgt_seq_len <= 4096");
@@ -106,26 +106,26 @@ int32_t MaskedSoftmaxPlugin::enqueue(const PluginTensorDesc *inputDesc, const Pl
         if (block.x > 3072 && block.x <= 4096) {
             block.x /= 4;
             assert(block.x <= 1024);
-            masked_softmax_kernel_v4<4, half>                                                                   
-                <<<grid, block, 0, stream>>>((half *)outputs[0], (const half *)inputs[0], (const int *)inputs[1], batch_size, head_num, tgt_seq_len, src_seq_len);        
+            masked_softmax_kernel_v4<4, half>
+                <<<grid, block, 0, stream>>>((half *)outputs[0], (const half *)inputs[0], (const int *)inputs[1], batch_size, head_num, tgt_seq_len, src_seq_len);
         }
         if (block.x > 2048) {
             block.x /= 3;
             assert(block.x <= 1024);
-            masked_softmax_kernel_v4<3, half>                                                                   
-                <<<grid, block, 0, stream>>>((half *)outputs[0], (const half *)inputs[0], (const int *)inputs[1], batch_size, head_num, tgt_seq_len, src_seq_len);        
+            masked_softmax_kernel_v4<3, half>
+                <<<grid, block, 0, stream>>>((half *)outputs[0], (const half *)inputs[0], (const int *)inputs[1], batch_size, head_num, tgt_seq_len, src_seq_len);
         }
         else if (block.x > 1024) {
             block.x /= 2;
             assert(block.x <= 1024);
-            masked_softmax_kernel_v4<2, half>                                                                   
-                <<<grid, block, 0, stream>>>((half *)outputs[0], (const half *)inputs[0], (const int *)inputs[1], batch_size, head_num, tgt_seq_len, src_seq_len);        
+            masked_softmax_kernel_v4<2, half>
+                <<<grid, block, 0, stream>>>((half *)outputs[0], (const half *)inputs[0], (const int *)inputs[1], batch_size, head_num, tgt_seq_len, src_seq_len);
         }
         else if (block.x > 0) {
             block.x /= 1;
             assert(block.x <= 1024);
-            masked_softmax_kernel_v4<1, half>                                                                   
-                <<<grid, block, 0, stream>>>((half *)outputs[0], (const half *)inputs[0], (const int *)inputs[1], batch_size, head_num, tgt_seq_len, src_seq_len);        
+            masked_softmax_kernel_v4<1, half>
+                <<<grid, block, 0, stream>>>((half *)outputs[0], (const half *)inputs[0], (const int *)inputs[1], batch_size, head_num, tgt_seq_len, src_seq_len);
         }
         else {
             printf("Error: tgt_seq_len can not meet tgt_seq_len <= 4096");

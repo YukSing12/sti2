@@ -27,9 +27,11 @@ def onnx2trt(
 
     if "ln" in plugins:
         onnx_file = onnx_file.replace(".onnx", "_ln.onnx")
+    if "ms" in plugins:
+        onnx_file = onnx_file.replace(".onnx", "_ms.onnx")
 
     timeCache_file = "./Ernie.cache"
-    so_fileList = glob("./so/plugins/*.so")
+    soFileList = glob("./so/plugins/*.so")
     useTimeCache = False
 
     log_level = {
@@ -59,12 +61,12 @@ def onnx2trt(
                 print("Failed getting serialized timing cache!")
                 exit(1)
             print("Succeeded getting serialized timing cache!")
-        if len(so_fileList) > 0:
-            print("Find Plugin %s!" % so_fileList)
+        if len(soFileList) > 0:
+            print("Find Plugin %s!"%soFileList)
         else:
             print("No Plugin!")
-        for so_file in so_fileList:
-            ctypes.cdll.LoadLibrary(so_file)
+        for soFile in soFileList:
+            ctypes.cdll.LoadLibrary(soFile)
 
         builder = trt.Builder(logger)
         network = builder.create_network(
