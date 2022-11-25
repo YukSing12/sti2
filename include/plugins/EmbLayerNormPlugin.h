@@ -125,11 +125,11 @@ public:
             break;                                
         case 6: // input4
             // res = (inOut[6].type == DataType::kFLOAT)|| (inOut[6].type == DataType::kHALF);
-            res = (inOut[6].type == DataType::kFLOAT);
+            res = (inOut[6].type == DataType::kHALF);
             break;                       
         case 7: // input4
             // res = (inOut[7].type == DataType::kFLOAT)|| (inOut[7].type == DataType::kHALF);
-            res = (inOut[7].type == DataType::kFLOAT);
+            res = (inOut[7].type == DataType::kHALF);
             break;                                                                                               
         case 8: // output0
             // res = (inOut[7].type == DataType::kFLOAT)||(inOut[pos].type == DataType::kHALF);

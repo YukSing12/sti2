@@ -6,8 +6,9 @@ PluginFieldCollection    EmbLayerNormPluginCreator::fc_ {};
 std::vector<PluginField> EmbLayerNormPluginCreator::attr_;
 
 template <typename T, typename R, int TPB, int VPT>
-__device__ void ln_vec(const int ld, kvp<R> threadData,  const float* gamma, const float* beta, T* output){
+__device__ void ln_vec(const int ld, kvp<R> threadData,  const half* gamma, const half* beta, T* output){
 
+    // const int idx = ld * blockIdx.x + threadIdx.x * VPT;
     const int idx = ld * blockIdx.x;
 
     using BlockReduce = cub::BlockReduce<kvp<R>, TPB>;
@@ -28,10 +29,7 @@ __device__ void ln_vec(const int ld, kvp<R> threadData,  const float* gamma, con
     for (int it = threadIdx.x; it < ld; it+=TPB)
     {
         const int offset = idx + it;
-        const R val(output[offset]);
-        const R g(gamma[it]);
-        const R b(beta[it]);
-        output[offset] = g * ( val - mu) * rsigma + b;
+        output[offset] = gamma[it] * ( output[offset] - __float2half(mu)) * __float2half(rsigma) + beta[it];
     }
 
 }
@@ -40,7 +38,7 @@ __device__ void ln_vec(const int ld, kvp<R> threadData,  const float* gamma, con
 
 template <typename T, int TPB, int VPT>
 __global__ void embedding(const int ld,  const T* tokEmb, const T* wordEmb, const T* posEmb, const int32_t* tokIds, const int32_t* wordIds, const int32_t* posIds,
-      const float* gamma, const float* beta, T* output)
+      const T* gamma, const T* beta, T* output)
 {
     cub::Sum pairSum;
 
@@ -70,11 +68,12 @@ __global__ void embedding(const int ld,  const T* tokEmb, const T* wordEmb, cons
     if (wordId >= 0 && wordId < 50000 && tokenId >= 0 && tokenId < 4 && posId >= 0 && posId < 513)
     {
         for (int it = threadIdx.x; it < ld; it += TPB )
+        // for (int it = 0; it < VPT; it ++)
         {
             T val =  wordEmb[woffset + it] + tokEmb[toffset + it]  + posEmb[poffset + it];
             output[outOffset + it] = val;
-            float const rldval = rld * (float)val; 
-            threadData = pairSum(threadData, kvp<float>(rldval, rldval * (float)val));
+            float const rldval = rld * __half2float(val); 
+            threadData = pairSum(threadData, kvp<float>(rldval, rldval * __half2float(val)));
         }
     }
     ln_vec<T,float,TPB,VPT>(768, threadData,  gamma, beta,  output);
@@ -93,14 +92,14 @@ int32_t EmbLayerNormPlugin::enqueue(const PluginTensorDesc *inputDesc, const Plu
         // constexpr int VPT = 16 / sizeof(float);
         constexpr int VPT = 1;
         constexpr int TPB = 768 / VPT;
-        embedding<float, TPB, VPT><<<nBlock, TPB, 0, stream>>>(768, (float *)inputs[0], (float *)inputs[1], (float *)inputs[2], (int32_t *)inputs[3], (int32_t *)inputs[4], (int32_t *)inputs[5], (float *)inputs[6], (float *)inputs[7], (float *)outputs[0]);
+        // embedding<float, TPB, VPT><<<nBlock, TPB, 0, stream>>>(768, (float *)inputs[0], (float *)inputs[1], (float *)inputs[2], (int32_t *)inputs[3], (int32_t *)inputs[4], (int32_t *)inputs[5], (float *)inputs[6], (float *)inputs[7], (float *)outputs[0]);
     }
     else if (inputDesc[0].type == DataType::kHALF)
     {
 
         constexpr int VPT = 1;
         constexpr int TPB = 768 / VPT;
-        embedding<half, TPB, VPT><<<nBlock, TPB, 0, stream>>>(768, (half *)inputs[0], (half *)inputs[1], (half *)inputs[2], (int32_t *)inputs[3], (int32_t *)inputs[4], (int32_t *)inputs[5], (float *)inputs[6], (float *)inputs[7], (half *)outputs[0]);
+        embedding<half, TPB, VPT><<<nBlock, TPB, 0, stream>>>(768, (half *)inputs[0], (half *)inputs[1], (half *)inputs[2], (int32_t *)inputs[3], (int32_t *)inputs[4], (int32_t *)inputs[5], (half *)inputs[6], (half *)inputs[7], (half *)outputs[0]);
     }
     return 0;
 }
