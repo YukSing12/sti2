@@ -86,15 +86,8 @@ int32_t EmbLayerNormPlugin::enqueue(const PluginTensorDesc *inputDesc, const Plu
     int nBlock = 1;
     for(int i = 0; i < inputDesc[3].dims.nbDims - 1; ++i)
         nBlock *= inputDesc[3].dims.d[i]; 
-    if (inputDesc[0].type == DataType::kFLOAT)
-    {
 
-        // constexpr int VPT = 16 / sizeof(float);
-        constexpr int VPT = 1;
-        constexpr int TPB = 768 / VPT;
-        // embedding<float, TPB, VPT><<<nBlock, TPB, 0, stream>>>(768, (float *)inputs[0], (float *)inputs[1], (float *)inputs[2], (int32_t *)inputs[3], (int32_t *)inputs[4], (int32_t *)inputs[5], (float *)inputs[6], (float *)inputs[7], (float *)outputs[0]);
-    }
-    else if (inputDesc[0].type == DataType::kHALF)
+    if (inputDesc[0].type == DataType::kHALF)
     {
 
         constexpr int VPT = 1;
