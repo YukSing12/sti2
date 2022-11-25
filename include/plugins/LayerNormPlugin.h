@@ -94,19 +94,19 @@ public:
         switch (pos)
         {
         case 0: // input0
-            res = (inOut[0].type == DataType::kFLOAT);
+            res = (inOut[pos].type == DataType::kHALF);
             // res = (inOut[0].type == DataType::kFLOAT) || (inOut[0].type == DataType::kHALF);
             break;
         case 1: // input1
-            res = (inOut[1].type == DataType::kFLOAT);
+            res = (inOut[pos].type == DataType::kHALF);
             // res = (inOut[1].type == DataType::kFLOAT) || (inOut[1].type == DataType::kHALF);
             break;
         case 2: // input2
-            res = (inOut[2].type == DataType::kFLOAT);
+            res = (inOut[pos].type == DataType::kHALF);
             // res = (inOut[2].type == DataType::kFLOAT) || (inOut[2].type == DataType::kHALF);
             break;
         case 3: // output0
-            res = inOut[pos].type == inOut[0].type;
+            res = (inOut[pos].type == DataType::kHALF);
             break;
         default: // should NOT be here
             break;

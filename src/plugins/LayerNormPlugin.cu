@@ -5,37 +5,37 @@ using namespace nvinfer1;
 PluginFieldCollection    LayerNormPluginCreator::fc_ {};
 std::vector<PluginField> LayerNormPluginCreator::attr_;
 
-template <typename T, int TPB, int VPT>
+template <int TPB, int VPT>
 __global__ void ln_vec(
-    const int ld, const T* input, T* output, const T* beta, const T* gamma)
+    const int ld, const half* input, half* output, const half* beta, const half* gamma)
 {
     const int idx = ld * blockIdx.x + threadIdx.x * VPT;
     // 4 * 1024 * 4 * 2 Bytes = 16KB per block
-    T in_local[VPT];
-    T beta_local[VPT];
-    T gamma_local[VPT];
-    copy<sizeof(T) * VPT>(&input[idx], in_local);
-    T local = 0.f;
-    T local2 = 0.f;
+    half in_local[VPT];
+    half beta_local[VPT];
+    half gamma_local[VPT];
+    copy<sizeof(half) * VPT>(&input[idx], in_local);
+    float local = 0.f;
+    float local2 = 0.f;
 
-    const T rld = T(1) / T(ld);
+    const float rld = float(1) / float(ld);
 #pragma unroll
     for (int it = 0; it < VPT; it++)
     {
-        const T tmp = rld * in_local[it];
+        const float tmp = rld * __half2float(in_local[it]);
         local += tmp;
-        local2 += tmp * in_local[it];
+        local2 += tmp * __half2float(in_local[it]);
     }
 
-    copy<sizeof(T) * VPT>(&gamma[threadIdx.x * VPT], gamma_local);
-    copy<sizeof(T) * VPT>(&beta[threadIdx.x * VPT], beta_local);
+    copy<sizeof(half) * VPT>(&gamma[threadIdx.x * VPT], gamma_local);
+    copy<sizeof(half) * VPT>(&beta[threadIdx.x * VPT], beta_local);
 
-    using BlockReduce = cub::BlockReduce<kvp<T>, TPB>;
+    using BlockReduce = cub::BlockReduce<kvp<float>, TPB>;
     __shared__ typename BlockReduce::TempStorage temp_storage;
-    __shared__ T mu;     // mean
-    __shared__ T rsigma; // 1 / std.dev.
+    __shared__ float mu;     // mean
+    __shared__ float rsigma; // 1 / std.dev.
 
-    const auto sumKV = BlockReduce(temp_storage).Reduce(kvp<T>(local, local2), cub::Sum());
+    const auto sumKV = BlockReduce(temp_storage).Reduce(kvp<float>(local, local2), cub::Sum());
 
     if (threadIdx.x == 0)
     {
@@ -47,11 +47,11 @@ __global__ void ln_vec(
 #pragma unroll
     for (int it = 0; it < VPT; it++)
     {
-        in_local[it] = gamma_local[it] * (in_local[it] - mu) * rsigma + beta_local[it];
+        in_local[it] = gamma_local[it] * (in_local[it] - __float2half(mu)) * __float2half(rsigma) + beta_local[it];
     }
     /* */
 
-    copy<sizeof(T) * VPT>(in_local, &output[idx]);
+    copy<sizeof(half) * VPT>(in_local, &output[idx]);
 }
 
 int32_t LayerNormPlugin::enqueue(const PluginTensorDesc *inputDesc, const PluginTensorDesc *outputDesc, const void *const *inputs, void *const *outputs, void *workspace, cudaStream_t stream) noexcept
@@ -60,17 +60,11 @@ int32_t LayerNormPlugin::enqueue(const PluginTensorDesc *inputDesc, const Plugin
     int nBlock = 1;
     for(int i = 0; i < inputDesc[0].dims.nbDims - 1; ++i)
         nBlock *= inputDesc[0].dims.d[i];
-    if (inputDesc[0].type == DataType::kFLOAT)
+    if (inputDesc[0].type == DataType::kHALF)
     {
         constexpr int VPT = 4;
         constexpr int TPB = 768 / VPT;
-        ln_vec<float, TPB, VPT><<<nBlock, TPB, 0, stream>>>(768, (float *)inputs[0], (float *)outputs[0], (float *)inputs[2], (float *)inputs[1]);
-    }
-    else if (inputDesc[0].type == DataType::kHALF)
-    {
-        constexpr int VPT = 4;
-        constexpr int TPB = 768 / VPT;
-        ln_vec<half, TPB, VPT><<<nBlock, TPB, 0, stream>>>(768, (half *)inputs[0], (half *)outputs[0], (half *)inputs[2], (half *)inputs[1]);
+        ln_vec<TPB, VPT><<<nBlock, TPB, 0, stream>>>(768, (half *)inputs[0], (half *)outputs[0], (half *)inputs[2], (half *)inputs[1]);
     }
     return 0;
 }

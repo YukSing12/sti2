@@ -28,7 +28,7 @@ nBS             = 1
 nSL             = 128
 nEmbedding      = 768
 epsilon         = 1e-5
-npDataType      = np.float32
+npDataType      = np.float16
 np.random.seed(97)
 globalGamma     = npDataType(np.random.randn(nEmbedding))
 globalBeta     = npDataType(np.random.randn(nEmbedding))
