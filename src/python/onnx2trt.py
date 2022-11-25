@@ -36,10 +36,10 @@ if args.fp16:
     
 if args.dymshape:
     onnxFile = onnxFile.replace(".onnx", "_dymshape.onnx")
-if args.ln:
-    onnxFile = onnxFile.replace(".onnx", "_ln.onnx")
 if args.eln:
     onnxFile = onnxFile.replace(".onnx", "_eln.onnx")    
+if args.ln:
+    onnxFile = onnxFile.replace(".onnx", "_ln.onnx")
 if args.postemb:
     onnxFile = onnxFile.replace(".onnx", "_postemb.onnx")
 

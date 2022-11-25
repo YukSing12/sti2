@@ -86,9 +86,9 @@ __global__ void embedding(const int ld,  const T* tokEmb, const T* wordEmb, cons
 int32_t EmbLayerNormPlugin::enqueue(const PluginTensorDesc *inputDesc, const PluginTensorDesc *outputDesc, const void *const *inputs, void *const *outputs, void *workspace, cudaStream_t stream) noexcept
 {
     WHERE_AM_I();
-    int nBlock = 128;
-    // for(int i = 0; i < inputDesc[0].dims.nbDims - 1; ++i)
-    //     nBlock *= inputDesc[0].dims.d[i]; 
+    int nBlock = 1;
+    for(int i = 0; i < inputDesc[3].dims.nbDims - 1; ++i)
+        nBlock *= inputDesc[3].dims.d[i]; 
     if (inputDesc[0].type == DataType::kFLOAT)
     {
 

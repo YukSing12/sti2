@@ -99,6 +99,11 @@ for node in nodes:
 
 passes = []
 sys.path.append("src/python")
+if ENABLE_EMBLAYERNORM_PLUGIN:
+    from onnx_opt.passes import EmbLayerNormPass
+
+    passes.append(EmbLayerNormPass())
+    dst_onnx_path = dst_onnx_path.replace(".onnx", "_eln.onnx")
 
 if ENABLE_LAYERNORM_PLUGIN:
     from onnx_opt.passes import LayernormPass
@@ -114,11 +119,7 @@ if ENABLE_ADDLAYERNORM_PLUGIN:
     passes.append(TowOpPass((["Add"], ["Layernorm"])))
     dst_onnx_path = dst_onnx_path.replace(".onnx", "_aln.onnx")
 
-if ENABLE_EMBLAYERNORM_PLUGIN:
-    from onnx_opt.passes import EmbLayerNormPass
 
-    passes.append(EmbLayerNormPass())
-    dst_onnx_path = dst_onnx_path.replace(".onnx", "_eln.onnx")
 
 
 if ENABLE_SLICERESHAPE_PLUGIN:

@@ -64,7 +64,8 @@ class LayernormPass(Pass):
 
             gamma = mul_node.inputs[1]
             beta = add_node.inputs[1]
-
+            if len(add_node.outputs) == 0:
+                return None 
             name = "LayerNorm.{}".format(node_id)
             layernorm = gs.Node(
                 op="LayerNorm",
@@ -169,7 +170,8 @@ class EmbLayerNormPass(Pass):
             add1_node = node.inputs[0].inputs[0]
 
             if add1_node.inputs[1].inputs[0].op != "Gather":
-                return LayernormPass.replace(_deprecated_nodes_dict, node, count)
+                return None
+
             gather2_node = add1_node.inputs[1].inputs[0]
             add2_node = add1_node.inputs[0].inputs[0]
             gather0_node = add2_node.inputs[0].inputs[0]
