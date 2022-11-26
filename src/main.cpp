@@ -105,7 +105,7 @@ struct sample
   int size8;
   std::vector<int> shape_info_8;
   std::vector<int> i8;
-  int size8;
+  int size9;
   std::vector<int> shape_info_9;
   std::vector<int> i9;
   int size10;

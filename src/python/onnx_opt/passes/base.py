@@ -22,7 +22,6 @@ class Pass:
             new_node = self.replace(node, count)
             if new_node is not None:
                 nodes.append(new_node)
-        print(count)
         return count
 
     def replace(self, node: gs.Node, count: int) -> Optional[gs.Node]:
