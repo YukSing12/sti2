@@ -204,7 +204,7 @@ void field2vec(const std::string &input_str,
   int size=1;
   for(int i=0;i<2;i++)
   {
-    size=(*shape_info)[i];
+    size*=(*shape_info)[i];
   }
   size_i=size;
 }
