@@ -62,6 +62,12 @@ def get_args():
         help="Replace ops with PostEmbeddingPlugin or not",
     )
     parser.add_argument(
+        "--preemb",
+        action="store_true",
+        default=False,
+        help="Replace ops with PreEmbeddingPlugin or not",
+    )
+    parser.add_argument(
         "--debug", "-D", action="store_true", default=False, help="Enable debug mode"
     )
     args = parser.parse_args()
@@ -75,6 +81,8 @@ ENABLE_ADDLAYERNORM_PLUGIN = args.aln
 ENABLE_SLICERESHAPE_PLUGIN = args.slreshape
 ENABLE_FUSING_ADDRELU = args.addrelu
 ENABLE_POSTEMBEDDING_PLUGIN = args.postemb
+ENABLE_PREEMBEDDING_PLUGIN = args.preemb
+
 DEBUG = args.debug
 SIM = args.onnxsim
 DYNAMIC =args.dymshape
@@ -139,6 +147,13 @@ if ENABLE_POSTEMBEDDING_PLUGIN:
 
     passes.append(PostEmbeddingPass())
     dst_onnx_path = dst_onnx_path.replace(".onnx", "_postemb.onnx")
+
+if ENABLE_PREEMBEDDING_PLUGIN:
+    from onnx_opt.passes import PreEmbeddingPass
+
+    passes.append(PreEmbeddingPass())
+    dst_onnx_path = dst_onnx_path.replace(".onnx", "_preemb.onnx")
+
 
 from onnx_opt.passes import _deprecated_nodes_dict
 from onnx_opt.fuser import Fuser

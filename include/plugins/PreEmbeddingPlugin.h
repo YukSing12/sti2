@@ -21,10 +21,10 @@
 
 namespace nvinfer1
 {
-static const char *PLUGIN_NAME {"LayerNorm"};
+static const char *PLUGIN_NAME {"PreEmbedding"};
 static const char *PLUGIN_VERSION {"1"};
 
-class LayerNormPlugin : public IPluginV2DynamicExt
+class PreEmbeddingPlugin : public IPluginV2DynamicExt
 {
 private:
     std::string name_;
@@ -32,22 +32,22 @@ private:
     float       epsilon_;
 
 public:
-    LayerNormPlugin(const std::string &name, float epsilon):
+    PreEmbeddingPlugin(const std::string &name, float epsilon):
         name_(name), epsilon_(epsilon)
     {
         WHERE_AM_I();
     }
 
-    LayerNormPlugin(const std::string &name, const void *data, size_t length):
+    PreEmbeddingPlugin(const std::string &name, const void *data, size_t length):
         name_(name)
     {
         WHERE_AM_I();
         memcpy(&epsilon_, data, sizeof(epsilon_));
     }
 
-    LayerNormPlugin() = delete;
+    PreEmbeddingPlugin() = delete;
 
-    ~LayerNormPlugin()
+    ~PreEmbeddingPlugin()
     {
         WHERE_AM_I();
     }
@@ -67,7 +67,7 @@ public:
     IPluginV2DynamicExt *clone() const noexcept override
     {
         WHERE_AM_I();
-        return new LayerNormPlugin(name_, epsilon_);
+        return new PreEmbeddingPlugin(name_, epsilon_);
     }
 
     int getNbOutputs() const noexcept override
@@ -79,7 +79,13 @@ public:
     DimsExprs getOutputDimensions(int32_t outputIndex, const DimsExprs *inputs, int32_t nbInputs, IExprBuilder &exprBuilder) noexcept override
     {
         WHERE_AM_I();
-        return inputs[0];
+        DimsExprs outputs;
+        outputs.nbDims = 3;
+        outputs.d[0] = inputs[3].d[0];
+        outputs.d[1] = exprBuilder.constant(128);
+        outputs.d[2] = exprBuilder.constant(768);
+
+        return outputs;
     }
 
     bool supportsFormatCombination(int32_t pos, const PluginTensorDesc *inOut, int32_t nbInputs, int32_t nbOutputs) noexcept override
@@ -94,19 +100,33 @@ public:
         switch (pos)
         {
         case 0: // input0
-            res = (inOut[pos].type == DataType::kHALF);
-            // res = (inOut[0].type == DataType::kFLOAT) || (inOut[0].type == DataType::kHALF);
+            // res = (inOut[0].type == DataType::kFLOAT)|| (inOut[0].type == DataType::kHALF);
+            res = (inOut[0].type == DataType::kHALF);
             break;
         case 1: // input1
-            res = (inOut[pos].type == DataType::kHALF);
-            // res = (inOut[1].type == DataType::kFLOAT) || (inOut[1].type == DataType::kHALF);
+            // res = (inOut[1].type == DataType::kHALF)|| (inOut[1].type == DataType::kHALF);
+            res = (inOut[1].type == DataType::kHALF);
             break;
         case 2: // input2
-            res = (inOut[pos].type == DataType::kHALF);
-            // res = (inOut[2].type == DataType::kFLOAT) || (inOut[2].type == DataType::kHALF);
+            // res = (inOut[2].type == DataType::kHALF)|| (inOut[2].type == DataType::kHALF);
+            res = (inOut[2].type == DataType::kHALF);
             break;
-        case 3: // output0
+        case 3: // input3
+            res = (inOut[3].type == DataType::kINT32);
+            // res = (inOut[2].type == DataType::kHALF);
+            break;
+        case 4: // input4
+            res = (inOut[4].type == DataType::kINT32);
+            // res = (inOut[2].type == DataType::kHALF);
+            break;                       
+        case 5: // input4
+            res = (inOut[5].type == DataType::kINT32);
+            // res = (inOut[2].type == DataType::kINT32);
+            break;                                                    
+        case 6: // output0
+            // res = (inOut[7].type == DataType::kFLOAT)||(inOut[pos].type == DataType::kHALF);
             res = (inOut[pos].type == DataType::kHALF);
+
             break;
         default: // should NOT be here
             break;
@@ -168,9 +188,9 @@ public:
     }
 
     int32_t enqueue(const PluginTensorDesc *inputDesc, const PluginTensorDesc *outputDesc, const void *const *inputs, void *const *outputs, void *workspace, cudaStream_t stream) noexcept override;
-}; // class LayerNormPlugin
+}; // class PreEmbeddingPlugin
 
-class LayerNormPluginCreator : public IPluginCreator
+class PreEmbeddingPluginCreator : public IPluginCreator
 {
 private:
     static PluginFieldCollection    fc_;
@@ -178,7 +198,7 @@ private:
     std::string                     namespace_;
 
 public:
-    LayerNormPluginCreator()
+    PreEmbeddingPluginCreator()
     {
         WHERE_AM_I();
         attr_.emplace_back(PluginField("epsilon", nullptr, PluginFieldType::kFLOAT32, 1));
@@ -186,7 +206,7 @@ public:
         fc_.fields   = attr_.data();
     }
 
-    ~LayerNormPluginCreator() {}
+    ~PreEmbeddingPluginCreator() {} 
 
     IPluginV2 *createPlugin(const char *name, const PluginFieldCollection *fc) noexcept override
     {
@@ -200,13 +220,13 @@ public:
                 epsilon = *static_cast<const float *>(fc->fields[i].data);
             }
         }
-        return new LayerNormPlugin(name, epsilon);
+        return new PreEmbeddingPlugin(name, epsilon);
     }
 
     IPluginV2 *deserializePlugin(const char *name, const void *serialData, size_t serialLength) noexcept override
     {
         WHERE_AM_I();
-        return new LayerNormPlugin(name, serialData, serialLength);
+        return new PreEmbeddingPlugin(name, serialData, serialLength);
     }
 
     void setPluginNamespace(const char *szNamespace) noexcept override
@@ -233,5 +253,6 @@ public:
     {
         return &fc_;
     }
-}; // class LayerNormPluginCreator
+}; // class PreEmbeddingPluginCreator
+REGISTER_TENSORRT_PLUGIN(PreEmbeddingPluginCreator);
 } // namespace nvinfer1

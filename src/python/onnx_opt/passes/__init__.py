@@ -11,6 +11,7 @@ from .custom import (
     MaskedSoftmaxPass,
     AddOpPass,
     SliceReshapePass,
+    PreEmbeddingPass
 )
 
 # TODO: deprecated
