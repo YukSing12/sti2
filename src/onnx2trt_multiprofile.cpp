@@ -20,12 +20,12 @@ using namespace nvonnxparser;
 using namespace nvinfer1;
 
 static Logger          gLogger(ILogger::Severity::kINFO);
-bool                   ln            = false;
+
 bool                   postemb       = false;
 bool                   dymshape      = false;
 bool                   fp16          = false;
 bool                   useNewFeature = false;
-bool                   showhelp      = false;
+
 static int             nProfiles     = 4;
 std::list<std::string> GetFileNameFromDir(const std::string& dir, const char* filter) {
     std::list<std::string> files;
@@ -86,37 +86,52 @@ void printFlags(IBuilderConfig* config) {
     cout << "REJECT_EMPTY_ALGORITHMS:" << config->getFlag(BuilderFlag::kREJECT_EMPTY_ALGORITHMS) << endl;
     cout << "FENABLE_TACTIC_HEURISTIC:" << config->getFlag(BuilderFlag::kENABLE_TACTIC_HEURISTIC) << endl;
 }
+
 void printHelp() {
-    std::cout << "Usage: multi_profile\n<input_onnx_file>\tPath of onnx file to load\n<output_trt_file>\tPath of trt engine to save\n<libPlugins>\tPath of Plugins(*.so)\n[-help]\tShow Usage\n[--ln "
-                 "--dymshape --fp16 --postemb --use --useNewFeature --eln]\tall supported args"
+    std::cout << "Usage: onnx2trt_multiprofile <input_onnx_file> <output_trt_file> <plugins> [options]\n" 
+              << "\t<input_onnx_file>    \tPath of onnx file to load.\n"
+              << "\t<output_trt_file>    \tPath of trt engine to save.\n"
+              << "\t<plugins>            \tPath of plugins(*.so) to load.\n"
+              << "Options:\n"
+              << "\t--help,-h            \tPrint usage information and exit.\n"
+              << "\t--dymshape           \tSet second dimension to dynamic shape.\n"
+              << "\t--fp16               \tEnable fp16 precision.\n"
+              << "\t--useNewFeature      \tEnable PreviewFeature::kFASTER_DYNAMIC_SHAPES_0805 which may be unstable.\n"
+              << "\t--postemb            \tMerge input4~input11 to one input.\n"
+              << "Examples:\n"
+              << "\t onnx2trt_multiprofile ./model/modified_model_dymshape_ln_postemb.onnx Ernie_fp16.plan ./so/plugins --postemb --fp16 --dymshape\n" 
               << std::endl;
-    std::cout << "Example:\n\t./bin/multi_profile\t./model/modified_model_dymshape_eln_postemb.onnx\tErnie_fp16.plan\t./so/plugins\t--ln\t--postemb\t--fp16\t--dymshape\t--eln" << std::endl;
 }
 int main(int argc, char** argv) {
-    for (int i = 0; i < argc; ++i) {
-        //  std::cout << argv[i] << std::endl;
-        if (!strcmp(argv[i], "--ln")) {
-            ln = true;
-        }
-        if (!strcmp(argv[i], "--postemb")) {
-            postemb = true;
-        }
-        if (!strcmp(argv[i], "--fp16")) {
-            fp16 = true;
-        }
-        if (!strcmp(argv[i], "--dymshape")) {
-            dymshape = true;
-        }
-        if (!strcmp(argv[i], "--useNewFeature")) {
-            useNewFeature = true;
-        }
-        if (!strcmp(argv[i], "-help")) {
-            showhelp = true;
-        }
-    }
-    if (argc < 4 || argc > 8 || showhelp) {
+   if (argc < 4) {
         printHelp();
         return -1;
+    }
+
+    for (int i = 4; i < argc; ++i) {
+        //  std::cout << argv[i] << std::endl;
+        if (!strcmp(argv[i], "--help") || !strcmp(argv[i], "-h") ) {
+            printHelp();
+            return -1;
+        }
+        else if (!strcmp(argv[i], "--postemb")) {
+            postemb = true;
+        }
+        else if (!strcmp(argv[i], "--fp16")) {
+            fp16 = true;
+        }
+        else if (!strcmp(argv[i], "--dymshape")) {
+            dymshape = true;
+        }
+        else if (!strcmp(argv[i], "--useNewFeature")) {
+            useNewFeature = true;
+        }else
+        {
+            printHelp();
+            std::cout << "\n"
+                      << "Unsupported options: "  << argv[i] << std::endl;
+            return -1;
+        }
     }
     CHECK(cudaSetDevice(0));
     std::string input_onnx_file = argv[1];
