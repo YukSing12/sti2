@@ -268,15 +268,8 @@ void run_graph(IExecutionContext* context,cudaStream_t& stream, cudaGraphExec_t&
     memcpy(vBufferH[3], s.i3.data(), s.size3 * dataTypeToSize(DataType::kFLOAT));
     memcpy(vBufferH[4], s.i4.data(), s.size4 * dataTypeToSize(DataType::kINT32));
 
-    context->setInputShape("read_file_0.tmp_0", Dims32{ 3, { s.batchsize, s.shape_info_0[1], 1 } });
-    context->setInputShape("read_file_0.tmp_1", Dims32{ 3, { s.batchsize, s.shape_info_0[1], 1 } });
-    context->setInputShape("read_file_0.tmp_2", Dims32{ 3, { s.batchsize, s.shape_info_0[1], 1 } });
-    context->setInputShape("read_file_0.tmp_3", Dims32{ 3, { s.batchsize, s.shape_info_0[1], 1 } });
-    context->setInputShape("read_file_0.tmp_6-13", Dims32{ 2, { s.batchsize, 8 } });
-
     cudaGraphLaunch(graph_exec, stream);
     CHECK(cudaMemcpyAsync(s.out_data.data(), vBufferD[5], s.batchsize * dataTypeToSize(DataType::kFLOAT), cudaMemcpyDeviceToHost,stream));
-    // memcpy(s.out_data.data(), vBufferH[5], s.batchsize * dataTypeToSize(DataType::kFLOAT));
     struct timeval tv;
     gettimeofday(&tv, NULL);
     s.timestamp = tv.tv_sec * 1000000 + tv.tv_usec;
@@ -337,7 +330,6 @@ int main(int argc, char* argv[]) {
     std::vector<std::vector<cudaGraphExec_t>> graph_vec = { 10, std::vector<cudaGraphExec_t>{ 4, nullptr } };
 
     // allocate memory
-    // TODO(pinned memory)
     std::vector<void*> vBufferH{ nBinding, nullptr };
     std::vector<void*> vBufferD{ nBinding, nullptr };
     // tmp_0 ~ tmp_2
