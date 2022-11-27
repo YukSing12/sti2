@@ -14,8 +14,11 @@ def get_args():
     parser.add_argument('--fp16', action='store_true', default=False, help='Enable FP16 mode or not, default is TF32 if it is supported')
     parser.add_argument('--log_level', default=1, type=int, help='Logger level. (0:VERBOSE, 1:INFO, 2:WARNING, 3:ERROR, 4:INTERNAL_ERROR)')
     parser.add_argument('--ln', action='store_true', default=False, help='Replace ops with LayernormPlugin or not')
+    parser.add_argument('--eln', action='store_true', default=False, help='Replace ops with LayernormPlugin or not')
     parser.add_argument('--dymshape', action='store_true', default=False, help='Modify dims2 dynamic or not')
     parser.add_argument('--postemb', action='store_true', default=False, help='Replace ops with PostEmbeddingPlugin or not')
+    parser.add_argument('--preemb', action='store_true', default=False, help='Replace ops with PostEmbeddingPlugin or not')
+
     args = parser.parse_args()
     return args
 
@@ -35,10 +38,14 @@ if args.fp16:
     
 if args.dymshape:
     onnxFile = onnxFile.replace(".onnx", "_dymshape.onnx")
+if args.eln:
+    onnxFile = onnxFile.replace(".onnx", "_eln.onnx")    
 if args.ln:
     onnxFile = onnxFile.replace(".onnx", "_ln.onnx")
 if args.postemb:
     onnxFile = onnxFile.replace(".onnx", "_postemb.onnx")
+if args.preemb:
+    onnxFile = onnxFile.replace(".onnx", "_preemb.onnx")
 
 timeCacheFile = "./Ernie.cache"
 soFileList = glob("./so/plugins/*.so")

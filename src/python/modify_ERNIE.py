@@ -38,6 +38,12 @@ def get_args():
         help="Replace ops with LayernormPlugin or not",
     )
     parser.add_argument(
+        "--eln",
+        action="store_true",
+        default=False,
+        help="Replace ops with EmbLayernormPlugin or not",
+    )
+    parser.add_argument(
         "--slreshape",
         action="store_true",
         default=False,
@@ -56,6 +62,12 @@ def get_args():
         help="Replace ops with PostEmbeddingPlugin or not",
     )
     parser.add_argument(
+        "--preemb",
+        action="store_true",
+        default=False,
+        help="Replace ops with PreEmbeddingPlugin or not",
+    )
+    parser.add_argument(
         "--debug", "-D", action="store_true", default=False, help="Enable debug mode"
     )
     args = parser.parse_args()
@@ -64,10 +76,13 @@ def get_args():
 
 args = get_args()
 ENABLE_LAYERNORM_PLUGIN = args.ln
+ENABLE_EMBLAYERNORM_PLUGIN = args.eln
 ENABLE_ADDLAYERNORM_PLUGIN = args.aln
 ENABLE_SLICERESHAPE_PLUGIN = args.slreshape
 ENABLE_FUSING_ADDRELU = args.addrelu
 ENABLE_POSTEMBEDDING_PLUGIN = args.postemb
+ENABLE_PREEMBEDDING_PLUGIN = args.preemb
+
 DEBUG = args.debug
 SIM = args.onnxsim
 DYNAMIC =args.dymshape
@@ -92,6 +107,11 @@ for node in nodes:
 
 passes = []
 sys.path.append("src/python")
+if ENABLE_EMBLAYERNORM_PLUGIN:
+    from onnx_opt.passes import EmbLayerNormPass
+
+    passes.append(EmbLayerNormPass())
+    dst_onnx_path = dst_onnx_path.replace(".onnx", "_eln.onnx")
 
 if ENABLE_LAYERNORM_PLUGIN:
     from onnx_opt.passes import LayernormPass
@@ -106,6 +126,9 @@ if ENABLE_ADDLAYERNORM_PLUGIN:
         passes.append(LayernormPass())
     passes.append(TowOpPass((["Add"], ["Layernorm"])))
     dst_onnx_path = dst_onnx_path.replace(".onnx", "_aln.onnx")
+
+
+
 
 if ENABLE_SLICERESHAPE_PLUGIN:
     from onnx_opt.passes import SliceReshapePass
@@ -124,6 +147,13 @@ if ENABLE_POSTEMBEDDING_PLUGIN:
 
     passes.append(PostEmbeddingPass())
     dst_onnx_path = dst_onnx_path.replace(".onnx", "_postemb.onnx")
+
+if ENABLE_PREEMBEDDING_PLUGIN:
+    from onnx_opt.passes import PreEmbeddingPass
+
+    passes.append(PreEmbeddingPass())
+    dst_onnx_path = dst_onnx_path.replace(".onnx", "_preemb.onnx")
+
 
 from onnx_opt.passes import _deprecated_nodes_dict
 from onnx_opt.fuser import Fuser

@@ -130,7 +130,8 @@ def test(trtexec: str = "trtexec", working_path: str = "."):
     ]
     trtexec_command.extend(
         [
-            "--loadEngine=Ernie.plan",
+            "--loadEngine=Ernie_fp16.plan",
+            "--fp16",
             "--avgRuns=1000",
             "--profilingVerbosity=detailed",
             f"--minShapes={create_input_shapes(min_shapes)}",
@@ -155,8 +156,8 @@ def test(trtexec: str = "trtexec", working_path: str = "."):
         sp.run(
             "\n".join(
                 [
-                    "./bin/main ./Ernie.plan ./data/label.test.txt ./label.res.txt ./so",
-                    "./bin/main ./Ernie.plan ./data/perf.test.txt ./perf.res.txt ./so",
+                    "./bin/main ./Ernie_fp16.plan ./data/label.test.txt ./label.res.txt ./so/plugins",
+                    "./bin/main ./Ernie_fp16.plan ./data/perf.test.txt ./perf.res.txt ./so/plugins",
                     "python src/python/utils/local_evaluate.py ./label.res.txt",
                     "python src/python/utils/local_evaluate.py ./perf.res.txt",
                 ]
