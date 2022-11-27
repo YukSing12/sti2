@@ -82,7 +82,7 @@ public:
         DimsExprs outputs;
         outputs.nbDims = 3;
         outputs.d[0] = inputs[3].d[0];
-        outputs.d[1] = exprBuilder.constant(128);
+        outputs.d[1] = inputs[3].d[1];
         outputs.d[2] = exprBuilder.constant(768);
 
         return outputs;
