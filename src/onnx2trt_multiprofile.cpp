@@ -88,9 +88,9 @@ void printFlags(IBuilderConfig* config) {
 }
 void printHelp() {
     std::cout << "Usage: multi_profile\n<input_onnx_file>\tPath of onnx file to load\n<output_trt_file>\tPath of trt engine to save\n<libPlugins>\tPath of Plugins(*.so)\n[-help]\tShow Usage\n[--ln "
-                 "--dymshape --fp16 --postemb --use --useNewFeature]\tall supported args"
+                 "--dymshape --fp16 --postemb --use --useNewFeature --eln]\tall supported args"
               << std::endl;
-    std::cout << "Example:\n\t./bin/multi_profile\t./model/modified_model_dymshape_ln_postemb.onnx\tErnie_fp16.plan\t./so/plugins\t--ln\t--postemb\t--fp16\t--dymshape" << std::endl;
+    std::cout << "Example:\n\t./bin/multi_profile\t./model/modified_model_dymshape_eln_postemb.onnx\tErnie_fp16.plan\t./so/plugins\t--ln\t--postemb\t--fp16\t--dymshape\t--eln" << std::endl;
 }
 int main(int argc, char** argv) {
     for (int i = 0; i < argc; ++i) {
