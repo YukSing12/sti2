@@ -11,10 +11,16 @@ make install
 
 cd $ROOT_DIR
 # Modify TensorRT Engine
-# python src/python/modify_ERNIE.py --src model/model.onnx --dst model/modified_model.onnx --ln --postemb
-python src/python/modify_ERNIE.py --src model/model.onnx --dst model/modified_model.onnx   --eln --postemb  --dymshape
+modify_cmd="python src/python/modify_ERNIE.py --src model/model.onnx --dst model/modified_model.onnx --postemb --dymshape --eln --ln"
 
-# # Build TensorRT Engine
-# # cd $ROOT_DIR
+rst=`eval $modify_cmd | grep "Save modified onnx model to"`
+rst=($rst)
+idx=$((${#rst[@]}-1))
+onnx_path=${rst[$idx]}
+echo $onnx_path
+
+
+# Build TensorRT Engine
+# cd $ROOT_DIR
 rm *.plan
-python src/python/onnx2trt.py --eln --postemb --fp16 --dymshape
+./bin/onnx2trt $onnx_path ./Ernie_fp16.plan ./so/plugins/ --postemb --dymshape --fp16
