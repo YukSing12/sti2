@@ -7,6 +7,7 @@ from .passes import (
     CustomPass,
     PostEmbeddingPass,
     LayernormPass,
+    EmbLayerNormPass,
     MaskedSoftmaxPass,
     AddOpPass,
     SliceReshapePass,
