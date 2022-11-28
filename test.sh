@@ -31,6 +31,8 @@ with open("data/perf.res.txt", 'r') as fid1,\
         data2 = np.array([float(x) for x in line2.split("\t")[2].split(",")])
         abs_diff = np.abs(data1 - data2)
         large_diff_count+=np.sum(abs_diff>delta)
+        if(np.sum(abs_diff>delta)>0.01):
+            print(f"qid:{line2.split("\t")[0]} might error")
         max_diff = max_diff if max_diff > abs_diff.max() else abs_diff.max()
         mean_diff = np.sum(abs_diff)
         count += len(abs_diff)

@@ -113,13 +113,13 @@ void field2vec(const std::string& input_str, bool padding, int& size_i, std::vec
     int batch_size = shape_info->at(0);
     int seq_len    = shape_info->at(1);
     if (padding) {
-        if (seq_len < 32) {
+        if (seq_len <= 33) {
             MAX_SEQ = 32;
         }
-        else if (seq_len > 32 && seq_len < 64) {
+        else if (seq_len > 32 && seq_len <= 64) {
             MAX_SEQ = 64;
         }
-        else if (seq_len > 64 && seq_len < 96) {
+        else if (seq_len > 64 && seq_len <= 96) {
             MAX_SEQ = 96;
         }
         else if (seq_len > 96) {
@@ -237,32 +237,6 @@ ICudaEngine* InitEngine(const std::string& engine_file) {
     }
 }
 
-void run(ICudaEngine* engine, IExecutionContext* context, cudaStream_t& stream, sample& s, std::vector<void*>& vBufferH, std::vector<void*>& vBufferD) {
-
-    context->setInputShape("read_file_0.tmp_0", Dims32{ 3, { s.batchsize, s.shape_info_0[1], s.shape_info_0[2] } });
-    context->setInputShape("read_file_0.tmp_1", Dims32{ 3, { s.batchsize, s.shape_info_1[1], s.shape_info_1[2] } });
-    context->setInputShape("read_file_0.tmp_2", Dims32{ 3, { s.batchsize, s.shape_info_2[1], s.shape_info_2[2] } });
-    context->setInputShape("read_file_0.tmp_3", Dims32{ 3, { s.batchsize, s.shape_info_3[1], s.shape_info_3[2] } });
-    context->setInputShape("read_file_0.tmp_6-13", Dims32{ 2, { s.batchsize, 8 } });
-
-    CHECK(cudaMemcpyAsync(vBufferD[0], s.i0.data(), s.size0 * dataTypeToSize(DataType::kINT32), cudaMemcpyHostToDevice, stream));
-    CHECK(cudaMemcpyAsync(vBufferD[1], s.i1.data(), s.size1 * dataTypeToSize(DataType::kINT32), cudaMemcpyHostToDevice, stream));
-    CHECK(cudaMemcpyAsync(vBufferD[2], s.i2.data(), s.size2 * dataTypeToSize(DataType::kINT32), cudaMemcpyHostToDevice, stream));
-    CHECK(cudaMemcpyAsync(vBufferD[3], s.i3.data(), s.size3 * dataTypeToSize(DataType::kFLOAT), cudaMemcpyHostToDevice, stream));
-    CHECK(cudaMemcpyAsync(vBufferD[4], s.i4.data(), s.size4 * dataTypeToSize(DataType::kINT32), cudaMemcpyHostToDevice, stream));
-
-    // Inference
-    context->enqueueV3(stream);
-
-    // Get output from device to host
-    CHECK(cudaMemcpyAsync(s.out_data.data(), vBufferD[5], s.batchsize * dataTypeToSize(DataType::kFLOAT), cudaMemcpyDeviceToHost, stream));
-
-    struct timeval tv;
-    gettimeofday(&tv, NULL);
-    s.timestamp = tv.tv_sec * 1000000 + tv.tv_usec;
-    return;
-}
-
 void run_graph(IExecutionContext* context, cudaStream_t& stream, cudaGraphExec_t& graph_exec, sample& s, std::vector<void*>& vBufferH, std::vector<void*>& vBufferD) {
 
     memcpy(vBufferH[0], s.i0.data(), s.size0 * dataTypeToSize(DataType::kINT32));
@@ -352,6 +326,7 @@ int main(int argc, char* argv[]) {
     CHECK(cudaMalloc(&vBufferD[5], 10 * 1 * 1 * sizeof(float)));
 
     // stream
+    std::cout<<"Engine have "<<profiles<<" profile."<<std::endl;
     cudaStream_t stream;
     CHECK(cudaStreamCreate(&stream));
     for (size_t i = 0; i < profiles; i++) {
@@ -384,8 +359,6 @@ int main(int argc, char* argv[]) {
     // inference
     std::cout << "infer" << std::endl;
     for (auto& s : sample_vec) {
-        // std::cout << "batchsize:" << s.batchsize << std::endl;
-        // std::cout << "shape:" << s.shape_info_0[1] << std::endl;
         run_graph(contexts[s.shape_info_0[1] / 32 - 1], stream, graph_vec[s.batchsize - 1][s.shape_info_0[1] / 32 - 1], s, vBufferH, vBufferD);
     }
     std::cout << "infer done" << std::endl;
