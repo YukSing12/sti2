@@ -300,6 +300,7 @@ void run(ICudaEngine *engine, IExecutionContext *context, cudaStream_t stream, s
 
 int main(int argc, char *argv[])
 {
+    std::cout << "TensorRT: " << NV_TENSORRT_MAJOR << "." << NV_TENSORRT_MINOR << "." << NV_TENSORRT_PATCH << "." << NV_TENSORRT_BUILD << std::endl;
     if (argc < 4)
     {
         std::cout << "Usage: main.exe <engine_file> <input_data_file> <output_data_file> [plugin_path1] [plugin_path2] ..." << std::endl;
