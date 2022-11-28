@@ -1,9 +1,9 @@
 ROOT_DIR=$(cd $(dirname $0); pwd)
  
-perf_mode=`echo $1 | grep "perf" | wc -l`
-label_mode=`echo $1 | grep "label" | wc -l`
+export LD_LIBRARY_PATH=$ROOT_DIR/so/tensorrt/lib/:$LD_LIBRARY_PATH
+export LD_PRELOAD="$ROOT_DIR/so/tensorrt/lib/libnvinfer_builder_resource.so.8.5.1  $ROOT_DIR/so/tensorrt/lib/libnvinfer_plugin.so.8.5.1  $ROOT_DIR/so/tensorrt/lib/libnvinfer.so.8.5.1  $ROOT_DIR/so/tensorrt/lib/libnvonnxparser.so.8.5.1 $ROOT_DIR/so/tensorrt/lib/libnvparsers.so.8.5.1"
 
-if [[ $perf_mode == 1 ]]; then
+if [ $1 = "data/perf.test.txt" ]; then
     rm  ./perf.res.txt
     ./bin/main ./Ernie_fp16.plan ./data/perf.test.txt ./perf.res.txt ./so/plugins/
 else

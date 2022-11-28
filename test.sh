@@ -1,10 +1,10 @@
 #rm *.res.txt
 if [ $# != 1 ]; then
-	echo "Enter <main/multi_profile>"
+	echo "Enter <main/multiprofile>"
 	exit 1
 fi
-./bin/$1 ./Ernie_fp16.plan ./data/label.test.txt ./label.res.txt ./so/plugins
-./bin/$1 ./Ernie_fp16.plan ./data/perf.test.txt ./perf.res.txt ./so/plugins
+./bin/$1 ./model/Ernie.plan ./data/label.test.txt ./label.res.txt ./so/plugins
+./bin/$1 ./model/Ernie.plan ./data/perf.test.txt ./perf.res.txt ./so/plugins
 python src/python/utils/local_evaluate.py ./label.res.txt
 python src/python/utils/local_evaluate.py ./perf.res.txt
 nan_num=`cat label.res.txt | grep nan | wc -l`

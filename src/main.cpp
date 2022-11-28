@@ -204,7 +204,7 @@ void field2vec(const std::string &input_str,
   int size=1;
   for(int i=0;i<2;i++)
   {
-    size=(*shape_info)[i];
+    size*=(*shape_info)[i];
   }
   size_i=size;
 }
@@ -222,8 +222,6 @@ void line2sample(const std::string &line, sample *sout)
   std::vector<std::string> label_f;
   split_string(fields[1], ":", label_f);
   sout->label = label_f[1];
-  std::vector<std::vector<int>> shape_info(8);
-  std::vector<std::vector<int>> f_vec(8);
   int _tmp_size;
   // Parse input field
   field2vec(fields[2], true,sout->size0,&(sout->shape_info_0), &(sout->i0));
@@ -231,6 +229,8 @@ void line2sample(const std::string &line, sample *sout)
   field2vec(fields[4], true,sout->size2,&(sout->shape_info_2), &(sout->i2));
   field2vec(fields[5], true,sout->size3,&(sout->shape_info_3), nullptr, &(sout->i3));
 #ifdef POSTEMB
+  std::vector<std::vector<int>> shape_info(8);
+  std::vector<std::vector<int>> f_vec(8);
   field2vec(fields[6], false, _tmp_size,&shape_info[0], &f_vec[0]);
   field2vec(fields[7], false, _tmp_size,&shape_info[1], &f_vec[1]);
   field2vec(fields[8], false, _tmp_size,&shape_info[2], &f_vec[2]);
@@ -260,7 +260,7 @@ void line2sample(const std::string &line, sample *sout)
     field2vec(fields[12], false,sout->size10, &(sout->shape_info_10), &(sout->i10));
     field2vec(fields[13], false,sout->size11, &(sout->shape_info_11), &(sout->i11));
 #endif
-  (sout->batchsize)=shape_info[0][0];
+  (sout->batchsize)=(sout->shape_info_0)[0];
   (sout->out_data).resize(sout->batchsize);
   return;
 }
