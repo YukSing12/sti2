@@ -101,6 +101,8 @@ void printHelp() {
 }
 
 int main(int argc, char** argv) {
+    
+    std::cout << "TensorRT: " << NV_TENSORRT_MAJOR << "." << NV_TENSORRT_MINOR << "." << NV_TENSORRT_PATCH << "." << NV_TENSORRT_BUILD << std::endl;
     if (argc < 4) {
         printHelp();
         return -1;
