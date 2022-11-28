@@ -318,7 +318,7 @@ int main(int argc, char* argv[]) {
             loadLibrary(so_file);
         }
     }
-
+    std::cout << "TensorRT: " << NV_TENSORRT_MAJOR << "." << NV_TENSORRT_MINOR << "." << NV_TENSORRT_PATCH << "." << NV_TENSORRT_BUILD << std::endl;
     // init
     std::string        engine_file = argv[1];
     auto               engine      = InitEngine(engine_file);
