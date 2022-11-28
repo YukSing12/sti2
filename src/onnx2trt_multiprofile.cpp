@@ -21,8 +21,6 @@ using namespace nvinfer1;
 
 static Logger          gLogger(ILogger::Severity::kINFO);
 
-bool                   postemb       = false;
-bool                   dymshape      = false;
 bool                   fp16          = false;
 bool                   useNewFeature = false;
 
@@ -94,12 +92,10 @@ void printHelp() {
               << "\t<plugins>            \tPath of plugins(*.so) to load.\n"
               << "Options:\n"
               << "\t--help,-h            \tPrint usage information and exit.\n"
-              << "\t--dymshape           \tSet second dimension to dynamic shape.\n"
               << "\t--fp16               \tEnable fp16 precision.\n"
               << "\t--useNewFeature      \tEnable PreviewFeature::kFASTER_DYNAMIC_SHAPES_0805 which may be unstable.\n"
-              << "\t--postemb            \tMerge input4~input11 to one input.\n"
               << "Examples:\n"
-              << "\t onnx2trt_multiprofile ./model/modified_model_dymshape_ln_postemb.onnx Ernie_fp16.plan ./so/plugins --postemb --fp16 --dymshape\n" 
+              << "\t onnx2trt_multiprofile ./model/modified_model_dymshape_ln_postemb.onnx Ernie_fp16.plan ./so/plugins --fp16\n" 
               << std::endl;
 }
 int main(int argc, char** argv) {
@@ -114,14 +110,8 @@ int main(int argc, char** argv) {
             printHelp();
             return -1;
         }
-        else if (!strcmp(argv[i], "--postemb")) {
-            postemb = true;
-        }
         else if (!strcmp(argv[i], "--fp16")) {
             fp16 = true;
-        }
-        else if (!strcmp(argv[i], "--dymshape")) {
-            dymshape = true;
         }
         else if (!strcmp(argv[i], "--useNewFeature")) {
             useNewFeature = true;
@@ -175,20 +165,12 @@ int main(int argc, char** argv) {
             }
         }
     }
-    if (postemb) {
-        std::cout << "Using postemb" << std::endl;
-    }
     if (useNewFeature) {
         std::cout << "Using useNewFeature" << std::endl;
         config->setPreviewFeature(PreviewFeature::kFASTER_DYNAMIC_SHAPES_0805, true);
     }
     int profileShape[4] = { 32, 64, 96, 128 };
     int min_dim2 = 128, opt_dim2 = 128, max_dim2 = 128;
-    if (dymshape) {
-        min_dim2 = 32;
-        opt_dim2 = 96;
-        std::cout << "Use dynamic shape with dim2" << std::endl;
-    }
     for (size_t i = 0; i < nProfiles; i++) {
 
         auto profile=builder->createOptimizationProfile();
@@ -238,11 +220,11 @@ int main(int argc, char** argv) {
         return -1;
     }
     engineFile.write(static_cast<char*>(engineString->data()), engineString->size());
-    if (engineFile.fail()) {
-        std::cout << "Failed saving " << output_trt_file << ".plan file!" << std::endl;
+    if (engineFile.fail()) { 
+        std::cout << "Failed saving " << output_trt_file << " file!" << std::endl;
         return -1;
     }
-    std::cout << "Succeeded saving " << output_trt_file << ".plan file!" << std::endl;
+    std::cout << "Succeeded saving " << output_trt_file << " file!" << std::endl;
 
     return 0;
 }

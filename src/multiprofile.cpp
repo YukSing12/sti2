@@ -17,8 +17,8 @@
 #endif
 #include "cookbookHelper.hpp"
 
-static Logger    gLogger(ILogger::Severity::kERROR);
-static const int MAX_SEQ = 128;
+static Logger gLogger(ILogger::Severity::kERROR);
+static int    MAX_SEQ = 128;
 
 std::list<std::string> GetFileNameFromDir(const std::string& dir, const char* filter) {
     std::list<std::string> files;
@@ -112,6 +112,20 @@ void field2vec(const std::string& input_str, bool padding, int& size_i, std::vec
     }
     int batch_size = shape_info->at(0);
     int seq_len    = shape_info->at(1);
+    if (padding) {
+        if (seq_len < 32) {
+            MAX_SEQ = 32;
+        }
+        else if (seq_len > 32 && seq_len < 64) {
+            MAX_SEQ = 64;
+        }
+        else if (seq_len > 64 && seq_len < 96) {
+            MAX_SEQ = 96;
+        }
+        else if (seq_len > 96) {
+            MAX_SEQ = 128;
+        }
+    }
     if (i32_vec) {
         for (int i = 0; i < batch_size; ++i) {
             for (int j = 0; j < seq_len; ++j) {
@@ -134,20 +148,9 @@ void field2vec(const std::string& input_str, bool padding, int& size_i, std::vec
             }
         }
     }
-    if (padding) {
-        auto _shape_size = (*shape_info)[1];
-        if (_shape_size < 32) {
-            (*shape_info)[1] = 32;
-        }
-        else if (_shape_size > 32 && _shape_size < 64) {
-            (*shape_info)[1] = 64;
-        }
-        else if (_shape_size > 64 && _shape_size < 96) {
-            (*shape_info)[1] = 96;
-        }
-        else if ((*shape_info)[1] > 96) {
-            (*shape_info)[1] = MAX_SEQ;
-        }
+    if(padding)
+    {
+        (*shape_info)[1]=MAX_SEQ;
     }
     int size = 1;
     for (int i = 0; i < 2; i++) {
@@ -260,7 +263,7 @@ void run(ICudaEngine* engine, IExecutionContext* context, cudaStream_t& stream, 
     return;
 }
 
-void run_graph(IExecutionContext* context,cudaStream_t& stream, cudaGraphExec_t& graph_exec, sample& s, std::vector<void*>& vBufferH, std::vector<void*>& vBufferD) {
+void run_graph(IExecutionContext* context, cudaStream_t& stream, cudaGraphExec_t& graph_exec, sample& s, std::vector<void*>& vBufferH, std::vector<void*>& vBufferD) {
 
     memcpy(vBufferH[0], s.i0.data(), s.size0 * dataTypeToSize(DataType::kINT32));
     memcpy(vBufferH[1], s.i1.data(), s.size1 * dataTypeToSize(DataType::kINT32));
@@ -269,7 +272,7 @@ void run_graph(IExecutionContext* context,cudaStream_t& stream, cudaGraphExec_t&
     memcpy(vBufferH[4], s.i4.data(), s.size4 * dataTypeToSize(DataType::kINT32));
 
     cudaGraphLaunch(graph_exec, stream);
-    CHECK(cudaMemcpyAsync(s.out_data.data(), vBufferD[5], s.batchsize * dataTypeToSize(DataType::kFLOAT), cudaMemcpyDeviceToHost,stream));
+    CHECK(cudaMemcpyAsync(s.out_data.data(), vBufferD[5], s.batchsize * dataTypeToSize(DataType::kFLOAT), cudaMemcpyDeviceToHost, stream));
     struct timeval tv;
     gettimeofday(&tv, NULL);
     s.timestamp = tv.tv_sec * 1000000 + tv.tv_usec;
@@ -383,7 +386,7 @@ int main(int argc, char* argv[]) {
     for (auto& s : sample_vec) {
         // std::cout << "batchsize:" << s.batchsize << std::endl;
         // std::cout << "shape:" << s.shape_info_0[1] << std::endl;
-        run_graph(contexts[s.shape_info_0[1] / 32 - 1],stream, graph_vec[s.batchsize - 1][s.shape_info_0[1] / 32 - 1], s, vBufferH, vBufferD);
+        run_graph(contexts[s.shape_info_0[1] / 32 - 1], stream, graph_vec[s.batchsize - 1][s.shape_info_0[1] / 32 - 1], s, vBufferH, vBufferD);
     }
     std::cout << "infer done" << std::endl;
     // postprocess
