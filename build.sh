@@ -26,4 +26,4 @@ echo $onnx_path
 # Build TensorRT Engine
 # cd $ROOT_DIR
 rm model/*.plan
-./bin/multiprofile $onnx_path ./model/Ernie.plan ./so/plugins/ --postemb --dymshape --fp16
+./bin/onnx2trt_multiprofile $onnx_path ./model/Ernie.plan ./so/plugins/ --postemb --dymshape --fp16
