@@ -3,15 +3,14 @@
 # @Time : 2022/11/23 11:53
 # @Author : Rongrui Zhan
 # @desc : 本代码未经授权禁止商用
-from .base import Pass, CustomPass, TowOpPass
+from .base import PassBase, ReplacePass, RemovePass, TowOpPass
 from .custom import (
-    PostEmbeddingPass,
     LayernormPass,
     EmbLayerNormPass,
     MaskedSoftmaxPass,
     AddOpPass,
     SliceReshapePass,
-    PreEmbeddingPass
+    PreEmbeddingPass,
 )
 
 # TODO: deprecated

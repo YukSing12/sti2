@@ -8,7 +8,7 @@ import onnx_graphsurgeon as gs
 from typing import Optional, List, Tuple
 
 
-class Pass:
+class PassBase:
     def __init__(self, pattern: Optional[str] = None):
         # pattern = r"\S+\.(\S+)\.(\d+)"
         if isinstance(pattern, str):
@@ -16,28 +16,36 @@ class Pass:
         else:
             self.pattern = pattern
 
+    def __call__(self, nodes: List[gs.Node]) -> int:
+        raise NotImplementedError
+
+
+class ReplacePass(PassBase):
     def __call__(self, nodes: List[gs.Node]):
         count = 0
         for node in nodes:
             new_node = self.replace(node, count)
             if new_node is not None:
                 nodes.append(new_node)
+                count += 1
         return count
 
     def replace(self, node: gs.Node, count: int) -> Optional[gs.Node]:
         raise NotImplementedError
 
 
-# TODO: CustomPass should be optimized
-class CustomPass:
-    def __call__(self, graph: gs.Graph):
-        graph.nodes.extend(self.replace(graph))
+class RemovePass(PassBase):
+    def __call__(self, nodes: List[gs.Node]):
+        count = 0
+        for node in nodes:
+            count += self.remove(node)
+        return count
 
-    def replace(self, graph: gs.Graph) -> List[gs.Node]:
+    def remove(self, node: gs.Node) -> int:
         raise NotImplementedError
 
 
-class TowOpPass(Pass):
+class TowOpPass(ReplacePass):
     def __init__(
         self, nodes_name: Tuple[List[str], List[str]], pattern: Optional[str] = None
     ):

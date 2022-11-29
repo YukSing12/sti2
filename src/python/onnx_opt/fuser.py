@@ -3,15 +3,14 @@ import onnx_graphsurgeon as gs
 
 from typing import Dict, Union, Tuple, List
 from .passes import (
-    Pass,
-    CustomPass,
-    PostEmbeddingPass,
+    PassBase,
     LayernormPass,
     EmbLayerNormPass,
     MaskedSoftmaxPass,
     AddOpPass,
     SliceReshapePass,
 )
+from .plugins import PluginBase, PluginType
 
 
 def clear(node):
@@ -28,26 +27,31 @@ def clear(node):
 
 
 class Fuser:
-    def __init__(self, graph: gs.Graph, passes):
-        # TODO:passes type hint to List[Pass]
+    def __init__(
+        self, graph: gs.Graph, passes: List[PassBase], plugins: List[PluginBase] = ()
+    ):
         self.graph = graph
         self.passes = passes
+        self.plugins = plugins
         # self.info_level = 0
 
-    # def info(self):
-    #     rich.
+    def __enter__(self):
+        for plugin in self.plugins:
+            if plugin.type == PluginType.EnterPlugin:
+                plugin(self.graph, self.passes)
+        return self
 
-    @property
-    def nodes(self):
-        nodes: Dict[str, gs.Node] = {node.name: node for node in self.graph.nodes}
-        return self.graph.nodes
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        for plugin in self.plugins:
+            if plugin.type == PluginType.ExitPlugin:
+                plugin(self.graph, self.passes)
 
     def fuse(self):
+        nodes = self.graph.nodes
         for p in self.passes:
-            if isinstance(p, Pass):
-                p(self.nodes)
-            else:
-                p(self.graph)
+            print(f"Running Pass {p.__class__.__name__}.")
+            count = p(nodes)
+            print(f"Detect {count} {p.__class__.__name__} sub-graphs.")
 
     # def fuse(self, old_nodes: Union[Tuple[str, list, list], str] = ("Add", ["Add"], []), new_nodes="AddAdd"):
     #     # fuse inputs

@@ -5,6 +5,7 @@ import argparse
 import onnxsim
 import numpy as np
 
+
 def get_args():
     parser = argparse.ArgumentParser("Export ERNIE TensorRT", add_help=False)
     parser.add_argument(
@@ -14,10 +15,10 @@ def get_args():
         "--dst", required=True, type=str, help="Path of onnx file to save"
     )
     parser.add_argument(
-        '--dymshape', 
-        action='store_true', 
-        default=False, 
-        help='modify dim2 dynamic shape'
+        "--dymshape",
+        action="store_true",
+        default=False,
+        help="modify dim2 dynamic shape",
     )
     parser.add_argument(
         "--onnxsim",
@@ -85,7 +86,7 @@ ENABLE_PREEMBEDDING_PLUGIN = args.preemb
 
 DEBUG = args.debug
 SIM = args.onnxsim
-DYNAMIC =args.dymshape
+DYNAMIC = args.dymshape
 src_onnx_path = args.src
 dst_onnx_path = args.dst
 
@@ -96,9 +97,9 @@ graph.fold_constants().cleanup()
 
 if DYNAMIC:
     for i in range(4):
-        graph.inputs[i].shape=[-1,-1,1]
-    dst_onnx_path =  dst_onnx_path.replace(".onnx", "_dymshape.onnx")    
-    
+        graph.inputs[i].shape = [-1, -1, 1]
+    dst_onnx_path = dst_onnx_path.replace(".onnx", "_dymshape.onnx")
+
 nodes = graph.nodes
 nodes_dict = {}
 for node in nodes:
@@ -106,6 +107,7 @@ for node in nodes:
     nodes_dict.update({name: node})
 
 passes = []
+onnx_opt_plugins = []
 sys.path.append("src/python")
 if ENABLE_EMBLAYERNORM_PLUGIN:
     from onnx_opt.passes import EmbLayerNormPass
@@ -128,8 +130,6 @@ if ENABLE_ADDLAYERNORM_PLUGIN:
     dst_onnx_path = dst_onnx_path.replace(".onnx", "_aln.onnx")
 
 
-
-
 if ENABLE_SLICERESHAPE_PLUGIN:
     from onnx_opt.passes import SliceReshapePass
 
@@ -143,9 +143,9 @@ if ENABLE_FUSING_ADDRELU:
     dst_onnx_path = dst_onnx_path.replace(".onnx", "_addrelu.onnx")
 
 if ENABLE_POSTEMBEDDING_PLUGIN:
-    from onnx_opt.passes import PostEmbeddingPass
+    from onnx_opt.plugins import PostEmbeddingPlugin
 
-    passes.append(PostEmbeddingPass())
+    onnx_opt_plugins.append(PostEmbeddingPlugin())
     dst_onnx_path = dst_onnx_path.replace(".onnx", "_postemb.onnx")
 
 if ENABLE_PREEMBEDDING_PLUGIN:
@@ -160,14 +160,15 @@ from onnx_opt.fuser import Fuser
 
 _deprecated_nodes_dict.update(nodes_dict)
 
-fuser = Fuser(graph, passes=passes)
-fuser.fuse()
+with Fuser(graph, passes=passes, plugins=onnx_opt_plugins) as fuser:
+    fuser.fuse()
+
 if ENABLE_POSTEMBEDDING_PLUGIN:
-    graph.inputs=graph.inputs[:5]
-    graph.inputs[4].shape=(-1,8)
-    graph.inputs[4].dtype=np.int32
-    graph.inputs[4].name="read_file_0.tmp_6-13"
-    
+    graph.inputs = graph.inputs[:5]
+    graph.inputs[4].shape = (-1, 8)
+    graph.inputs[4].dtype = np.int32
+    graph.inputs[4].name = "read_file_0.tmp_6-13"
+
 if DEBUG:
     graph.cleanup().toposort()
     dst_onnx_path = "./model/debug.onnx"

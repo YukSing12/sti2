@@ -6,10 +6,10 @@
 
 import onnx_graphsurgeon as gs
 import numpy as np
-from .base import Pass, CustomPass, TowOpPass
+from .base import ReplacePass, TowOpPass
 
 
-class MaskedSoftmaxPass(Pass):
+class MaskedSoftmaxPass(ReplacePass):
     def replace(self, node, count):
         if node.op == "Softmax":
             node2 = node.inputs[0].inputs[0]
@@ -44,7 +44,7 @@ class MaskedSoftmaxPass(Pass):
 _deprecated_nodes_dict: dict = {}
 
 
-class LayernormPass(Pass):
+class LayernormPass(ReplacePass):
     def replace(self, node, count):
         if node.op == "ReduceMean":
             mean_node = node
@@ -65,7 +65,7 @@ class LayernormPass(Pass):
             gamma = mul_node.inputs[1]
             beta = add_node.inputs[1]
             if len(add_node.outputs) == 0:
-                return None 
+                return None
             name = "LayerNorm.{}".format(node_id)
             layernorm = gs.Node(
                 op="LayerNorm",
@@ -90,83 +90,18 @@ class SliceReshapePass(TowOpPass):
         super().__init__((["Slice"], ["Reshape"]))
 
 
-class PostEmbeddingPass(CustomPass):
-    def replace(self, graph: gs.Graph):
-        graph_inputs = graph.inputs[4:]
-        squeeze_0 = graph_inputs[0].outputs[0].outputs[0].outputs[0]
-        squeeze_1 = graph_inputs[1].outputs[0].outputs[0].outputs[0]
-        squeeze_2 = graph_inputs[2].outputs[0].outputs[0].outputs[0]
-        squeeze_3 = graph_inputs[3].outputs[0].outputs[0].outputs[0]
-        squeeze_4 = graph_inputs[4].outputs[0].outputs[0].outputs[0]
-        squeeze_5 = graph_inputs[5].outputs[0].outputs[0].outputs[0]
-        squeeze_6 = graph_inputs[6].outputs[0].outputs[0].outputs[0]
-        squeeze_7 = graph_inputs[7].outputs[0].outputs[0].outputs[0]
-
-        emb_0 = squeeze_0.outputs[0].outputs[0].inputs[0]
-        emb_1 = squeeze_1.outputs[0].outputs[0].inputs[0]
-        emb_2 = squeeze_2.outputs[0].outputs[0].inputs[0]
-        emb_3 = squeeze_3.outputs[0].outputs[0].inputs[0]
-        emb_4 = squeeze_4.outputs[0].outputs[0].inputs[0]
-        emb_5 = squeeze_5.outputs[0].outputs[0].inputs[0]
-        emb_6 = squeeze_6.outputs[0].outputs[0].inputs[0]
-        emb_7 = squeeze_7.outputs[0].outputs[0].inputs[0]
-
-        reshape_node = (
-            graph_inputs[0]
-            .outputs[0]
-            .outputs[0]
-            .outputs[0]
-            .outputs[0]
-            .outputs[0]
-            .outputs[0]
-            .outputs[0]
-            .outputs[0]
-            .outputs[0]
-        )
-        output = reshape_node.outputs[0]
-        graph_inputs[0].shape=(-1,8)
-        graph_inputs[0].dtype=np.int32
-        posemb = gs.Node(
-            op="PostEmbedding",
-            name="PostEmbedding",
-            inputs=[
-                graph_inputs[0],
-                emb_0,
-                emb_1,
-                emb_2,
-                emb_3,
-                emb_4,
-                emb_5,
-                emb_6,
-                emb_7,
-            ],
-            outputs=[output],
-        )
-
-        squeeze_0.inputs.clear()
-        squeeze_1.inputs.clear()
-        squeeze_2.inputs.clear()
-        squeeze_3.inputs.clear()
-        squeeze_4.inputs.clear()
-        squeeze_5.inputs.clear()
-        squeeze_6.inputs.clear()
-        squeeze_7.inputs.clear()
-
-        reshape_node.outputs.clear()
-        return [posemb]
-
-
-class EmbLayerNormPass(Pass):
+class EmbLayerNormPass(ReplacePass):
     def replace(self, node, count):
-        if node.op == "ReduceMean":    
+        if node.op == "ReduceMean":
             node_id = int(node.name.split(".")[-1])
-            if not (('p2o.Sub.{}'.format(node_id//2) in _deprecated_nodes_dict)  
-            and ('p2o.Pow.{}'.format(node_id//2) in _deprecated_nodes_dict) 
-            and ('p2o.Div.{}'.format(node_id//2) in _deprecated_nodes_dict)  
-            and ('p2o.Sqrt.{}'.format(node_id//2) in _deprecated_nodes_dict)):
+            if not (
+                ("p2o.Sub.{}".format(node_id // 2) in _deprecated_nodes_dict)
+                and ("p2o.Pow.{}".format(node_id // 2) in _deprecated_nodes_dict)
+                and ("p2o.Div.{}".format(node_id // 2) in _deprecated_nodes_dict)
+                and ("p2o.Sqrt.{}".format(node_id // 2) in _deprecated_nodes_dict)
+            ):
                 return None
 
-            
             add1_node = node.inputs[0].inputs[0]
 
             if add1_node.inputs[1].inputs[0].op != "Gather":
@@ -180,22 +115,30 @@ class EmbLayerNormPass(Pass):
             squeeze0_node = gather0_node.inputs[1].inputs[0]
             squeeze1_node = gather1_node.inputs[1].inputs[0]
 
-            div_node = _deprecated_nodes_dict['p2o.Div.{}'.format(node_id//2)]
+            div_node = _deprecated_nodes_dict["p2o.Div.{}".format(node_id // 2)]
             mul_node = div_node.outputs[0].outputs[0]
             add3_node = mul_node.outputs[0].outputs[0]
 
             gamma = mul_node.inputs[1]
             beta = add3_node.inputs[1]
 
-            
-            name = 'EmbLayerNorm.{}'.format(node_id)
-            emblayernorm = gs.Node(op="EmbLayerNorm", 
-                                name=name, 
-                                inputs=[gather2_node.inputs[0],gather0_node.inputs[0],gather1_node.inputs[0],
-                                squeeze2_node.inputs[0],squeeze0_node.inputs[0],squeeze1_node.inputs[0],
-                                gamma,beta], 
-                                outputs=[add3_node.outputs[0]], 
-                                attrs={"epsilon": 1e-5})
+            name = "EmbLayerNorm.{}".format(node_id)
+            emblayernorm = gs.Node(
+                op="EmbLayerNorm",
+                name=name,
+                inputs=[
+                    gather2_node.inputs[0],
+                    gather0_node.inputs[0],
+                    gather1_node.inputs[0],
+                    squeeze2_node.inputs[0],
+                    squeeze0_node.inputs[0],
+                    squeeze1_node.inputs[0],
+                    gamma,
+                    beta,
+                ],
+                outputs=[add3_node.outputs[0]],
+                attrs={"epsilon": 1e-5},
+            )
             gather0_node.inputs.clear()
             gather1_node.inputs.clear()
             gather2_node.inputs.clear()
@@ -205,26 +148,26 @@ class EmbLayerNormPass(Pass):
             add3_node.outputs.clear()
             return emblayernorm
 
-class PreEmbeddingPass(Pass):
+
+class PreEmbeddingPass(ReplacePass):
     def replace(self, node, count):
-        if node.name == "p2o.Add.1":    
+        if node.name == "p2o.Add.1":
             node_id = int(node.name.split(".")[-1])
-            # if not (('p2o.Sub.{}'.format(node_id//2) in _deprecated_nodes_dict)  
-            # and ('p2o.Pow.{}'.format(node_id//2) in _deprecated_nodes_dict) 
-            # and ('p2o.Div.{}'.format(node_id//2) in _deprecated_nodes_dict)  
+            # if not (('p2o.Sub.{}'.format(node_id//2) in _deprecated_nodes_dict)
+            # and ('p2o.Pow.{}'.format(node_id//2) in _deprecated_nodes_dict)
+            # and ('p2o.Div.{}'.format(node_id//2) in _deprecated_nodes_dict)
             # and ('p2o.Sqrt.{}'.format(node_id//2) in _deprecated_nodes_dict)):
             #     return None
 
-            
             add1_node = node
 
             # if not ((add1_node.inputs[1].inputs[0].op == "Gather") and (add1_node.inputs[0].inputs[0].op == "Add")):
             #     return None
 
-            gather2_node  = add1_node.inputs[1].inputs[0]
-            add2_node     = add1_node.inputs[0].inputs[0]
-            gather0_node  = add2_node.inputs[0].inputs[0]
-            gather1_node  = add2_node.inputs[1].inputs[0]
+            gather2_node = add1_node.inputs[1].inputs[0]
+            add2_node = add1_node.inputs[0].inputs[0]
+            gather0_node = add2_node.inputs[0].inputs[0]
+            gather1_node = add2_node.inputs[1].inputs[0]
             squeeze2_node = gather2_node.inputs[1].inputs[0]
             squeeze0_node = gather0_node.inputs[1].inputs[0]
             squeeze1_node = gather1_node.inputs[1].inputs[0]
@@ -236,15 +179,21 @@ class PreEmbeddingPass(Pass):
             # gamma = mul_node.inputs[1]
             # beta = add3_node.inputs[1]
 
-            
-            name = 'PreEmbedding.{}'.format(node_id) # gamma,beta
-            PreEmbedding = gs.Node(op="PreEmbedding", 
-                                name=name, 
-                                inputs=[gather2_node.inputs[0],gather0_node.inputs[0],gather1_node.inputs[0],
-                                squeeze2_node.inputs[0],squeeze0_node.inputs[0],squeeze1_node.inputs[0],
-                                ], 
-                                outputs=[add1_node.outputs[0]], 
-                                attrs={"epsilon": 1e-5})
+            name = "PreEmbedding.{}".format(node_id)  # gamma,beta
+            PreEmbedding = gs.Node(
+                op="PreEmbedding",
+                name=name,
+                inputs=[
+                    gather2_node.inputs[0],
+                    gather0_node.inputs[0],
+                    gather1_node.inputs[0],
+                    squeeze2_node.inputs[0],
+                    squeeze0_node.inputs[0],
+                    squeeze1_node.inputs[0],
+                ],
+                outputs=[add1_node.outputs[0]],
+                attrs={"epsilon": 1e-5},
+            )
             gather0_node.inputs.clear()
             gather1_node.inputs.clear()
             gather2_node.inputs.clear()
@@ -252,4 +201,4 @@ class PreEmbeddingPass(Pass):
             squeeze1_node.inputs.clear()
             squeeze2_node.inputs.clear()
             add1_node.outputs.clear()
-            return PreEmbedding        
+            return PreEmbedding
