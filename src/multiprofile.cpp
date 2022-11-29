@@ -148,9 +148,8 @@ void field2vec(const std::string& input_str, bool padding, int& size_i, std::vec
             }
         }
     }
-    if(padding)
-    {
-        (*shape_info)[1]=MAX_SEQ;
+    if (padding) {
+        (*shape_info)[1] = MAX_SEQ;
     }
     int size = 1;
     for (int i = 0; i < 2; i++) {
@@ -232,7 +231,7 @@ ICudaEngine* InitEngine(const std::string& engine_file) {
         return engine;
     }
     else {
-        std::cout << "Failed finding .plan file!" << std::endl;
+        std::cout << "Failed finding "<<engine_file<<" file!" << std::endl;
         return nullptr;
     }
 }
@@ -284,7 +283,7 @@ void warmup(IExecutionContext** contexts, cudaStream_t& stream, std::vector<void
 
 int main(int argc, char* argv[]) {
     if (argc < 4) {
-        std::cout << "Usage: main.exe <engine_file> <input_data_file> <output_data_file> [plugins_path]" << std::endl;
+        std::cout << "Usage: multiprofile <engine_file> <input_data_file> <output_data_file> [plugins_path]" << std::endl;
         return -1;
     }
     else if (argc == 5) {
@@ -326,7 +325,7 @@ int main(int argc, char* argv[]) {
     CHECK(cudaMalloc(&vBufferD[5], 10 * 1 * 1 * sizeof(float)));
 
     // stream
-    std::cout<<"Engine have "<<profiles<<" profile."<<std::endl;
+    std::cout << "Engine have " << profiles << " profiles." << std::endl;
     cudaStream_t stream;
     CHECK(cudaStreamCreate(&stream));
     for (size_t i = 0; i < profiles; i++) {
@@ -353,15 +352,15 @@ int main(int argc, char* argv[]) {
         sample_vec.push_back(s);
     }
 
-    // warmup
-    std::cout << "warmup" << std::endl;
+    // Warmup
+    std::cout << "--------Start Warmup-------" << std::endl;
     warmup(contexts, stream, vBufferH, vBufferD, graph_vec);
     // inference
-    std::cout << "infer" << std::endl;
+    std::cout << "--------Inference Start----------" << std::endl;
     for (auto& s : sample_vec) {
         run_graph(contexts[s.shape_info_0[1] / 32 - 1], stream, graph_vec[s.batchsize - 1][s.shape_info_0[1] / 32 - 1], s, vBufferH, vBufferD);
     }
-    std::cout << "infer done" << std::endl;
+    std::cout << "--------Inference Finished----------" << std::endl;
     // postprocess
     for (auto& s : sample_vec) {
         std::ostringstream oss;
