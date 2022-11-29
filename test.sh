@@ -14,6 +14,7 @@ echo "Found $nan_num nan in perf.res.txt"
 
 /usr/bin/python3 <<-EOF
 import numpy as np
+delta=0.01
 with open("data/perf.res.txt", 'r') as fid1,\
         open("perf.res.txt", 'r') as fid2:
     lines1 = fid1.readlines()
@@ -22,17 +23,22 @@ with open("data/perf.res.txt", 'r') as fid1,\
     mean_diff = 0
     max_diff = 0
     count = 0
+    large_diff_count=0
     for i in range(len(lines1)):
         line1 = lines1[i]
         line2 = lines2[i]
         data1 = np.array([float(x) for x in line1.split("\t")[2].split(",")])
         data2 = np.array([float(x) for x in line2.split("\t")[2].split(",")])
         abs_diff = np.abs(data1 - data2)
+        large_diff_count+=np.sum(abs_diff>delta)
+        if(np.sum(abs_diff>delta)>0.01):
+            print("qid:{} might error".format(line2.split('\t')[0]))
         max_diff = max_diff if max_diff > abs_diff.max() else abs_diff.max()
         mean_diff = np.sum(abs_diff)
         count += len(abs_diff)
     
     mean_diff /= count
     print("Max diff is {}".format(max_diff))
+    print("diff > {} count is {}".format(delta,large_diff_count))
     print("Mean diff is {}".format(mean_diff))
 EOF
