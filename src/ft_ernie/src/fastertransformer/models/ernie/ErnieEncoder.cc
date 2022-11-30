@@ -356,32 +356,16 @@ void ErnieEncoder<T>::forward(std::vector<Tensor>*       output_tensors,
     //      word_ids [batch, seqlen, 1]
     //      pos_ids  [batch, seqlen, 1]
     //      sent_ids [batch, seqlen, 1]
-    //      mask     [batch, seqlen, 1]
-    //      field_1  [batch, 1, 1]
-    //      field_3  [batch, 1, 1]
-    //      field_6  [batch, 1, 1]
-    //      field_0  [batch, 1, 1]
-    //      field_5  [batch, 1, 1]
-    //      field_7  [batch, 1, 1]
-    //      field_4  [batch, 1, 1]
-    //      field_2  [batch, 1, 1]
+    //      seq_len     [batch, seqlen, 1]
     // output tensors:
-    //      scale    [batch, 1]
+    //      attn_out [batch, seqlen, d_model]
 
     std::unordered_map<std::string, Tensor> input_tensors_map{{"word_ids",  input_tensors->at(0)},
                                                               {"pos_ids",   input_tensors->at(1)},
                                                               {"sent_ids",  input_tensors->at(2)},
-                                                              {"mask",      input_tensors->at(3)},
-                                                              {"field_1",   input_tensors->at(4)},
-                                                              {"field_3",   input_tensors->at(5)},
-                                                              {"field_6",   input_tensors->at(6)},
-                                                              {"field_0",   input_tensors->at(7)},
-                                                              {"field_5",   input_tensors->at(8)},
-                                                              {"field_7",   input_tensors->at(9)},
-                                                              {"field_4",   input_tensors->at(10)},
-                                                              {"field_2",   input_tensors->at(11)}};
+                                                              {"seq_len",   input_tensors->at(3)}};
 
-    std::unordered_map<std::string, Tensor> output_tensors_map{{"scale", output_tensors->at(0)}};
+    std::unordered_map<std::string, Tensor> output_tensors_map{{"attn_out", output_tensors->at(0)}};
     forward(&output_tensors_map, &input_tensors_map, ernie_encoder_weights);
 }
 
@@ -394,46 +378,22 @@ void ErnieEncoder<T>::forward(std::unordered_map<std::string, Tensor>*       out
     //      word_ids [batch, seqlen, 1]
     //      pos_ids  [batch, seqlen, 1]
     //      sent_ids [batch, seqlen, 1]
-    //      mask     [batch, seqlen, 1]
-    //      field_1  [batch, 1, 1]
-    //      field_3  [batch, 1, 1]
-    //      field_6  [batch, 1, 1]
-    //      field_0  [batch, 1, 1]
-    //      field_5  [batch, 1, 1]
-    //      field_7  [batch, 1, 1]
-    //      field_4  [batch, 1, 1]
-    //      field_2  [batch, 1, 1]
+    //      seq_len     [batch, seqlen, 1]
     // output tensors:
-    //      scale    [batch, 1]
+    //      attn_out [batch, seqlen, d_model]
 
     FT_LOG_DEBUG(__PRETTY_FUNCTION__);
-    FT_CHECK(input_tensors->at("word_ids").shape.size() == 3);
+    FT_CHECK(input_tensors->at("word_ids").shape.size() == 2);
 
     const size_t request_batch_size = input_tensors->at("word_ids").shape[0];
     const size_t request_seq_len    = input_tensors->at("word_ids").shape[1];
-    FT_CHECK(input_tensors->size() == 12);
+    FT_CHECK(input_tensors->size() == 4);
     FT_CHECK(request_batch_size == input_tensors->at("pos_ids").shape[0]);
-    FT_CHECK(input_tensors->at("pos_ids").shape.size() == 3);
+    FT_CHECK(input_tensors->at("pos_ids").shape.size() == 2);
     FT_CHECK(request_batch_size == input_tensors->at("sent_ids").shape[0]);
-    FT_CHECK(input_tensors->at("sent_ids").shape.size() == 3);
-    FT_CHECK(request_batch_size == input_tensors->at("mask").shape[0]);
-    FT_CHECK(input_tensors->at("mask").shape.size() == 3);
-    FT_CHECK(request_batch_size == input_tensors->at("field_1").shape[0]);
-    FT_CHECK(input_tensors->at("field_1").shape.size() == 3);
-    FT_CHECK(request_batch_size == input_tensors->at("field_3").shape[0]);
-    FT_CHECK(input_tensors->at("field_3").shape.size() == 3);
-    FT_CHECK(request_batch_size == input_tensors->at("field_6").shape[0]);
-    FT_CHECK(input_tensors->at("field_6").shape.size() == 3);
-    FT_CHECK(request_batch_size == input_tensors->at("field_0").shape[0]);
-    FT_CHECK(input_tensors->at("field_0").shape.size() == 3);
-    FT_CHECK(request_batch_size == input_tensors->at("field_5").shape[0]);
-    FT_CHECK(input_tensors->at("field_5").shape.size() == 3);
-    FT_CHECK(request_batch_size == input_tensors->at("field_7").shape[0]);
-    FT_CHECK(input_tensors->at("field_7").shape.size() == 3);
-    FT_CHECK(request_batch_size == input_tensors->at("field_4").shape[0]);
-    FT_CHECK(input_tensors->at("field_4").shape.size() == 3);
-    FT_CHECK(request_batch_size == input_tensors->at("field_2").shape[0]);
-    FT_CHECK(input_tensors->at("field_2").shape.size() == 3);
+    FT_CHECK(input_tensors->at("sent_ids").shape.size() == 2);
+    FT_CHECK(request_batch_size == input_tensors->at("seq_len").shape[0]);
+    FT_CHECK(input_tensors->at("seq_len").shape.size() == 1);
     allocateBuffer(request_batch_size, request_seq_len);
 
     // Ernie Structure Difference
@@ -443,7 +403,7 @@ void ErnieEncoder<T>::forward(std::unordered_map<std::string, Tensor>*       out
 
     if (attention_type_ == AttentionType::UNFUSED_MHA || attention_type_ == AttentionType::FUSED_MHA) {
         // prevent undefined behavior of the padding parts
-        cudaMemset(output_tensors->at("scale").getPtr<T>(),
+        cudaMemset(output_tensors->at("attn_out").getPtr<T>(),
                    0,
                    sizeof(T) * request_batch_size * 1);
     }
@@ -455,7 +415,7 @@ void ErnieEncoder<T>::forward(std::unordered_map<std::string, Tensor>*       out
         size_t id_offset      = ite * local_batch_size;
         size_t d_model_offset = id_offset * request_seq_len * d_model_;
 
-        const int* sequence_lengths = input_tensors->at("sequence_length").getPtr<int>() + id_offset;
+        const int* sequence_lengths = input_tensors->at("seq_len").getPtr<int>() + id_offset;
         // preprocess (build embedding and layernorm)
         invokeEmbeddingLookupConcat(ernie_encoder_emb_buf_,
                                  head_num_ * size_per_head_,
@@ -480,7 +440,7 @@ void ErnieEncoder<T>::forward(std::unordered_map<std::string, Tensor>*       out
         // preprocess (remove padding and build mask)
         switch (attention_type_) {
             case AttentionType::UNFUSED_MHA: {
-                invokeBuildErnieAttentionMask(
+                invokeBuildEncoderAttentionMask(
                     attention_mask_, sequence_lengths, local_batch_size, request_seq_len, stream_);
 
                 sync_check_cuda_error();
@@ -510,7 +470,7 @@ void ErnieEncoder<T>::forward(std::unordered_map<std::string, Tensor>*       out
                 break;
             }
             case AttentionType::UNFUSED_PADDED_MHA: {
-                invokeBuildErnieAttentionMask(
+                invokeBuildEncoderAttentionMask(
                     attention_mask_, sequence_lengths, local_batch_size, request_seq_len, stream_);
 
                 h_token_num = local_batch_size * request_seq_len;
@@ -518,7 +478,7 @@ void ErnieEncoder<T>::forward(std::unordered_map<std::string, Tensor>*       out
                 sync_check_cuda_error();
                 h_token_num               = local_batch_size * request_seq_len;
                 ernie_encoder_input_ptr      = ernie_encoder_emb_buf_;
-                ernie_encoder_output_ptr     = output_tensors->at("scale").getPtr<T>() + d_model_offset;
+                ernie_encoder_output_ptr     = output_tensors->at("attn_out").getPtr<T>() + d_model_offset;
                 padding_offset_tensor_ptr = new Tensor(MEMORY_GPU, TYPE_INT32, std::vector<size_t>{0}, nullptr);
                 break;
             }
@@ -555,7 +515,7 @@ void ErnieEncoder<T>::forward(std::unordered_map<std::string, Tensor>*       out
                 // padding_offset_tensor_ptr = new Tensor(
                 //     MEMORY_GPU, TYPE_INT32, std::vector<size_t>{local_batch_size * 2 + 1}, trt_mha_padding_offset_);
                 // ernie_encoder_input_ptr = ernie_encoder_emb_buf_ + d_model_offset;
-                // ernie_encoder_output_ptr = output_tensors->at("scale").getPtr<T>() + d_model_offset;
+                // ernie_encoder_output_ptr = output_tensors->at("attn_out").getPtr<T>() + d_model_offset;
                 // break;
             }
             default: {
@@ -653,7 +613,7 @@ void ErnieEncoder<T>::forward(std::unordered_map<std::string, Tensor>*       out
             switch (attention_type_) {
                 case AttentionType::UNFUSED_MHA: {
                     if (pipeline_para_.rank_ == pipeline_para_.world_size_ - 1) {
-                        invokeRebuildPadding(output_tensors->at("scale").getPtr<T>() + d_model_offset,
+                        invokeRebuildPadding(output_tensors->at("attn_out").getPtr<T>() + d_model_offset,
                                              ernie_encoder_out_buffer_,
                                              padding_offset_,
                                              h_token_num,
@@ -667,7 +627,7 @@ void ErnieEncoder<T>::forward(std::unordered_map<std::string, Tensor>*       out
                 }
                 case AttentionType::FUSED_MHA: {
                     if (pipeline_para_.rank_ == pipeline_para_.world_size_ - 1) {
-                        invokeRebuildPadding(output_tensors->at("scale").getPtr<T>() + d_model_offset,
+                        invokeRebuildPadding(output_tensors->at("attn_out").getPtr<T>() + d_model_offset,
                                              ernie_encoder_out_buffer_,
                                              padding_offset_,
                                              h_token_num,

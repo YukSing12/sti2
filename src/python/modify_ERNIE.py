@@ -195,6 +195,11 @@ if ENABLE_POSTEMBEDDING_PLUGIN:
     graph.inputs[4].dtype = np.int32
     graph.inputs[4].name = "read_file_0.tmp_6-13"
 
+if ENABLE_FASTERTRANSFORMER:
+    graph.inputs[3].shape = (-1, 1)
+    graph.inputs[3].dtype = np.int32
+    graph.inputs[3].name = "read_file_0.seq_len"
+        
 if DEBUG:
     graph.cleanup().toposort()
     dst_onnx_path = "./model/debug.onnx"

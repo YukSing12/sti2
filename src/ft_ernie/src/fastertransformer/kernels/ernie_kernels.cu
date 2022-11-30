@@ -1,5 +1,6 @@
 #include "ernie_kernels.h"
 
+namespace fastertransformer {
 template<typename T, int TPB>
 __global__ void embeddingLookupConcatKernel(const int ld,
                                             const int vocab_size,
@@ -13,8 +14,6 @@ __global__ void embeddingLookupConcatKernel(const int ld,
                                             const int32_t* posIds,
                                             T* output)  // const half* gamma, const half* beta,
 {
-    cub::Sum pairSum;
-
     __shared__ int wordId;
     __shared__ int sendId;
     __shared__ int posId;
@@ -92,45 +91,4 @@ template void invokeEmbeddingLookupConcat(half* from_tensor,
                                           const int32_t* wordIds,
                                           const int32_t* posIds,
                                           cudaStream_t stream);
-
-template<typename T>
-__global__ void
-buildErnieAttentionMask(T* attention_mask, const int* sequence_lengths, const int batch_size, const int max_seq_len)
-{
-    // sequence_lengths: [batch_size]
-    // attention_mask: [batch_size, 1, max_seq_len, max_seq_len]
-    attention_mask += blockIdx.x * max_seq_len * max_seq_len;
-    const int length = sequence_lengths[blockIdx.x];
-    for (int i = threadIdx.x; i < max_seq_len * max_seq_len; i += blockDim.x) {
-        // int row_id = i / max_seq_len;
-        int col_id = i % max_seq_len;
-        // if (row_id < length && col_id < length) {
-        // TODO (bhsueh) check this modification is ok or not on other rmodel
-        if (col_id < length) {
-            attention_mask[i] = (T)(1.0f);
-        }
-        else {
-            attention_mask[i] = (T)(0.0f);
-        }
-    }
-}
-
-template<typename T>
-void invokeBuildErnieAttentionMask(
-    T* attention_mask, const int* sequence_lengths, const int batch_size, const int max_seq_len, cudaStream_t stream)
-{
-    FT_CHECK(max_seq_len == 128);
-    buildErnieAttentionMask<<<batch_size, 128, 0, stream>>>(attention_mask, sequence_lengths, max_seq_len);
-}
-
-template void invokeBuildErnieAttentionMask(float* attention_mask,
-                                            const int* sequence_lengths,
-                                            const int batch_size,
-                                            const int max_seq_len,
-                                            cudaStream_t stream);
-
-template void invokeBuildErnieAttentionMask(half* attention_mask,
-                                            const int* sequence_lengths,
-                                            const int batch_size,
-                                            const int max_seq_len,
-                                            cudaStream_t stream);
+}  // namespace fastertransformer

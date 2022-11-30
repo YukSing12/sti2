@@ -2,6 +2,10 @@
 
 #include <cuda_fp16.h>
 #include <cuda_runtime.h>
+#include "src/fastertransformer/utils/Tensor.h"
+#include "src/fastertransformer/utils/memory_utils.h"
+#include "src/fastertransformer/utils/cuda_utils.h"
+
 namespace fastertransformer {
 template<typename T>
 void invokeEmbeddingLookupConcat(T* from_tensor,

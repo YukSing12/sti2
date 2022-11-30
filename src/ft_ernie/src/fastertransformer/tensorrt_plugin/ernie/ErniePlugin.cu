@@ -454,17 +454,11 @@ bool ErniePlugin::supportsFormatCombination(int                     pos,
         case 1:
         case 2:
         case 3:
-        case 4:
-        case 5:
-        case 6:
-        case 7:
-        case 8:
-        case 9:
-        case 10:
-        case 11:
-        case 12:
-            res = (inOut[pos].type == (m_.useFP16 ? DataType::kHALF : DataType::kFLOAT))
+            res = (inOut[pos].type == DataType::kINT32)
                   && (inOut[pos].format == TensorFormat::kLINEAR);
+            break;
+        case 4:
+            res = (inOut[pos].type == (m_.useFP16 ? DataType::kHALF : DataType::kFLOAT));
             break;
         default:  // should NOT be here!
             res = false;
@@ -475,15 +469,17 @@ bool ErniePlugin::supportsFormatCombination(int                     pos,
         printf("%d,", inOut[i].dims.nbDims);
     }
     printf("),");
-    printf("pos=%d,res=%d,format(%d,%d,%d),type(%d,%d,%d),",
+    printf("pos=%d,res=%d,format(%d,%d,%d,%d),type(%d,%d,%d,%d),",
            pos,
            int(res),
            int(inOut[0].format),
            int(inOut[1].format),
            int(inOut[2].format),
+           int(inOut[3].format),
            int(inOut[0].type),
            int(inOut[1].type),
-           int(inOut[2].type));
+           int(inOut[2].type),
+           int(inOut[3].type));
     printf("kLINEAR=%d,float=%d,half=%d,int8=%d,int32=%d,bool=%d\n",
            int(TensorFormat::kLINEAR),
            int(DataType::kFLOAT),
@@ -502,9 +498,10 @@ DimsExprs ErniePlugin::getOutputDimensions(int              index,
 {
     WHERE_AM_I();
     DimsExprs ret;
-    ret.nbDims = 2;
+    ret.nbDims = 3;
     ret.d[0]   = pInputDim[0].d[0];
-    ret.d[1]   = exprBuilder.constant(1);
+    ret.d[1]   = pInputDim[0].d[1];
+    ret.d[2]   = exprBuilder.constant(m_.d_model);
     return ret;
 }
 
@@ -603,11 +600,13 @@ int ErniePlugin::enqueue(const PluginTensorDesc* inputDesc,
     pCublasWrapper_->setStream(stream);
 
     std::unordered_map<std::string, Tensor> inputTensor{
-        {"input_ids", Tensor{MEMORY_GPU, TYPE_INT32, std::vector<size_t>{m_.batch_size, m_.seq_len}, (int*)inputs[0]}},
-        {"sequence_length", Tensor{MEMORY_GPU, TYPE_INT32, std::vector<size_t>{m_.batch_size}, (int*)inputs[1]}}};
+        {"word_ids", Tensor{MEMORY_GPU, TYPE_INT32, std::vector<size_t>{m_.batch_size, m_.seq_len}, (int*)inputs[0]}},
+        {"pos_ids", Tensor{MEMORY_GPU, TYPE_INT32, std::vector<size_t>{m_.batch_size, m_.seq_len}, (int*)inputs[1]}},
+        {"sent_ids", Tensor{MEMORY_GPU, TYPE_INT32, std::vector<size_t>{m_.batch_size, m_.seq_len}, (int*)inputs[2]}},
+        {"seq_len", Tensor{MEMORY_GPU, TYPE_INT32, std::vector<size_t>{m_.batch_size}, (int*)inputs[3]}}};
     if (m_.useFP16) {
         std::unordered_map<std::string, Tensor> outputTensor{
-            {"output_hidden_state",
+            {"attn_out",
              Tensor{MEMORY_GPU,
                     TYPE_FP16,
                     std::vector<size_t>{m_.batch_size, m_.seq_len, (size_t)(m_.head_num * m_.size_per_head)},
@@ -617,7 +616,7 @@ int ErniePlugin::enqueue(const PluginTensorDesc* inputDesc,
     }
     else {
         std::unordered_map<std::string, Tensor> outputTensor{
-            {"output_hidden_state",
+            {"attn_out",
              Tensor{MEMORY_GPU,
                     TYPE_FP32,
                     std::vector<size_t>{m_.batch_size, m_.seq_len, (size_t)(m_.head_num * m_.size_per_head)},
@@ -660,7 +659,7 @@ IPluginV2* ErniePluginCreator::createPlugin(const char* name, const PluginFieldC
     int         max_distance   = 128;
     int         sm             = -1;
     float       q_scaling      = 0.125f;
-    int         useFP16        = 0;
+    int         useFP16        = 1;
     std::string ckpt_path      = std::string("/workspace/xys/sti2/model/bin");
 
     struct cudaDeviceProp prop;

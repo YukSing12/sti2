@@ -29,7 +29,7 @@
 #include <cuda_fp16.h>
 #include <vector>
 
-#define Ernie_PLUGIN_DEBUG
+// #define Ernie_PLUGIN_DEBUG
 #ifdef Ernie_PLUGIN_DEBUG
 #define WHERE_AM_I() printf("[%s]: this->%p\n", __func__, this);
 #define PRINT_ENCODER(DATA_TYPE)                                                                                       \
@@ -94,7 +94,7 @@
 #endif  // DEBUG_ENABLE==1
 
 namespace {
-static const char* ENCODER_NAME{"CustomErniePlugin"};
+static const char* ENCODER_NAME{"ErniePlugin"};
 static const char* ENCODER_VERSION{"1"};
 }  // namespace
 
@@ -131,8 +131,8 @@ private:
         size_t max_seq_len    = 128;
         size_t beam_width     = 1;
         size_t head_num       = 12;
-        size_t size_per_head  = 768 / 12;
-        size_t d_model        = head_num * size_per_head;
+        size_t size_per_head  = 64;
+        size_t d_model        = head_num * size_per_head;   // 768
         size_t inter_size     = d_model * 4;
         size_t num_layer      = 12;
         size_t num_bucket     = 32;
@@ -144,10 +144,10 @@ private:
         size_t                            vocab_size                   = 50000;
         size_t                            pos_size                     = 513;
         size_t                            sent_vocab_size              = 4;
-        bool                              is_remove_padding            = true;
+        bool                              is_remove_padding            = false;
         bool                              is_free_buffer_after_forward = false;
         bool                              is_sparse                    = false;
-        AttentionType                     attention_type               = AttentionType::UNFUSED_MHA;
+        AttentionType                     attention_type               = AttentionType::UNFUSED_PADDED_MHA;
         fastertransformer::ActivationType activation_type              = fastertransformer::ActivationType::Relu;
         LayerNormType                     layernorm_type               = LayerNormType::post_layernorm;
         // runtime parameter

@@ -28,7 +28,8 @@ TensorParallelSiluFfnLayer
 layernorm_kernels 
 add_residual_kernels 
 gpt_kernels 
-decoding_kernels 
+decoding_kernels
+ernie_kernels
 nccl_utils tensor)
 
 add_executable(ernie_gemm ernie_gemm.cc)
