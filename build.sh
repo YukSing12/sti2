@@ -14,7 +14,7 @@ make install
 
 cd $ROOT_DIR
 # Modify TensorRT Engine
-modify_cmd="python src/python/modify_ERNIE.py --src model/model.onnx --dst model/modified_model.onnx --postemb --dymshape --eln --ln"
+modify_cmd="python src/python/modify_ERNIE.py --src model/model.onnx --dst model/modified_model.onnx --postemb --dymshape --eln --ln --ffnrelu"
 
 rst=`eval $modify_cmd | grep "Save modified onnx model to"`
 rst=($rst)

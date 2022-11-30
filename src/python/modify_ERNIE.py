@@ -69,6 +69,12 @@ def get_args():
         help="Replace ops with PreEmbeddingPlugin or not",
     )
     parser.add_argument(
+        "--ffnrelu",
+        action="store_true",
+        default=False,
+        help="Remove ops on FeadforwardNetworkRelu or not",
+    )
+    parser.add_argument(
         "--debug", "-D", action="store_true", default=False, help="Enable debug mode"
     )
     args = parser.parse_args()
@@ -83,6 +89,7 @@ ENABLE_SLICERESHAPE_PLUGIN = args.slreshape
 ENABLE_FUSING_ADDRELU = args.addrelu
 ENABLE_POSTEMBEDDING_PLUGIN = args.postemb
 ENABLE_PREEMBEDDING_PLUGIN = args.preemb
+ENABLE_FFNRELU = args.ffnrelu
 
 DEBUG = args.debug
 SIM = args.onnxsim
@@ -154,6 +161,11 @@ if ENABLE_PREEMBEDDING_PLUGIN:
     passes.append(PreEmbeddingPass())
     dst_onnx_path = dst_onnx_path.replace(".onnx", "_preemb.onnx")
 
+if ENABLE_FFNRELU:
+    from onnx_opt.passes import FFNReluPass
+
+    passes.append(FFNReluPass())
+    dst_onnx_path = dst_onnx_path.replace(".onnx", "_ffnrelu.onnx")
 
 from onnx_opt.passes import _deprecated_nodes_dict
 from onnx_opt.fuser import Fuser

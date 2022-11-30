@@ -6,7 +6,7 @@
 
 import onnx_graphsurgeon as gs
 import numpy as np
-from .base import ReplacePass, TowOpPass
+from .base import ReplacePass, TowOpPass, RemovePass
 
 
 class MaskedSoftmaxPass(ReplacePass):
@@ -201,4 +201,44 @@ class PreEmbeddingPass(ReplacePass):
             squeeze1_node.inputs.clear()
             squeeze2_node.inputs.clear()
             add1_node.outputs.clear()
-            return PreEmbedding
+            return PreEmbedding        
+        
+
+class FFNReluPass(RemovePass):
+    def remove(self, node):
+        if node.op == "Relu":
+            node_id = int(node.name.split(".")[-1])
+            if len(node.outputs[0].outputs) == 2:
+                if node.outputs[0].outputs[0].op == "Flatten" and node.outputs[0].outputs[1].op == "Shape":
+                    flatten1_node = node.outputs[0].outputs[0]
+                    shape1_node = node.outputs[0].outputs[1]
+                    matmul1_node = flatten1_node.outputs[0].outputs[0]
+                    reshape1_node = matmul1_node.outputs[0].outputs[0]
+                    add1_node = reshape1_node.outputs[0].outputs[0]
+                    add2_node = add1_node.outputs[0].outputs[0]
+
+                    # clear flatten after relu
+                    matmul1_node.inputs[0] = node.outputs[0]
+                    flatten1_node.inputs.clear()
+                    flatten1_node.outputs.clear()
+
+                    # clear reshape after relu
+                    add1_node.inputs[0] = matmul1_node.outputs[0]
+                    shape1_node.inputs.clear()
+
+
+                    reshape1_node.inputs.clear()
+                    reshape1_node.outputs.clear()
+
+                    # reconnect reshape
+                    add0_node = node.inputs[0].inputs[0]
+                    reshape0_node = add0_node.inputs[0].inputs[0]
+                    concat0_node = reshape0_node.inputs[1].inputs[0]
+                    concat0_node.inputs[1].values = np.array([768],dtype=np.int64)
+                    matmul0_node = reshape0_node.inputs[0].inputs[0]
+                    add0_node.inputs[0] = matmul0_node.outputs[0]
+                    reshape0_node.inputs[0] = add1_node.outputs[0]
+                    add2_node.inputs[0] = reshape0_node.outputs[0]
+
+            return 1
+        return 0
