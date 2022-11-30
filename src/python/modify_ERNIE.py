@@ -75,6 +75,12 @@ def get_args():
         help="Remove ops on FeadforwardNetworkRelu or not",
     )
     parser.add_argument(
+        "--ft",
+        action="store_true",
+        default=False,
+        help="Replace ops with FasterTransformer-ErniePlugin or not",
+    )
+    parser.add_argument(
         "--debug", "-D", action="store_true", default=False, help="Enable debug mode"
     )
     args = parser.parse_args()
@@ -82,18 +88,19 @@ def get_args():
 
 
 args = get_args()
-ENABLE_LAYERNORM_PLUGIN = args.ln
-ENABLE_EMBLAYERNORM_PLUGIN = args.eln
-ENABLE_ADDLAYERNORM_PLUGIN = args.aln
-ENABLE_SLICERESHAPE_PLUGIN = args.slreshape
-ENABLE_FUSING_ADDRELU = args.addrelu
+ENABLE_LAYERNORM_PLUGIN = args.ln and not args.ft
+ENABLE_EMBLAYERNORM_PLUGIN = args.eln and not args.ft
+ENABLE_ADDLAYERNORM_PLUGIN = args.aln and not args.ft
+ENABLE_SLICERESHAPE_PLUGIN = args.slreshape and not args.ft
+ENABLE_FUSING_ADDRELU = args.addrelu and not args.ft
 ENABLE_POSTEMBEDDING_PLUGIN = args.postemb
-ENABLE_PREEMBEDDING_PLUGIN = args.preemb
-ENABLE_FFNRELU = args.ffnrelu
+ENABLE_PREEMBEDDING_PLUGIN = args.preemb and not args.ft
+ENABLE_FFNRELU = args.ffnrelu and not args.ft
+ENABLE_FASTERTRANSFORMER = args.ft
 
 DEBUG = args.debug
 SIM = args.onnxsim
-DYNAMIC = args.dymshape
+DYNAMIC = args.dymshape or args.ft
 src_onnx_path = args.src
 dst_onnx_path = args.dst
 
@@ -166,6 +173,13 @@ if ENABLE_FFNRELU:
 
     passes.append(FFNReluPass())
     dst_onnx_path = dst_onnx_path.replace(".onnx", "_ffnrelu.onnx")
+
+if ENABLE_FASTERTRANSFORMER:
+    from onnx_opt.passes import FTErnie
+
+    passes.append(FTErnie())
+    dst_onnx_path = dst_onnx_path.replace(".onnx", "_ft.onnx")
+
 
 from onnx_opt.passes import _deprecated_nodes_dict
 from onnx_opt.fuser import Fuser
