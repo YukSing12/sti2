@@ -8,7 +8,6 @@ import onnx_graphsurgeon as gs
 import numpy as np
 from .base import ReplacePass, TowOpPass, RemovePass
 
-
 class MaskedSoftmaxPass(ReplacePass):
     def replace(self, node, count):
         if node.op == "Softmax":
@@ -75,6 +74,44 @@ class LayernormPass(ReplacePass):
                 attrs={"epsilon": 1e-5},
             )
             mean_node.inputs.clear()
+            sub_node.inputs.clear()
+            add_node.outputs.clear()
+            return layernorm
+
+class AddResidualLayernormPass(ReplacePass):
+    def replace(self, node, count):
+        if node.op == "ReduceMean":
+            mean_node = node
+            
+            node_id = int(node.name.split(".")[-1])
+            if not (
+                ("p2o.Sub.{}".format(node_id // 2) in _deprecated_nodes_dict)
+                and ("p2o.Pow.{}".format(node_id // 2) in _deprecated_nodes_dict)
+                and ("p2o.Div.{}".format(node_id // 2) in _deprecated_nodes_dict)
+                and ("p2o.Sqrt.{}".format(node_id // 2) in _deprecated_nodes_dict)
+            ):
+                return None
+            redisual_add_node = mean_node.inputs[0].inputs[0]
+            if redisual_add_node.inputs[0].inputs[0].op != "Reshape":
+                return None
+            sub_node = _deprecated_nodes_dict["p2o.Sub.{}".format(node_id // 2)]
+            div_node = _deprecated_nodes_dict["p2o.Div.{}".format(node_id // 2)]
+            mul_node = div_node.outputs[0].outputs[0]
+            add_node = mul_node.outputs[0].outputs[0]
+
+            gamma = mul_node.inputs[1]
+            beta = add_node.inputs[1]
+            if len(add_node.outputs) == 0:
+                return None
+            name = "plugin.AddResidualLayerNorm.{}".format(node_id)
+            layernorm = gs.Node(
+                op="AddResidualLayerNorm",
+                name=name,
+                inputs=[redisual_add_node.inputs[1], redisual_add_node.inputs[0], gamma, beta],
+                outputs=[add_node.outputs[0]],
+                attrs={"epsilon": 1e-5},
+            )
+            redisual_add_node.inputs.clear()
             sub_node.inputs.clear()
             add_node.outputs.clear()
             return layernorm

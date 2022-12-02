@@ -36,7 +36,7 @@ def get_args():
         "--aln",
         action="store_true",
         default=False,
-        help="Replace ops with LayernormPlugin or not",
+        help="Replace ops with AddResidualLayernormPlugin or not",
     )
     parser.add_argument(
         "--eln",
@@ -116,27 +116,30 @@ for node in nodes:
 passes = []
 onnx_opt_plugins = []
 sys.path.append("src/python")
+if ENABLE_FFNRELU:
+    from onnx_opt.passes import FFNReluPass
+
+    passes.append(FFNReluPass())
+    dst_onnx_path = dst_onnx_path.replace(".onnx", "_ffnrelu.onnx")
+
 if ENABLE_EMBLAYERNORM_PLUGIN:
     from onnx_opt.passes import EmbLayerNormPass
 
     passes.append(EmbLayerNormPass())
     dst_onnx_path = dst_onnx_path.replace(".onnx", "_eln.onnx")
 
+if ENABLE_ADDLAYERNORM_PLUGIN:
+    from onnx_opt.passes import AddResidualLayernormPass
+
+    passes.append(AddResidualLayernormPass())
+    dst_onnx_path = dst_onnx_path.replace(".onnx", "_aln.onnx")
+
 if ENABLE_LAYERNORM_PLUGIN:
     from onnx_opt.passes import LayernormPass
 
     passes.append(LayernormPass())
     dst_onnx_path = dst_onnx_path.replace(".onnx", "_ln.onnx")
-
-if ENABLE_ADDLAYERNORM_PLUGIN:
-    from onnx_opt.passes import TowOpPass
-
-    if not ENABLE_LAYERNORM_PLUGIN:
-        passes.append(LayernormPass())
-    passes.append(TowOpPass((["Add"], ["Layernorm"])))
-    dst_onnx_path = dst_onnx_path.replace(".onnx", "_aln.onnx")
-
-
+    
 if ENABLE_SLICERESHAPE_PLUGIN:
     from onnx_opt.passes import SliceReshapePass
 
@@ -160,12 +163,6 @@ if ENABLE_PREEMBEDDING_PLUGIN:
 
     passes.append(PreEmbeddingPass())
     dst_onnx_path = dst_onnx_path.replace(".onnx", "_preemb.onnx")
-
-if ENABLE_FFNRELU:
-    from onnx_opt.passes import FFNReluPass
-
-    passes.append(FFNReluPass())
-    dst_onnx_path = dst_onnx_path.replace(".onnx", "_ffnrelu.onnx")
 
 from onnx_opt.passes import _deprecated_nodes_dict
 from onnx_opt.fuser import Fuser

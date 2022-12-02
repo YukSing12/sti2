@@ -43,8 +43,7 @@ def check(a, b, weak = False):
 def layerNormCPU(bufferH):
     _x1 = bufferH[0]
     _x2 = bufferH[1]
-    _x3 = bufferH[2]
-    _x = _x1 + _x2 + _x3
+    _x = _x1 + _x2
     # nEmbed = bufferH[0].shape[3]
     _0  = np.mean(_x,2)[:,:,np.newaxis]
     _1  = _x - _0
@@ -63,17 +62,16 @@ def getLayerNormOnnx():
     shape = ('B', nW, nEmbedding)
     x1 = gs.Variable(name="x1", dtype=npDataType, shape=shape)
     x2 = gs.Variable(name="x2", dtype=npDataType, shape=shape)
-    x3 = gs.Variable(name="x3", dtype=npDataType, shape=shape)
 
     gamma = gs.Constant(name="gamma", values=globalGamma)
     beta = gs.Constant(name="beta", values=globalBeta)
     y = gs.Variable(name="y", dtype=npDataType, shape=shape)
-    layernorm = gs.Node(op="AddLayerNorm", 
-                        name="AddLayerNorm_1", 
-                        inputs=[x1, x2, x3, gamma, beta], 
+    layernorm = gs.Node(op="AddResidualLayerNorm", 
+                        name="AddRedisualLayerNorm_1", 
+                        inputs=[x1, x2, gamma, beta], 
                         outputs=[y], 
                         attrs={"epsilon":epsilon})
-    graph = gs.Graph(nodes=[layernorm], inputs=[x1, x2, x3], outputs=[y])
+    graph = gs.Graph(nodes=[layernorm], inputs=[x1, x2], outputs=[y])
     onnx.save(gs.export_onnx(graph), onnx_file)
     return onnx_file
 
@@ -105,15 +103,12 @@ def run():
     
     inputTensor1 = network.get_input(0)  # x
     inputTensor2 = network.get_input(1)  # x
-    inputTensor3 = network.get_input(2)  # x
 
 
     print("inputTensor.name:{}".format(inputTensor1.name))
     print("inputTensor.name:{}".format(inputTensor2.name))
-    print("inputTensor.name:{}".format(inputTensor3.name))
     profile.set_shape(inputTensor1.name, (1, nW, nEmbedding), (4, nW, nEmbedding), (10, nW, nEmbedding))  
     profile.set_shape(inputTensor2.name, (1, nW, nEmbedding), (4, nW, nEmbedding), (10, nW, nEmbedding))  
-    profile.set_shape(inputTensor3.name, (1, nW, nEmbedding), (4, nW, nEmbedding), (10, nW, nEmbedding))  
 
     config.add_optimization_profile(profile)
 
@@ -123,7 +118,6 @@ def run():
     context = engine.create_execution_context()
     context.set_binding_shape(0,[nBS,nW,nEmbedding])
     context.set_binding_shape(1,[nBS,nW,nEmbedding])
-    context.set_binding_shape(2,[nBS,nW,nEmbedding])
 
     print("Binding all? %s"%(["No","Yes"][int(context.all_binding_shapes_specified)]))
     
@@ -135,9 +129,8 @@ def run():
     bufferH = []
     bufferH.append( np.random.rand(nBS,nW,nEmbedding).astype(npDataType).reshape(nBS,nW,nEmbedding) * 2 - 1)
     bufferH.append( np.random.rand(nBS,nW,nEmbedding).astype(npDataType).reshape(nBS,nW,nEmbedding) * 2 - 1)
-    bufferH.append( np.random.rand(nBS,nW,nEmbedding).astype(npDataType).reshape(nBS,nW,nEmbedding) * 2 - 1)
 
-    bufferH.append(np.empty(context.get_binding_shape(3),dtype=trt.nptype(engine.get_binding_dtype(3))))
+    bufferH.append(np.empty(context.get_binding_shape(2),dtype=trt.nptype(engine.get_binding_dtype(2))))
 
     bufferD = []
     for i in range(engine.num_bindings):
@@ -153,7 +146,7 @@ def run():
 
     print("check result:")
     temp1 = bufferH[-1]
-    temp2 = layerNormCPU(bufferH[:3])
+    temp2 = layerNormCPU(bufferH[:2])
     print(check(temp1,temp2,True), "max diff=%f"%(np.max(np.abs(temp1 - temp2))) )
     
     for b in bufferD:

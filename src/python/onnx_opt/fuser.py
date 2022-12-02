@@ -47,10 +47,10 @@ class Fuser:
                 plugin(self.graph, self.passes)
 
     def fuse(self):
-        nodes = self.graph.nodes
         for p in self.passes:
             print(f"Running Pass {p.__class__.__name__}.")
-            count = p(nodes)
+            count = p(self.graph.nodes)
+            self.graph.cleanup().toposort()
             print(f"Detect {count} {p.__class__.__name__} sub-graphs.")
 
     # def fuse(self, old_nodes: Union[Tuple[str, list, list], str] = ("Add", ["Add"], []), new_nodes="AddAdd"):
