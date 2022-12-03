@@ -655,11 +655,11 @@ IPluginV2* ErniePluginCreator::createPlugin(const char* name, const PluginFieldC
     int         d_model        = head_num * size_per_head;
     int         inter_size     = d_model * 4;
     int         num_layer      = 12;
-    int         num_bucket     = 32;
+    int         num_bucket     = 128;
     int         max_distance   = 128;
     int         sm             = -1;
     float       q_scaling      = 0.125f;
-    int         useFP16        = 1;
+    int         useFP16        = 0;
     std::string ckpt_path      = std::string("/workspace/xys/sti2/model/bin");
 
     struct cudaDeviceProp prop;

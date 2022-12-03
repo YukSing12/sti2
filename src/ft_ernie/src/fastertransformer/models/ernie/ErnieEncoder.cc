@@ -356,7 +356,7 @@ void ErnieEncoder<T>::forward(std::vector<Tensor>*       output_tensors,
     //      word_ids [batch, seqlen, 1]
     //      pos_ids  [batch, seqlen, 1]
     //      sent_ids [batch, seqlen, 1]
-    //      seq_len     [batch, seqlen, 1]
+    //      seq_len     [batch, 1, 1]
     // output tensors:
     //      attn_out [batch, seqlen, d_model]
 
@@ -378,7 +378,7 @@ void ErnieEncoder<T>::forward(std::unordered_map<std::string, Tensor>*       out
     //      word_ids [batch, seqlen, 1]
     //      pos_ids  [batch, seqlen, 1]
     //      sent_ids [batch, seqlen, 1]
-    //      seq_len     [batch, seqlen, 1]
+    //      seq_len     [batch, 1, 1]
     // output tensors:
     //      attn_out [batch, seqlen, d_model]
 
@@ -408,7 +408,9 @@ void ErnieEncoder<T>::forward(std::unordered_map<std::string, Tensor>*       out
                    sizeof(T) * request_batch_size * 1);
     }
 
-    const size_t local_batch_size = getLocalBatchSize(request_batch_size, request_seq_len, pipeline_para_.world_size_);
+    // parallal num = 1
+    // local batch size = request batch size
+    const size_t local_batch_size = getLocalBatchSize(request_batch_size, request_seq_len, pipeline_para_.world_size_); 
     const size_t iteration_num    = request_batch_size / local_batch_size;
 
     for (uint ite = 0; ite < iteration_num; ite++) {
@@ -453,15 +455,13 @@ void ErnieEncoder<T>::forward(std::unordered_map<std::string, Tensor>*       out
                                        stream_);
                 sync_check_cuda_error();
 
-                if (pipeline_para_.rank_ == 0) {
-                    invokeRemovePadding(ernie_encoder_in_buffer_,
-                                        ernie_encoder_emb_buf_,
-                                        padding_offset_,
-                                        h_token_num,
-                                        d_model_,
-                                        stream_);
-                    sync_check_cuda_error();
-                }
+                invokeRemovePadding(ernie_encoder_in_buffer_,
+                                    ernie_encoder_emb_buf_,
+                                    padding_offset_,
+                                    h_token_num,
+                                    d_model_,
+                                    stream_);
+                sync_check_cuda_error();
                 ernie_encoder_input_ptr  = ernie_encoder_in_buffer_;
                 ernie_encoder_output_ptr = ernie_encoder_out_buffer_;
 

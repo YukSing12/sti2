@@ -195,26 +195,27 @@ void line2sample(const std::string& line, sample* sout) {
     split_string(fields[1], ":", label_f);
     sout->label = label_f[1];
     int _tmp_size;
+
+    std::vector<float> mask_f;
     // Parse input field
     field2vec(fields[2], true, sout->size0, &(sout->shape_info_0), &(sout->i0));
     field2vec(fields[3], true, sout->size1, &(sout->shape_info_1), &(sout->i1));
     field2vec(fields[4], true, sout->size2, &(sout->shape_info_2), &(sout->i2));
-    field2vec(fields[5], true, sout->size3, &(sout->shape_info_3), &(sout->i3));
+    field2vec(fields[5], true, sout->size3, &(sout->shape_info_3), nullptr, &mask_f);
     // get seq_len on cpu
-    std::vector<int> seq_len(sout->shape_info_3[0]);
+    sout->i3.resize(sout->shape_info_3[0]);
     for (size_t i = 0; i < sout->shape_info_3[0]; i++)  // batch
     {
+        sout->i3[i] = sout->shape_info_3[1];
         for (size_t j = 0; j < sout->shape_info_3[1]; j++)  // seq_len
         {
-            if(sout->i3[i * sout->shape_info_3[1] + j] == 0)
+            if(mask_f[i * sout->shape_info_3[1] + j] == 0.0f)
             {
-                seq_len[i] = j;
+                sout->i3[i] = j;
                 break;
             }
         }
-    }
-    sout->i3.clear();
-    sout->i3 = seq_len;
+    }        
     sout->shape_info_3[1] = 1;
     sout->size3 = sout->shape_info_3[0];
 #ifdef POSTEMB
@@ -411,7 +412,7 @@ int main(int argc, char* argv[]) {
     for (auto& s : sample_vec) {
         run(engine, context, stream, s, vBufferH, vBufferD);
     }
-
+    
     // postprocess
     for (auto& s : sample_vec) {
         std::ostringstream oss;

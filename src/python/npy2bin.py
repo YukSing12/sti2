@@ -25,7 +25,7 @@ if __name__ == "__main__":
         # if name.endswith(".weight") and len(cur.shape)==2:
         #     cur = cur.transpose((1,0))
         #     #print(name, cur.shape)
-        cur.tofile(saved_path)
+        cur.astype(np.float32).tofile(saved_path)
 
 
     print("Extract weights of Ernie finish!")

@@ -135,7 +135,7 @@ private:
         size_t d_model        = head_num * size_per_head;   // 768
         size_t inter_size     = d_model * 4;
         size_t num_layer      = 12;
-        size_t num_bucket     = 32;
+        size_t num_bucket     = 128;
         size_t max_distance   = 128;
         int    sm             = -1;  // assign later
         float  q_scaling      = 0.125f;
@@ -147,7 +147,7 @@ private:
         bool                              is_remove_padding            = false;
         bool                              is_free_buffer_after_forward = false;
         bool                              is_sparse                    = false;
-        AttentionType                     attention_type               = AttentionType::UNFUSED_PADDED_MHA;
+        AttentionType                     attention_type               = AttentionType::UNFUSED_MHA;
         fastertransformer::ActivationType activation_type              = fastertransformer::ActivationType::Relu;
         LayerNormType                     layernorm_type               = LayerNormType::post_layernorm;
         // runtime parameter
