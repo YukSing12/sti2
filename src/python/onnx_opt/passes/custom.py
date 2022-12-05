@@ -270,7 +270,15 @@ class FTErnie(ReplacePass):
                 name="plugin.ErniePlugin.0",
                 inputs=[word_ids, pos_ids, sent_ids, mask],
                 outputs=[ernie_out],
-                attrs={},
+                attrs={"max_batch_size": 10,
+                       "max_seq_len": 128,
+                       "beam_width": 1,
+                       "head_num": 12,
+                       "size_per_head": 64,
+                       "d_model": 768,
+                       "inter_size": 3072,
+                       "num_layer": 12,
+                       "useFP16": 1},
             )
 
             # clear nodes

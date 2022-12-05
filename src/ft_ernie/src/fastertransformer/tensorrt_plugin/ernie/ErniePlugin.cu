@@ -613,7 +613,15 @@ int ErniePlugin::enqueue(const PluginTensorDesc* inputDesc,
 
 // class ErniePluginCreator --------------------------------------------------------------------
 PluginFieldCollection    ErniePluginCreator::fc_{};
-std::vector<PluginField> ErniePluginCreator::attr_;
+std::vector<PluginField> ErniePluginCreator::attr_{{"max_batch_size", nullptr, nvinfer1::PluginFieldType::kINT32, 0},
+                                                   {"max_seq_len", nullptr, nvinfer1::PluginFieldType::kINT32, 0},
+                                                   {"head_num", nullptr, nvinfer1::PluginFieldType::kINT32, 0},
+                                                   {"size_per_head", nullptr, nvinfer1::PluginFieldType::kINT32, 0},
+                                                   {"d_model", nullptr, nvinfer1::PluginFieldType::kINT32, 0},
+                                                   {"inter_size", nullptr, nvinfer1::PluginFieldType::kINT32, 0},
+                                                   {"num_layer", nullptr, nvinfer1::PluginFieldType::kINT32, 0},
+                                                   {"ckpt_path", nullptr, nvinfer1::PluginFieldType::kCHAR, 0},
+                                                   {"useFP16", nullptr, nvinfer1::PluginFieldType::kINT32, 0}};
 
 ErniePluginCreator::ErniePluginCreator()
 {
@@ -657,7 +665,6 @@ IPluginV2* ErniePluginCreator::createPlugin(const char* name, const PluginFieldC
         {"d_model", &d_model},
         {"inter_size", &inter_size},
         {"num_layer", &num_layer},
-        {"sm", &sm},
         {"useFP16", &useFP16},
     };
     for (int i = 0; i < fc->nbFields; i++) {
@@ -666,8 +673,6 @@ IPluginV2* ErniePluginCreator::createPlugin(const char* name, const PluginFieldC
         }
         else if (!strcmp(fc->fields[i].name, "ckpt_path")) {
             ckpt_path = std::string((char*)fc->fields[i].data);
-        }else if (!strcmp(fc->fields[i].name, "q_scaling")) {
-            q_scaling = *(float*)fc->fields[i].data;
         }
     }
     return new ErniePlugin(name, max_batch_size, max_seq_len, beam_width, head_num, size_per_head, d_model, inter_size, num_layer, sm, useFP16, q_scaling, ckpt_path, true);
