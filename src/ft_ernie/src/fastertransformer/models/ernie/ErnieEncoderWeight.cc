@@ -28,7 +28,6 @@ ErnieEncoderWeight<T>::ErnieEncoderWeight(const size_t                head_num,
                                           const size_t                pos_size,
                                           const size_t                sent_vocab_size,
                                           const size_t                num_layer,
-                                          const size_t                num_bucket_or_max_seq_len,
                                           const PositionEmbeddingType pe_type):
     head_num_(head_num),
     size_per_head_(size_per_head),
@@ -38,9 +37,8 @@ ErnieEncoderWeight<T>::ErnieEncoderWeight(const size_t                head_num,
     pos_size_(pos_size),
     sent_vocab_size_(sent_vocab_size),
     num_layer_(num_layer),
-    num_bucket_or_max_seq_len_(num_bucket_or_max_seq_len),
     position_embedding_type(pe_type),
-    real_weights_num_(13)
+    real_weights_num_(5)
 {
     FT_LOG_DEBUG("ErnieEncoderWeight " + std::string(__func__) + " start");
     FT_LOG_DEBUG("ErnieEncoderWeight num_layer_ = " + std::to_string(num_layer_));
@@ -66,16 +64,8 @@ void ErnieEncoderWeight<T>::initialize()
     weights_size[0] = d_model_ * vocab_size_;
     weights_size[1] = d_model_ * pos_size_;
     weights_size[2] = d_model_ * sent_vocab_size_;
-    weights_size[3] = 11 * 20;
-    weights_size[4] = 13 * 20;
-    weights_size[5] = 11 * 20;
-    weights_size[6] = 1432 * 20;
-    weights_size[7] = 11 * 20;
-    weights_size[8] = 11 * 20;
-    weights_size[9] = 11 * 20;
-    weights_size[10] = 11 * 20;
-    weights_size[11] = d_model_;
-    weights_size[12] = d_model_;
+    weights_size[3] = d_model_;
+    weights_size[4] = d_model_;
     FT_LOG_DEBUG("ErnieEncoderWeight " + std::string(__func__) + " end");
 }
 
@@ -90,7 +80,6 @@ ErnieEncoderWeight<T>::~ErnieEncoderWeight()
         }
 
         pre_transformer_layernorm_weights.gamma = nullptr;
-        absolute_or_relative_position_embedding  = nullptr;
         pre_transformer_layernorm_weights.beta  = nullptr;
         is_maintain_buffer                       = false;
     }
@@ -110,7 +99,6 @@ ErnieEncoderWeight<T>::ErnieEncoderWeight(const ErnieEncoderWeight& other):
     pos_size_(other.pos_size_),
     sent_vocab_size_(other.sent_vocab_size_),
     num_layer_(other.num_layer_),
-    num_bucket_or_max_seq_len_(other.num_bucket_or_max_seq_len_),
     position_embedding_type(other.position_embedding_type),
     real_weights_num_(other.real_weights_num_)
 {
@@ -141,7 +129,6 @@ ErnieEncoderWeight<T>& ErnieEncoderWeight<T>::operator=(const ErnieEncoderWeight
     inter_size_                = other.inter_size_;
     vocab_size_                = other.vocab_size_;
     num_layer_                 = other.num_layer_;
-    num_bucket_or_max_seq_len_ = other.num_bucket_or_max_seq_len_;
     position_embedding_type    = other.position_embedding_type;
     real_weights_num_          = other.real_weights_num_;
     initialize();
@@ -168,16 +155,8 @@ void ErnieEncoderWeight<T>::setWeightPtr()
     word_embedding_table            = weights_ptr[0];
     pos_embedding_table             = weights_ptr[1];
     sent_embedding_table            = weights_ptr[2];
-    multi_field_1_embedding_table   = weights_ptr[3];
-    multi_field_3_embedding_table   = weights_ptr[4];
-    multi_field_6_embedding_table   = weights_ptr[5];
-    multi_field_0_embedding_table   = weights_ptr[6];
-    multi_field_5_embedding_table   = weights_ptr[7];
-    multi_field_7_embedding_table   = weights_ptr[8];
-    multi_field_4_embedding_table   = weights_ptr[9];
-    multi_field_2_embedding_table   = weights_ptr[10];
-    pre_transformer_layernorm_weights.gamma = weights_ptr[11];
-    pre_transformer_layernorm_weights.beta = weights_ptr[12];
+    pre_transformer_layernorm_weights.gamma = weights_ptr[3];
+    pre_transformer_layernorm_weights.beta = weights_ptr[4];
     FT_LOG_DEBUG("ErnieEncoderWeight " + std::string(__func__) + " end");
 }
 
@@ -207,25 +186,9 @@ void ErnieEncoderWeight<T>::loadModel(std::string dir_path)
         weights_ptr[2], {(size_t)weights_size[2]}, dir_path + "/sent_embedding.bin", model_file_type);
 
     loadWeightFromBin<T>(
-        weights_ptr[3], {(size_t)weights_size[3]}, dir_path + "/multi_field_1.bin", model_file_type);
+        weights_ptr[3], {(size_t)weights_size[3]}, dir_path + "/pre_encoder_layer_norm_scale.bin", model_file_type);
     loadWeightFromBin<T>(
-        weights_ptr[4], {(size_t)weights_size[4]}, dir_path + "/multi_field_3.bin", model_file_type);
-    loadWeightFromBin<T>(
-        weights_ptr[5], {(size_t)weights_size[5]}, dir_path + "/multi_field_6.bin", model_file_type);
-    loadWeightFromBin<T>(
-        weights_ptr[6], {(size_t)weights_size[6]}, dir_path + "/multi_field_0.bin", model_file_type);
-    loadWeightFromBin<T>(
-        weights_ptr[7], {(size_t)weights_size[7]}, dir_path + "/multi_field_5.bin", model_file_type);
-    loadWeightFromBin<T>(
-        weights_ptr[8], {(size_t)weights_size[8]}, dir_path + "/multi_field_7.bin", model_file_type);
-    loadWeightFromBin<T>(
-        weights_ptr[9], {(size_t)weights_size[9]}, dir_path + "/multi_field_4.bin", model_file_type);
-    loadWeightFromBin<T>(
-        weights_ptr[10], {(size_t)weights_size[10]}, dir_path + "/multi_field_2.bin", model_file_type);
-    loadWeightFromBin<T>(
-        weights_ptr[11], {(size_t)weights_size[11]}, dir_path + "/pre_encoder_layer_norm_scale.bin", model_file_type);
-    loadWeightFromBin<T>(
-        weights_ptr[12], {(size_t)weights_size[12]}, dir_path + "/pre_encoder_layer_norm_bias.bin", model_file_type);
+        weights_ptr[4], {(size_t)weights_size[4]}, dir_path + "/pre_encoder_layer_norm_bias.bin", model_file_type);
 
     for (int l = 0; l < num_layer_; l++) {
         ernie_encoder_layer_weights[l]->loadModel(dir_path + "/",
@@ -245,12 +208,6 @@ void ErnieEncoderWeight<T>::resizeLayer(const int num_layer)
         ernie_encoder_layer_weights.push_back(new ErnieEncoderLayerWeight<T>());
     }
     FT_LOG_DEBUG("ErnieEncoderWeight " + std::string(__func__) + " end");
-}
-
-template<typename T>
-void ErnieEncoderWeight<T>::setErnieStructureDiff(PositionEmbeddingType position_embedding_type_para)
-{
-    position_embedding_type    = position_embedding_type_para;
 }
 
 template struct ErnieEncoderWeight<float>;

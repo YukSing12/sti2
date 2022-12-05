@@ -42,8 +42,6 @@
     printf("\td_model=%ld\n", m_.d_model);                                                                             \
     printf("\tinter_size=%ld\n", m_.inter_size);                                                                       \
     printf("\tnum_layer=%ld\n", m_.num_layer);                                                                         \
-    printf("\tnum_bucket=%ld\n", m_.num_bucket);                                                                       \
-    printf("\tmax_distance=%ld\n", m_.max_distance);                                                                   \
     printf("\tsm=%d\n", m_.sm);                                                                                        \
     printf("\tq_scaling=%f\n", m_.q_scaling);                                                                          \
     printf("\tuseFP16=%d\n", m_.useFP16);                                                                              \
@@ -74,8 +72,6 @@
     printf("\tvocab_size=%ld\n", m_.vocab_size);                                                                       \
     printf("\tpos_size=%ld\n", m_.pos_size);                                                                           \
     printf("\tsent_vocab_size=%ld\n", m_.sent_vocab_size);                                                             \
-    printf("\tnum_bucket=%ld\n", m_.num_bucket);                                                                       \
-    printf("\tmax_distance=%ld\n", m_.max_distance);                                                                   \
     printf("\tq_scaling=%f\n", m_.q_scaling);                                                                          \
     printf("\tstart_id=%d\n", m_.start_id);                                                                            \
     printf("\tend_id=%d\n", m_.end_id);                                                                                \
@@ -135,8 +131,6 @@ private:
         size_t d_model        = head_num * size_per_head;   // 768
         size_t inter_size     = d_model * 4;
         size_t num_layer      = 12;
-        size_t num_bucket     = 128;
-        size_t max_distance   = 128;
         int    sm             = -1;  // assign later
         float  q_scaling      = 0.125f;
         bool   useFP16        = false;
@@ -167,8 +161,6 @@ public:
                     size_t             d_model,
                     size_t             inter_size,
                     size_t             num_layer,
-                    size_t             num_bucket,
-                    size_t             max_distance,
                     int                sm,
                     int                useFP16,
                     float              q_scaling,

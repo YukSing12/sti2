@@ -46,8 +46,6 @@ private:
     const size_t           hidden_units_;
     const size_t           d_model_;
     const size_t           num_layer_;
-    const size_t           num_bucket_or_max_seq_len_;
-    const size_t           max_distance_;
     const size_t           word_size_;
     const size_t           pos_size_;
     const size_t           sent_size_;
@@ -103,8 +101,6 @@ public:
                 size_t                              inter_size,
                 size_t                              d_model,
                 size_t                              num_layer,
-                size_t                              num_bucket_or_max_seq_len,
-                size_t                              max_distance,
                 size_t                              word_size,
                 size_t                              pos_size,
                 size_t                              sent_size,

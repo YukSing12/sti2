@@ -30,8 +30,6 @@ ErniePlugin::ErniePlugin(const std::string& name,
                                  size_t             d_model,
                                  size_t             inter_size,
                                  size_t             num_layer,
-                                 size_t             num_bucket,
-                                 size_t             max_distance,
                                  int                sm,
                                  int                useFP16,
                                  float              q_scaling,
@@ -50,8 +48,6 @@ ErniePlugin::ErniePlugin(const std::string& name,
     m_.d_model        = d_model;
     m_.inter_size     = inter_size;
     m_.num_layer      = num_layer;
-    m_.num_bucket     = num_bucket;
-    m_.max_distance   = max_distance;
     m_.sm             = sm;
     m_.q_scaling      = q_scaling;
     m_.useFP16        = (bool)useFP16;
@@ -78,8 +74,7 @@ ErniePlugin::ErniePlugin(const std::string& name,
                                                               m_.vocab_size,
                                                               m_.pos_size,
                                                               m_.sent_vocab_size,
-                                                              m_.num_layer,
-                                                              m_.num_bucket
+                                                              m_.num_layer
             );
             pErnieEncoderWeightHalf_->loadModel(std::string(m_.ckpt_path));
         }
@@ -93,8 +88,7 @@ ErniePlugin::ErniePlugin(const std::string& name,
                                                                 m_.vocab_size,
                                                                 m_.pos_size,
                                                                 m_.sent_vocab_size,
-                                                                m_.num_layer,
-                                                                m_.num_bucket
+                                                                m_.num_layer
             );
             pErnieEncoderWeightFloat_->loadModel(std::string(m_.ckpt_path));
         }
@@ -154,58 +148,54 @@ ErniePlugin::ErniePlugin(const std::string& name,
         pCublasWrapper_->setFP16GemmConfig();
 
         pErnieEncoderHalf_ = new ErnieEncoder<half>(m_.max_batch_size,
-                                              m_.max_seq_len,
-                                              m_.head_num,
-                                              m_.size_per_head,
-                                              m_.inter_size,
-                                              m_.d_model,
-                                              m_.num_layer,
-                                              m_.num_bucket,
-                                              m_.max_distance,
-                                              m_.vocab_size,
-                                              m_.pos_size,
-                                              m_.sent_vocab_size,
-                                              m_.sm,
-                                              m_.q_scaling,
-                                              0,  // stream placeholder
-                                              pCublasWrapper_,
-                                              pAllocator_,
-                                              m_.is_free_buffer_after_forward,
-                                              m_.attention_type,
-                                              m_.is_sparse,
-                                              m_.activation_type,
-                                              m_.layernorm_type,
-                                              NcclParam(0, 1),  // tensor_para
-                                              NcclParam(0, 1)   // pipeline_para
+                                                    m_.max_seq_len,
+                                                    m_.head_num,
+                                                    m_.size_per_head,
+                                                    m_.inter_size,
+                                                    m_.d_model,
+                                                    m_.num_layer,
+                                                    m_.vocab_size,
+                                                    m_.pos_size,
+                                                    m_.sent_vocab_size,
+                                                    m_.sm,
+                                                    m_.q_scaling,
+                                                    0,  // stream placeholder
+                                                    pCublasWrapper_,
+                                                    pAllocator_,
+                                                    m_.is_free_buffer_after_forward,
+                                                    m_.attention_type,
+                                                    m_.is_sparse,
+                                                    m_.activation_type,
+                                                    m_.layernorm_type,
+                                                    NcclParam(0, 1),  // tensor_para
+                                                    NcclParam(0, 1)   // pipeline_para
         );
     }
     else {
         pCublasWrapper_->setFP32GemmConfig();
 
         pErnieEncoderFloat_ = new ErnieEncoder<float>(m_.max_batch_size,
-                                                m_.max_seq_len,
-                                                m_.head_num,
-                                                m_.size_per_head,
-                                                m_.inter_size,
-                                                m_.d_model,
-                                                m_.num_layer,
-                                                m_.num_bucket,
-                                                m_.max_distance,
-                                                m_.vocab_size,
-                                                m_.pos_size,
-                                                m_.sent_vocab_size,
-                                                m_.sm,
-                                                m_.q_scaling,
-                                                0,  // stream placeholder
-                                                pCublasWrapper_,
-                                                pAllocator_,
-                                                m_.is_free_buffer_after_forward,
-                                                m_.attention_type,
-                                                m_.is_sparse,
-                                                m_.activation_type,
-                                                m_.layernorm_type,
-                                                NcclParam(0, 1),  // tensor_para
-                                                NcclParam(0, 1)   // pipeline_para
+                                                      m_.max_seq_len,
+                                                      m_.head_num,
+                                                      m_.size_per_head,
+                                                      m_.inter_size,
+                                                      m_.d_model,
+                                                      m_.num_layer,
+                                                      m_.vocab_size,
+                                                      m_.pos_size,
+                                                      m_.sent_vocab_size,
+                                                      m_.sm,
+                                                      m_.q_scaling,
+                                                      0,  // stream placeholder
+                                                      pCublasWrapper_,
+                                                      pAllocator_,
+                                                      m_.is_free_buffer_after_forward,
+                                                      m_.attention_type,
+                                                      m_.is_sparse,
+                                                      m_.activation_type,
+                                                      m_.layernorm_type,
+                                                      NcclParam(0, 1),  // tensor_para
+                                                      NcclParam(0, 1)   // pipeline_para
         );
     }
     PRINT_ENCODER(m_.useFP16)
@@ -236,8 +226,7 @@ ErniePlugin::ErniePlugin(const std::string& name, const void* buffer, size_t len
                                                               m_.vocab_size,
                                                               m_.pos_size,
                                                               m_.sent_vocab_size,
-                                                              m_.num_layer,
-                                                              m_.num_bucket
+                                                              m_.num_layer
             );
             pErnieEncoderWeightHalf_->loadModel(std::string(m_.ckpt_path));
         }
@@ -251,8 +240,7 @@ ErniePlugin::ErniePlugin(const std::string& name, const void* buffer, size_t len
                                                                 m_.vocab_size,
                                                                 m_.pos_size,
                                                                 m_.sent_vocab_size,
-                                                                m_.num_layer,
-                                                                m_.num_bucket
+                                                                m_.num_layer
             );
             pErnieEncoderWeightFloat_->loadModel(std::string(m_.ckpt_path));
         }
@@ -319,8 +307,6 @@ ErniePlugin::ErniePlugin(const std::string& name, const void* buffer, size_t len
                                               m_.inter_size,
                                               m_.d_model,
                                               m_.num_layer,
-                                              m_.num_bucket,
-                                              m_.max_distance,
                                               m_.vocab_size,
                                               m_.pos_size,
                                               m_.sent_vocab_size,
@@ -348,8 +334,6 @@ ErniePlugin::ErniePlugin(const std::string& name, const void* buffer, size_t len
                                                 m_.inter_size,
                                                 m_.d_model,
                                                 m_.num_layer,
-                                                m_.num_bucket,
-                                                m_.max_distance,
                                                 m_.vocab_size,
                                                 m_.pos_size,
                                                 m_.sent_vocab_size,
@@ -416,8 +400,6 @@ IPluginV2DynamicExt* ErniePlugin::clone() const noexcept
         m_.d_model, 
         m_.inter_size, 
         m_.num_layer, 
-        m_.num_bucket, 
-        m_.max_distance, 
         m_.sm, 
         m_.useFP16, 
         m_.q_scaling,
@@ -657,8 +639,6 @@ IPluginV2* ErniePluginCreator::createPlugin(const char* name, const PluginFieldC
     int         d_model        = head_num * size_per_head;
     int         inter_size     = d_model * 4;
     int         num_layer      = 12;
-    int         num_bucket     = 128;
-    int         max_distance   = 128;
     int         sm             = -1;
     float       q_scaling      = 1.0f;
     int         useFP16        = 1;
@@ -677,8 +657,6 @@ IPluginV2* ErniePluginCreator::createPlugin(const char* name, const PluginFieldC
         {"d_model", &d_model},
         {"inter_size", &inter_size},
         {"num_layer", &num_layer},
-        {"num_bucket", &num_bucket},
-        {"max_distance", &max_distance},
         {"sm", &sm},
         {"useFP16", &useFP16},
     };
@@ -692,7 +670,7 @@ IPluginV2* ErniePluginCreator::createPlugin(const char* name, const PluginFieldC
             q_scaling = *(float*)fc->fields[i].data;
         }
     }
-    return new ErniePlugin(name, max_batch_size, max_seq_len, beam_width, head_num, size_per_head, d_model, inter_size, num_layer, num_bucket, max_distance, sm, useFP16, q_scaling, ckpt_path, true);
+    return new ErniePlugin(name, max_batch_size, max_seq_len, beam_width, head_num, size_per_head, d_model, inter_size, num_layer, sm, useFP16, q_scaling, ckpt_path, true);
 }
 
 IPluginV2*

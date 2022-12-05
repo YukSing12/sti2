@@ -33,7 +33,6 @@ struct ErnieEncoderWeight {
                        const size_t                pos_size,
                        const size_t                sent_vocab_size,
                        const size_t                num_layer,
-                       const size_t                num_bucket_or_max_seq_len,
                        const PositionEmbeddingType pe_type                   = PositionEmbeddingType::relative);
     ~ErnieEncoderWeight();
     ErnieEncoderWeight(const ErnieEncoderWeight& other);
@@ -41,23 +40,13 @@ struct ErnieEncoderWeight {
 
     std::vector<ErnieEncoderLayerWeight<T>*> ernie_encoder_layer_weights;
     LayerNormWeight<T>                    pre_transformer_layernorm_weights;
-    T*                                    absolute_or_relative_position_embedding = nullptr;
     T*                                    word_embedding_table                    = nullptr;
     T*                                    pos_embedding_table                     = nullptr;
     T*                                    sent_embedding_table                    = nullptr;
-    T*                                    multi_field_1_embedding_table           = nullptr;
-    T*                                    multi_field_3_embedding_table           = nullptr;
-    T*                                    multi_field_6_embedding_table           = nullptr;
-    T*                                    multi_field_0_embedding_table           = nullptr;
-    T*                                    multi_field_5_embedding_table           = nullptr;
-    T*                                    multi_field_7_embedding_table           = nullptr;
-    T*                                    multi_field_4_embedding_table           = nullptr;
-    T*                                    multi_field_2_embedding_table           = nullptr;
     PositionEmbeddingType                 position_embedding_type                 = PositionEmbeddingType::relative;
 
     void loadModel(std::string dir_path);
     void resizeLayer(const int num_layer);
-    void setErnieStructureDiff(PositionEmbeddingType position_embedding_type_para);
 
 private:
     void setWeightPtr();
@@ -74,13 +63,12 @@ private:
     size_t num_layer_;
     // refer to num_buckt if using relative position embedding
     // refer to max_seq_len if using absolute position embedding
-    size_t num_bucket_or_max_seq_len_;
 
     bool is_maintain_buffer = false;
 
     int real_weights_num_;
 
-    const static int weights_num_ = 13;
+    const static int weights_num_ = 5;
     T*               weights_ptr[weights_num_];
     size_t           weights_size[weights_num_];
 };
