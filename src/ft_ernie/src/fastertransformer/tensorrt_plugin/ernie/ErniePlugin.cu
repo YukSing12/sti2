@@ -660,7 +660,7 @@ IPluginV2* ErniePluginCreator::createPlugin(const char* name, const PluginFieldC
     int         num_bucket     = 128;
     int         max_distance   = 128;
     int         sm             = -1;
-    float       q_scaling      = 0.125f;
+    float       q_scaling      = 1.0f;
     int         useFP16        = 1;
     std::string ckpt_path      = std::string("/workspace/xys/sti2/model/bin");
 
