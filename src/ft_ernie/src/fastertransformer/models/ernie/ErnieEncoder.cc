@@ -549,9 +549,7 @@ void ErnieEncoder<T>::forward(std::unordered_map<std::string, Tensor>*       out
                     Tensor{MEMORY_GPU,
                            data_type,
                            std::vector<size_t>{1, head_num_, request_seq_len, request_seq_len},
-                           ernie_encoder_weights->position_embedding_type == PositionEmbeddingType::relative ?
-                               relative_attention_bias_ :
-                               nullptr}};
+                           nullptr}};
                 std::vector<Tensor> attn_output_tensors{
                     Tensor{MEMORY_GPU, data_type, std::vector<size_t>{h_token_num, d_model_}, attn_out_buf_}};
 
