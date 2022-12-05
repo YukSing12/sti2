@@ -176,7 +176,7 @@ void ErnieEncoderWeight<T>::loadModel(std::string dir_path)
 {
     FT_LOG_DEBUG("ErnieEncoderWeight " + std::string(__func__) + " start");
     
-    FtCudaDataType model_file_type = getModelFileType(dir_path + "/config.ini", "encoder");
+    FtCudaDataType model_file_type = getModelFileType(dir_path + "/config.ini", "ernie");
     FT_CHECK(is_maintain_buffer == true);
     loadWeightFromBin<T>(
         weights_ptr[0], {(size_t)weights_size[0]}, dir_path + "/word_embedding.bin", model_file_type);
