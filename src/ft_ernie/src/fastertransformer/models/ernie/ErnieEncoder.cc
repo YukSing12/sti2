@@ -25,20 +25,19 @@ template<typename T>
 void ErnieEncoder<T>::initialize()
 {
     if ((attention_type_ == AttentionType::FUSED_MHA || attention_type_ == AttentionType::FUSED_PADDED_MHA)
-        && false  // disable the fused mha
         && std::is_same<T, half>::value == true && max_seq_len_ <= 384) {
-        FT_CHECK(false);  // fused mha does not support relatvie attention bias now.
-        // attention_layer_ = new FusedAttentionLayer<T>(max_batch_size_,
-        //                                               max_seq_len_,
-        //                                               head_num_,
-        //                                               size_per_head_,
-        //                                               sm_,
-        //                                               q_scaling_ * (1.0 / sqrtf(size_per_head_ * 1.0f)),
-        //                                               stream_,
-        //                                               cublas_wrapper_,
-        //                                               allocator_,
-        //                                               is_free_buffer_after_forward_,
-        //                                               sparse_);
+        attention_layer_ = new FusedAttentionLayer<T>(max_batch_size_,
+                                                      max_seq_len_,
+                                                      head_num_,
+                                                      size_per_head_,
+                                                      d_model_,
+                                                      sm_,
+                                                      q_scaling_,  // adjust according to checkpoint structure
+                                                      stream_,
+                                                      cublas_wrapper_,
+                                                      allocator_,
+                                                      is_free_buffer_after_forward_,
+                                                      sparse_);
     }
     else if (attention_type_ == AttentionType::UNFUSED_MHA || attention_type_ == AttentionType::UNFUSED_PADDED_MHA) {
         attention_layer_ =
@@ -448,7 +447,6 @@ void ErnieEncoder<T>::forward(std::unordered_map<std::string, Tensor>*       out
                                        request_seq_len,
                                        stream_);
                 sync_check_cuda_error();
-
                 invokeRemovePadding(ernie_encoder_in_buffer_,
                                     ernie_encoder_emb_buf_,
                                     padding_offset_,
@@ -477,46 +475,43 @@ void ErnieEncoder<T>::forward(std::unordered_map<std::string, Tensor>*       out
                 break;
             }
             case AttentionType::FUSED_MHA: {
-                FT_CHECK(false);  // not support FUSED_MHA now
-                // invokeGetPaddingOffset(&h_token_num,
-                //                        token_num_,
-                //                        padding_offset_,
-                //                        sequence_lengths,
-                //                        local_batch_size,
-                //                        request_seq_len,
-                //                        stream_);
+                invokeGetPaddingOffset(&h_token_num,
+                                       token_num_,
+                                       padding_offset_,
+                                       sequence_lengths,
+                                       local_batch_size,
+                                       request_seq_len,
+                                       stream_);
 
-                // if (pipeline_para_.rank_ == 0) {
-                //     invokeRemovePadding(
-                //         ernie_encoder_in_buffer_, ernie_encoder_emb_buf_, padding_offset_, h_token_num, d_model_, stream_);
-                //     sync_check_cuda_error();
-                // }
-                // sync_check_cuda_error();
-                // ernie_encoder_input_ptr = ernie_encoder_in_buffer_;
-                // ernie_encoder_output_ptr = ernie_encoder_out_buffer_;
+                if (pipeline_para_.rank_ == 0) {
+                    invokeRemovePadding(
+                        ernie_encoder_in_buffer_, ernie_encoder_emb_buf_, padding_offset_, h_token_num, d_model_, stream_);
+                    sync_check_cuda_error();
+                }
+                sync_check_cuda_error();
+                ernie_encoder_input_ptr = ernie_encoder_in_buffer_;
+                ernie_encoder_output_ptr = ernie_encoder_out_buffer_;
 
-                // invokeGetTrtPaddingOffset(trt_mha_padding_offset_, sequence_lengths, local_batch_size, stream_);
+                invokeGetTrtPaddingOffset(trt_mha_padding_offset_, sequence_lengths, local_batch_size, stream_);
 
-                // padding_offset_tensor_ptr = new Tensor(
-                //     MEMORY_GPU, TYPE_INT32, std::vector<size_t>{local_batch_size + 1}, trt_mha_padding_offset_);
-                // break;
+                padding_offset_tensor_ptr = new Tensor(
+                    MEMORY_GPU, TYPE_INT32, std::vector<size_t>{local_batch_size + 1}, trt_mha_padding_offset_);
+                break;
             }
             case AttentionType::FUSED_PADDED_MHA: {
-                FT_CHECK(false);  // not support FUSED_MHA now
-                // h_token_num = local_batch_size * request_seq_len;
-                // invokeGetTrtPaddingOffset(
-                //     trt_mha_padding_offset_, sequence_lengths, local_batch_size, request_seq_len, stream_);
-                // padding_offset_tensor_ptr = new Tensor(
-                //     MEMORY_GPU, TYPE_INT32, std::vector<size_t>{local_batch_size * 2 + 1}, trt_mha_padding_offset_);
-                // ernie_encoder_input_ptr = ernie_encoder_emb_buf_ + d_model_offset;
-                // ernie_encoder_output_ptr = output_tensors->at("attn_out").getPtr<T>() + d_model_offset;
-                // break;
+                h_token_num = local_batch_size * request_seq_len;
+                invokeGetTrtPaddingOffset(
+                    trt_mha_padding_offset_, sequence_lengths, local_batch_size, request_seq_len, stream_);
+                padding_offset_tensor_ptr = new Tensor(
+                    MEMORY_GPU, TYPE_INT32, std::vector<size_t>{local_batch_size * 2 + 1}, trt_mha_padding_offset_);
+                ernie_encoder_input_ptr = ernie_encoder_emb_buf_ + d_model_offset;
+                ernie_encoder_output_ptr = output_tensors->at("attn_out").getPtr<T>() + d_model_offset;
+                break;
             }
             default: {
                 throw std::runtime_error(std::string("[FT][ERROR] Invalid attention type \n"));
             }
         }
-        // TODO Pre Encoder LayerNorm
 
         invokeGeneralLayerNorm(ernie_encoder_input_ptr,
                                ernie_encoder_input_ptr,

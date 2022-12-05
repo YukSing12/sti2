@@ -25,7 +25,7 @@
 #include "src/fastertransformer/layers/TensorParallelGeluFfnLayer.h"
 #include "src/fastertransformer/layers/TensorParallelReluFfnLayer.h"
 #include "src/fastertransformer/layers/TensorParallelSiluFfnLayer.h"
-// #include "src/fastertransformer/layers/attention_layers/FusedAttentionLayer.h"
+#include "src/fastertransformer/layers/attention_layers/FusedAttentionLayer.h"
 #include "src/fastertransformer/layers/attention_layers/TensorParallelUnfusedAttentionLayer.h"
 #include "src/fastertransformer/models/ernie/ErnieEncoderWeight.h"
 #include "src/fastertransformer/utils/custom_ar_comm.h"
