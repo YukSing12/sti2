@@ -454,32 +454,34 @@ bool ErniePlugin::supportsFormatCombination(int                     pos,
         case 1:
         case 2:
         case 3:
-            res = (inOut[pos].type == DataType::kINT32)
-                  && (inOut[pos].format == TensorFormat::kLINEAR);
+            res = (inOut[pos].type == DataType::kINT32) && (inOut[pos].format == TensorFormat::kLINEAR);
             break;
         case 4:
-            res = (inOut[pos].type == (m_.useFP16 ? DataType::kHALF : DataType::kFLOAT));
+            res = (inOut[pos].type == (m_.useFP16 ? DataType::kHALF : DataType::kFLOAT))
+                  && (inOut[pos].format == TensorFormat::kLINEAR);
             break;
         default:  // should NOT be here!
             res = false;
     }
 #ifdef Ernie_PLUGIN_DEBUG
     printf("Dim(");
-    for (int i = 0; i < 3; i++) {
+    for (int i = 0; i < 4; i++) {
         printf("%d,", inOut[i].dims.nbDims);
     }
     printf("),");
-    printf("pos=%d,res=%d,format(%d,%d,%d,%d),type(%d,%d,%d,%d),",
+    printf("pos=%d,res=%d,format(%d,%d,%d,%d,%d),type(%d,%d,%d,%d,%d),",
            pos,
            int(res),
            int(inOut[0].format),
            int(inOut[1].format),
            int(inOut[2].format),
            int(inOut[3].format),
+           int(inOut[4].format),
            int(inOut[0].type),
            int(inOut[1].type),
            int(inOut[2].type),
-           int(inOut[3].type));
+           int(inOut[3].type),
+           int(inOut[4].type));
     printf("kLINEAR=%d,float=%d,half=%d,int8=%d,int32=%d,bool=%d\n",
            int(TensorFormat::kLINEAR),
            int(DataType::kFLOAT),
@@ -659,7 +661,7 @@ IPluginV2* ErniePluginCreator::createPlugin(const char* name, const PluginFieldC
     int         max_distance   = 128;
     int         sm             = -1;
     float       q_scaling      = 0.125f;
-    int         useFP16        = 0;
+    int         useFP16        = 1;
     std::string ckpt_path      = std::string("/workspace/xys/sti2/model/bin");
 
     struct cudaDeviceProp prop;

@@ -144,7 +144,7 @@ private:
         size_t                            vocab_size                   = 50000;
         size_t                            pos_size                     = 513;
         size_t                            sent_vocab_size              = 4;
-        bool                              is_remove_padding            = false;
+        bool                              is_remove_padding            = true;
         bool                              is_free_buffer_after_forward = false;
         bool                              is_sparse                    = false;
         AttentionType                     attention_type               = AttentionType::UNFUSED_MHA;
