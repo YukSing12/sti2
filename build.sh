@@ -9,13 +9,17 @@ rm -rf build
 mkdir build
 cd build
 cmake ..
-make -j16
+make -j$(nproc)
 make install
 
 cd $ROOT_DIR/src/ft_ernie/
 bash compile.sh
 
 cd $ROOT_DIR
+# Export weights from onnx to bin
+python src/python/onnx2torch.py --onnx model/model.onnx --npy model/model.npy
+python src/python/npy2bin.py --npy model/model.npy --bin model/bin
+
 # Modify TensorRT Engine
 modify_cmd="python src/python/modify_ERNIE.py --src model/model.onnx --dst model/modified_model.onnx --postemb --ft"
 

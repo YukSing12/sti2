@@ -2,7 +2,6 @@ import sys
 import onnx
 import onnx_graphsurgeon as gs
 import argparse
-import onnxsim
 import numpy as np
 
 
@@ -19,12 +18,6 @@ def get_args():
         action="store_true",
         default=False,
         help="modify dim2 dynamic shape",
-    )
-    parser.add_argument(
-        "--onnxsim",
-        action="store_true",
-        default=False,
-        help="pre simplify onnx by onnxsim library",
     )
     parser.add_argument(
         "--ln",
@@ -99,7 +92,6 @@ ENABLE_FFNRELU = args.ffnrelu and not args.ft
 ENABLE_FASTERTRANSFORMER = args.ft
 
 DEBUG = args.debug
-SIM = args.onnxsim
 DYNAMIC = args.dymshape or args.ft
 src_onnx_path = args.src
 dst_onnx_path = args.dst
@@ -208,10 +200,7 @@ else:
     graph.cleanup().toposort()
 
 print("Nodes:{}".format(len(graph.nodes)))
-if SIM:
-    onnx_model, check = onnxsim.simplify(gs.export_onnx(graph))
-else:
-    onnx_model = gs.export_onnx(graph)
+onnx_model = gs.export_onnx(graph)
 onnx.save(onnx_model, dst_onnx_path)
 # onnx.save(onnx.shape_inference.infer_shapes(onnx_model), dst_onnx_path)
 print("Save modified onnx model to {}".format(dst_onnx_path))
