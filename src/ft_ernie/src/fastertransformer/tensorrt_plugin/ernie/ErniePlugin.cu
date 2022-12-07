@@ -15,6 +15,7 @@
  */
 
 #include "ErniePlugin.h"
+#include "ErnieBinPath.h"
 
 using namespace fastertransformer;
 
@@ -650,7 +651,7 @@ IPluginV2* ErniePluginCreator::createPlugin(const char* name, const PluginFieldC
     int         sm             = -1;
     float       q_scaling      = 1.0f;
     int         useFP16        = 1;
-    std::string ckpt_path      = std::string("/workspace/xys/sti2/model/bin");
+    std::string ckpt_path      = std::string(ERNIE_BIN_DIR);
 
     struct cudaDeviceProp prop;
     cudaGetDeviceProperties(&prop, 0);
