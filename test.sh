@@ -3,7 +3,6 @@ echo $ROOT_DIR
 
 export LD_LIBRARY_PATH=$ROOT_DIR/so/tensorrt/lib/:$LD_LIBRARY_PATH
 export LD_PRELOAD="$ROOT_DIR/so/tensorrt/lib/libnvinfer_builder_resource.so.8.5.1  $ROOT_DIR/so/tensorrt/lib/libnvinfer_plugin.so.8.5.1  $ROOT_DIR/so/tensorrt/lib/libnvinfer.so.8.5.1  $ROOT_DIR/so/tensorrt/lib/libnvonnxparser.so.8.5.1 $ROOT_DIR/so/tensorrt/lib/libnvparsers.so.8.5.1"
-
 #rm *.res.txt
 if [ $# != 1 ]; then
 	echo "Enter <main/multiprofile>"
@@ -11,8 +10,6 @@ if [ $# != 1 ]; then
 fi
 ./bin/$1 ./model/Ernie.plan ./data/label.test.txt ./label.res.txt ./so/plugins
 ./bin/$1 ./model/Ernie.plan ./data/perf.test.txt ./perf.res.txt ./so/plugins
-python src/python/utils/local_evaluate.py ./label.res.txt
-python src/python/utils/local_evaluate.py ./perf.res.txt
 nan_num=`cat label.res.txt | grep nan | wc -l`
 echo "Found $nan_num nan in label.res.txt"
 nan_num=`cat perf.res.txt | grep nan | wc -l`
@@ -48,3 +45,6 @@ with open("data/perf.res.txt", 'r') as fid1,\
     print("diff > {} count is {}".format(delta,large_diff_count))
     print("Mean diff is {}".format(mean_diff))
 EOF
+
+python src/python/utils/local_evaluate.py ./label.res.txt
+python src/python/utils/local_evaluate.py ./perf.res.txt

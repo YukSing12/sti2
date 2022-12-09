@@ -12,7 +12,8 @@ from .custom import (
     SliceReshapePass,
     PreEmbeddingPass,
     FFNReluPass,
-    AddResidualLayernormPass
+    AddResidualLayernormPass,
+    FTErnie
 )
 
 # TODO: deprecated

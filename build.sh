@@ -9,12 +9,19 @@ rm -rf build
 mkdir build
 cd build
 cmake ..
-make -j16
+make -j$(nproc)
 make install
 
+cd $ROOT_DIR/src/ft_ernie/
+bash compile.sh
+
 cd $ROOT_DIR
+# Export weights from onnx to bin
+python src/python/onnx2torch.py --onnx model/model.onnx --npy model/model.npy
+python src/python/npy2bin.py --npy model/model.npy --bin model/bin
+
 # Modify TensorRT Engine
-modify_cmd="python src/python/modify_ERNIE.py --src model/model.onnx --dst model/modified_model.onnx --postemb --dymshape --eln --aln --ln --ffnrelu"
+modify_cmd="python src/python/modify_ERNIE.py --src model/model.onnx --dst model/modified_model.onnx --postemb --ft"
 
 rst=`eval $modify_cmd | grep "Save modified onnx model to"`
 rst=($rst)
@@ -22,8 +29,7 @@ idx=$((${#rst[@]}-1))
 onnx_path=${rst[$idx]}
 echo $onnx_path
 
-
 # Build TensorRT Engine
 # cd $ROOT_DIR
 rm model/*.plan
-./bin/onnx2trt_multiprofile $onnx_path ./model/Ernie.plan ./so/plugins/ --fp16
+./bin/onnx2trt_ft $onnx_path ./model/Ernie.plan ./so/plugins/ --fp16

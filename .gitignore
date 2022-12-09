@@ -46,6 +46,7 @@ model/
 
 # Include
 include/tensorrt
+src/ft_ernie/src/fastertransformer/tensorrt_plugin/ernie/ErnieBinPath.h
 
 # So
 so/
@@ -53,4 +54,5 @@ so/
 # Lib
 lib/
 
-
+# Config
+*.in

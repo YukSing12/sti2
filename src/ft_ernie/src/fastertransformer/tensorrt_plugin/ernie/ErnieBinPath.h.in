@@ -1,0 +1,2 @@
+// the configured options and settings for ErnieBinPath
+#define ERNIE_BIN_DIR @ERNIE_BIN_DIR@

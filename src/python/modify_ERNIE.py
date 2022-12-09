@@ -2,7 +2,6 @@ import sys
 import onnx
 import onnx_graphsurgeon as gs
 import argparse
-import onnxsim
 import numpy as np
 
 
@@ -19,12 +18,6 @@ def get_args():
         action="store_true",
         default=False,
         help="modify dim2 dynamic shape",
-    )
-    parser.add_argument(
-        "--onnxsim",
-        action="store_true",
-        default=False,
-        help="pre simplify onnx by onnxsim library",
     )
     parser.add_argument(
         "--ln",
@@ -75,6 +68,12 @@ def get_args():
         help="Remove ops on FeadforwardNetworkRelu or not",
     )
     parser.add_argument(
+        "--ft",
+        action="store_true",
+        default=False,
+        help="Replace ops with FasterTransformer-ErniePlugin or not",
+    )
+    parser.add_argument(
         "--debug", "-D", action="store_true", default=False, help="Enable debug mode"
     )
     args = parser.parse_args()
@@ -82,18 +81,18 @@ def get_args():
 
 
 args = get_args()
-ENABLE_LAYERNORM_PLUGIN = args.ln
-ENABLE_EMBLAYERNORM_PLUGIN = args.eln
-ENABLE_ADDLAYERNORM_PLUGIN = args.aln
-ENABLE_SLICERESHAPE_PLUGIN = args.slreshape
-ENABLE_FUSING_ADDRELU = args.addrelu
+ENABLE_LAYERNORM_PLUGIN = args.ln and not args.ft
+ENABLE_EMBLAYERNORM_PLUGIN = args.eln and not args.ft
+ENABLE_ADDLAYERNORM_PLUGIN = args.aln and not args.ft
+ENABLE_SLICERESHAPE_PLUGIN = args.slreshape and not args.ft
+ENABLE_FUSING_ADDRELU = args.addrelu and not args.ft
 ENABLE_POSTEMBEDDING_PLUGIN = args.postemb
-ENABLE_PREEMBEDDING_PLUGIN = args.preemb
-ENABLE_FFNRELU = args.ffnrelu
+ENABLE_PREEMBEDDING_PLUGIN = args.preemb and not args.ft
+ENABLE_FFNRELU = args.ffnrelu and not args.ft
+ENABLE_FASTERTRANSFORMER = args.ft
 
 DEBUG = args.debug
-SIM = args.onnxsim
-DYNAMIC = args.dymshape
+DYNAMIC = args.dymshape or args.ft
 src_onnx_path = args.src
 dst_onnx_path = args.dst
 
@@ -164,6 +163,19 @@ if ENABLE_PREEMBEDDING_PLUGIN:
     passes.append(PreEmbeddingPass())
     dst_onnx_path = dst_onnx_path.replace(".onnx", "_preemb.onnx")
 
+if ENABLE_FFNRELU:
+    from onnx_opt.passes import FFNReluPass
+
+    passes.append(FFNReluPass())
+    dst_onnx_path = dst_onnx_path.replace(".onnx", "_ffnrelu.onnx")
+
+if ENABLE_FASTERTRANSFORMER:
+    from onnx_opt.passes import FTErnie
+
+    passes.append(FTErnie())
+    dst_onnx_path = dst_onnx_path.replace(".onnx", "_ft.onnx")
+
+
 from onnx_opt.passes import _deprecated_nodes_dict
 from onnx_opt.fuser import Fuser
 
@@ -178,6 +190,11 @@ if ENABLE_POSTEMBEDDING_PLUGIN:
     graph.inputs[4].dtype = np.int32
     graph.inputs[4].name = "read_file_0.tmp_6-13"
 
+if ENABLE_FASTERTRANSFORMER:
+    graph.inputs[3].shape = (-1, 1)
+    graph.inputs[3].dtype = np.int32
+    graph.inputs[3].name = "read_file_0.seq_len"
+        
 if DEBUG:
     graph.cleanup().toposort()
     dst_onnx_path = "./model/debug.onnx"
@@ -186,10 +203,7 @@ else:
     graph.cleanup().toposort()
 
 print("Nodes:{}".format(len(graph.nodes)))
-if SIM:
-    onnx_model, check = onnxsim.simplify(gs.export_onnx(graph))
-else:
-    onnx_model = gs.export_onnx(graph)
+onnx_model = gs.export_onnx(graph)
 onnx.save(onnx_model, dst_onnx_path)
 # onnx.save(onnx.shape_inference.infer_shapes(onnx_model), dst_onnx_path)
 print("Save modified onnx model to {}".format(dst_onnx_path))

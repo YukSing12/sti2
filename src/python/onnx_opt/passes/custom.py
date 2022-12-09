@@ -7,6 +7,7 @@
 import onnx_graphsurgeon as gs
 import numpy as np
 from .base import ReplacePass, TowOpPass, RemovePass
+from typing import Optional
 
 class MaskedSoftmaxPass(ReplacePass):
     def replace(self, node, count):
@@ -279,3 +280,51 @@ class FFNReluPass(RemovePass):
 
             return 1
         return 0
+
+
+class FTErnie(ReplacePass):
+    def __init__(self, pattern: Optional[str] = None):
+        super().__init__(pattern)
+        self.replaced = False
+
+    def replace(self, node, count):
+        # Only replace once
+        if not self.replaced:
+            self.replaced = True
+            # four input
+            squeeze_node_0 = _deprecated_nodes_dict['p2o.Squeeze.0']
+            squeeze_node_1 = _deprecated_nodes_dict['p2o.Squeeze.1']
+            squeeze_node_2 = _deprecated_nodes_dict['p2o.Squeeze.2']
+            matmul_node_0  = _deprecated_nodes_dict['p2o.MatMul.0']
+            word_ids       = squeeze_node_0.inputs[0]
+            pos_ids        = squeeze_node_1.inputs[0]
+            sent_ids       = squeeze_node_2.inputs[0]
+            mask           = matmul_node_0.inputs[0]
+            # one ouput
+            add_node_0     = _deprecated_nodes_dict['p2o.Add.210']
+            ernie_out      = add_node_0.outputs[0]
+            ernie = gs.Node(
+                op="ErniePlugin",
+                name="plugin.ErniePlugin.0",
+                inputs=[word_ids, pos_ids, sent_ids, mask],
+                outputs=[ernie_out],
+                attrs={"max_batch_size": 10,
+                       "max_seq_len": 128,
+                       "beam_width": 1,
+                       "head_num": 12,
+                       "size_per_head": 64,
+                       "d_model": 768,
+                       "inter_size": 3072,
+                       "num_layer": 12,
+                       "useFP16": 1},
+            )
+
+            # clear nodes
+            squeeze_node_0.inputs.clear()
+            squeeze_node_1.inputs.clear()
+            squeeze_node_2.inputs.clear()
+            matmul_node_0.inputs.clear()
+            add_node_0.outputs.clear()
+
+            return ernie
+        return None
