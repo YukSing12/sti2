@@ -103,6 +103,9 @@ protected:
     T*      ernie_layer_out_buffer_     = nullptr;
     T*      ernie_slice_out_buffer_     = nullptr;
     T*      post_emb_out_buffer_        = nullptr;
+    T*      fea_emb_fc_out_buffer_      = nullptr;
+    T*      cls_out_buffer_      = nullptr;
+    T*      cls_out_aside_buffer_      = nullptr;
 
     T* normed_from_tensor_  = nullptr;
     T* normed_attn_out_buf_ = nullptr;

@@ -291,23 +291,27 @@ class FTErnie(ReplacePass):
         # Only replace once
         if not self.replaced:
             self.replaced = True
-            # four input
+            # five inputs
             squeeze_node_0 = _deprecated_nodes_dict['p2o.Squeeze.0']
             squeeze_node_1 = _deprecated_nodes_dict['p2o.Squeeze.1']
             squeeze_node_2 = _deprecated_nodes_dict['p2o.Squeeze.2']
             matmul_node_0  = _deprecated_nodes_dict['p2o.MatMul.0']
+            cast_node      = _deprecated_nodes_dict['p2o.Cast.0']
+
             word_ids       = squeeze_node_0.inputs[0]
             pos_ids        = squeeze_node_1.inputs[0]
             sent_ids       = squeeze_node_2.inputs[0]
             mask           = matmul_node_0.inputs[0]
+            multi_ids      = cast_node.inputs[0]
+
             # one ouput
-            output_node    = _deprecated_nodes_dict['p2o.MatMul.196']
-            ernie_out      = output_node.outputs[0]
+            output_node_0    = _deprecated_nodes_dict['p2o.Sigmoid.0']
+            ernie_out0       = output_node_0.outputs[0]
             ernie = gs.Node(
                 op="ErniePlugin",
                 name="plugin.ErniePlugin.0",
-                inputs=[word_ids, pos_ids, sent_ids, mask],
-                outputs=[ernie_out],
+                inputs=[word_ids, pos_ids, sent_ids, mask, multi_ids],
+                outputs=[ernie_out0],
                 attrs={"max_batch_size": 10,
                        "max_seq_len": 128,
                        "beam_width": 1,
@@ -324,7 +328,6 @@ class FTErnie(ReplacePass):
             squeeze_node_1.inputs.clear()
             squeeze_node_2.inputs.clear()
             matmul_node_0.inputs.clear()
-            output_node.outputs.clear()
-
+            output_node_0.outputs.clear()
             return ernie
         return None

@@ -256,7 +256,13 @@ void ErnieEncoder<T>::allocateBuffer()
         ernie_slice_out_buffer_ = (T*)allocator_->reMalloc(
             ernie_slice_out_buffer_, sizeof(T) * max_batch_size_ * 1 * d_model_, false);
         post_emb_out_buffer_ = (T*)allocator_->reMalloc(
-            post_emb_out_buffer_, sizeof(T) * max_batch_size_ * 160, false);
+            post_emb_out_buffer_, sizeof(T) * max_batch_size_ * d_model_, false);
+        fea_emb_fc_out_buffer_ = (T*)allocator_->reMalloc(
+            fea_emb_fc_out_buffer_, sizeof(T) * max_batch_size_ * d_model_, false);
+        cls_out_buffer_ = (T*)allocator_->reMalloc(
+            cls_out_buffer_, sizeof(T) * max_batch_size_ * 1, false);
+        cls_out_aside_buffer_ = (T*)allocator_->reMalloc(
+            cls_out_aside_buffer_, sizeof(T) * max_batch_size_ * 1, false);
 
         if (layernorm_type_ == LayerNormType::post_layernorm) {
             normed_from_tensor_  = nullptr;
@@ -297,7 +303,13 @@ void ErnieEncoder<T>::allocateBuffer(size_t batch_size, size_t seq_len)
     ernie_slice_out_buffer_ =
         (T*)allocator_->reMalloc(ernie_slice_out_buffer_, sizeof(T) * batch_size * 1 * d_model_, false);
     post_emb_out_buffer_ =
-        (T*)allocator_->reMalloc(post_emb_out_buffer_, sizeof(T) * batch_size * 1 * d_model_, false);
+        (T*)allocator_->reMalloc(post_emb_out_buffer_, sizeof(T) * batch_size * d_model_, false);
+    fea_emb_fc_out_buffer_ =
+        (T*)allocator_->reMalloc(fea_emb_fc_out_buffer_, sizeof(T) * batch_size * d_model_, false);
+    cls_out_buffer_ =
+        (T*)allocator_->reMalloc(cls_out_buffer_, sizeof(T) * batch_size * 1, false);
+    cls_out_aside_buffer_ =
+        (T*)allocator_->reMalloc(cls_out_aside_buffer_, sizeof(T) * batch_size * 1, false);
 
     if (layernorm_type_ == LayerNormType::post_layernorm) {
         normed_from_tensor_  = nullptr;
@@ -329,6 +341,9 @@ void ErnieEncoder<T>::freeBuffer()
         allocator_->free((void**)(&ernie_layer_out_buffer_));
         allocator_->free((void**)(&ernie_slice_out_buffer_));
         allocator_->free((void**)(&post_emb_out_buffer_));
+        allocator_->free((void**)(&fea_emb_fc_out_buffer_));
+        allocator_->free((void**)(&cls_out_buffer_));
+        allocator_->free((void**)(&cls_out_aside_buffer_));
 
         if (layernorm_type_ == LayerNormType::post_layernorm) {
             normed_from_tensor_  = nullptr;
@@ -380,7 +395,8 @@ void ErnieEncoder<T>::forward(std::vector<Tensor>*       output_tensors,
     //      word_ids [batch, seqlen, 1]
     //      pos_ids  [batch, seqlen, 1]
     //      sent_ids [batch, seqlen, 1]
-    //      seq_len     [batch, 1, 1]
+    //      seq_len     [batch, 1]
+    //      multi_ids   [batch, 8]
     // output tensors:
     //      attn_out [batch, 1]
 
@@ -402,7 +418,8 @@ void ErnieEncoder<T>::forward(std::unordered_map<std::string, Tensor>*       out
     //      word_ids [batch, seqlen, 1]
     //      pos_ids  [batch, seqlen, 1]
     //      sent_ids [batch, seqlen, 1]
-    //      seq_len     [batch, 1, 1]
+    //      seq_len     [batch, 1]
+    //      multi_ids   [batch, 8]
     // output tensors:
     //      attn_out [batch, 1]
 
@@ -411,13 +428,15 @@ void ErnieEncoder<T>::forward(std::unordered_map<std::string, Tensor>*       out
 
     const size_t request_batch_size = input_tensors->at("word_ids").shape[0];
     const size_t request_seq_len    = input_tensors->at("word_ids").shape[1];
-    FT_CHECK(input_tensors->size() == 4);
+    FT_CHECK(input_tensors->size() == 5);
     FT_CHECK(request_batch_size == input_tensors->at("pos_ids").shape[0]);
     FT_CHECK(input_tensors->at("pos_ids").shape.size() == 2);
     FT_CHECK(request_batch_size == input_tensors->at("sent_ids").shape[0]);
     FT_CHECK(input_tensors->at("sent_ids").shape.size() == 2);
     FT_CHECK(request_batch_size == input_tensors->at("seq_len").shape[0]);
-    FT_CHECK(input_tensors->at("seq_len").shape.size() == 1);
+    FT_CHECK(input_tensors->at("seq_len").shape.size() == 2);
+    FT_CHECK(request_batch_size == input_tensors->at("multi_ids").shape[0]);
+    FT_CHECK(input_tensors->at("multi_ids").shape.size() == 2);
    // allocateBuffer(request_batch_size, request_seq_len);
 
     // Ernie Structure Difference
@@ -696,22 +715,86 @@ void ErnieEncoder<T>::forward(std::unordered_map<std::string, Tensor>*       out
                               n,
                               ernie_layer_out_buffer_,
                               k,
-                              output_tensors->at("attn_out").getPtr<T>(),
+                              cls_out_buffer_,
                               n);
     }
 
-    // // todo invokePostEmbedding
-    // invokePostEmbedding(input_tensors->at("sent_ids").getPtr<int>(),
-    //                     ernie_encoder_weights->multi_field_1,
-    //                     ernie_encoder_weights->multi_field_3,
-    //                     ernie_encoder_weights->multi_field_6,
-    //                     ernie_encoder_weights->multi_field_0,
-    //                     ernie_encoder_weights->multi_field_5,
-    //                     ernie_encoder_weights->multi_field_7,
-    //                     ernie_encoder_weights->multi_field_4,
-    //                     ernie_encoder_weights->multi_field_2,
-    //                     post_emb_out_buffer_,
-    //                     stream_);
+    // todo invokePostEmbedding
+    invokePostEmbedding(input_tensors->at("multi_ids").getPtr<int>(),
+                               ernie_encoder_weights->multi_field_1,
+                               ernie_encoder_weights->multi_field_3,
+                               ernie_encoder_weights->multi_field_6,
+                               ernie_encoder_weights->multi_field_0,
+                               ernie_encoder_weights->multi_field_5,
+                               ernie_encoder_weights->multi_field_7,
+                               ernie_encoder_weights->multi_field_4,
+                               ernie_encoder_weights->multi_field_2,
+                               post_emb_out_buffer_,
+                               request_batch_size,
+                               stream_);
+
+    // MatMul(fea_emb_fc)
+    {
+        int m = request_batch_size;
+        int n = d_model_;
+        int k = 160;
+        cublas_wrapper_->Gemm(CUBLAS_OP_N,
+                              CUBLAS_OP_N,
+                              n,
+                              m,
+                              k,
+                              ernie_encoder_weights->fea_emb_fc.kernel,
+                              n,
+                              post_emb_out_buffer_,
+                              k,
+                              fea_emb_fc_out_buffer_,
+                              n);
+        invokeAddBiasRelu(fea_emb_fc_out_buffer_, ernie_encoder_weights->fea_emb_fc.bias, m, n, stream_);
+    }
+    
+    // MatMul(fea_emb_fc2)
+    {
+        int m = request_batch_size;
+        int n = 384;
+        int k = d_model_;
+        cublas_wrapper_->Gemm(CUBLAS_OP_N,
+                              CUBLAS_OP_N,
+                              n,
+                              m,
+                              k,
+                              ernie_encoder_weights->fea_emb_fc2.kernel,
+                              n,
+                              fea_emb_fc_out_buffer_,
+                              k,
+                              post_emb_out_buffer_,
+                              n);
+        invokeAddBiasRelu(post_emb_out_buffer_, ernie_encoder_weights->fea_emb_fc2.bias, m, n, stream_);
+    }
+
+    // MatMul(cls_out_aside)
+    {
+        int m = request_batch_size;
+        int n = 1;
+        int k = 384;
+        cublas_wrapper_->Gemm(CUBLAS_OP_N,
+                              CUBLAS_OP_N,
+                              n,
+                              m,
+                              k,
+                              ernie_encoder_weights->cls_out_aside.kernel,
+                              n,
+                              post_emb_out_buffer_,
+                              k,
+                              cls_out_aside_buffer_,
+                              n);
+    }
+    invokeAddTwoAddBiasSigmoid(cls_out_buffer_,
+                               cls_out_aside_buffer_,
+                               ernie_encoder_weights->cls_out.bias,
+                               ernie_encoder_weights->cls_out_aside.bias,
+                               output_tensors->at("attn_out").getPtr<T>(),
+                               request_batch_size,
+                               stream_);
 
     if (is_free_buffer_after_forward_ == true) {
         freeBuffer();

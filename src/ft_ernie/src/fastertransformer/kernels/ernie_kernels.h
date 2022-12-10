@@ -30,7 +30,7 @@ void invokeSlice(T* dst, const T* src, const int batch_size, const int seq_len, 
 template<typename T>
 void invokeAddBiasTanh(T* out, const T* bias, const int m, const int n, cudaStream_t stream);
 
-template<typename T, int LEN>
+template<typename T>
 void invokePostEmbedding(const int* x,
                          const T* emb_0,
                          const T* emb_1,
@@ -43,4 +43,13 @@ void invokePostEmbedding(const int* x,
                          T* output,
                          const int batch_size,
                          cudaStream_t stream);
+
+template<typename T>
+void invokeAddTwoAddBiasSigmoid(const T* input0,
+                                const T* input1,
+                                const T* bias0,
+                                const T* bias1,
+                                T* output,
+                                const int batch_size,
+                                cudaStream_t stream);
 }  // namespace fastertransformer

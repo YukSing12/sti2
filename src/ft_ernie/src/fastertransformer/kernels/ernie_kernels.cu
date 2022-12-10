@@ -301,7 +301,7 @@ __global__ void postEmbedding(const int* x,
     }
 }
 
-template<typename T, int LEN>
+template<typename T>
 void invokePostEmbedding(const int* x,
                          const T* emb_0,
                          const T* emb_1,
@@ -315,54 +315,115 @@ void invokePostEmbedding(const int* x,
                          const int batch_size,
                          cudaStream_t stream)
 {
-    FT_CHECK(LEN == 20);
     constexpr int VPT = 1;
     constexpr int TPB = 32;
-    postEmbedding<T, TPB, VPT, LEN>
+    postEmbedding<T, TPB, VPT, 20>
         <<<batch_size, TPB, 0, stream>>>(x, emb_0, emb_1, emb_2, emb_3, emb_4, emb_5, emb_6, emb_7, output);
 }
 
-template<typename T, int LEN>
-void invokePostEmbedding(const int* x,
-                         const float* emb_0,
-                         const float* emb_1,
-                         const float* emb_2,
-                         const float* emb_3,
-                         const float* emb_4,
-                         const float* emb_5,
-                         const float* emb_6,
-                         const float* emb_7,
-                         float* output,
-                         const int batch_size,
-                         cudaStream_t stream);
+template void invokePostEmbedding(const int* x,
+                                  const float* emb_0,
+                                  const float* emb_1,
+                                  const float* emb_2,
+                                  const float* emb_3,
+                                  const float* emb_4,
+                                  const float* emb_5,
+                                  const float* emb_6,
+                                  const float* emb_7,
+                                  float* output,
+                                  const int batch_size,
+                                  cudaStream_t stream);
 
-template<typename T, int LEN>
-void invokePostEmbedding(const int* x,
-                         const half* emb_0,
-                         const half* emb_1,
-                         const half* emb_2,
-                         const half* emb_3,
-                         const half* emb_4,
-                         const half* emb_5,
-                         const half* emb_6,
-                         const half* emb_7,
-                         half* output,
-                         const int batch_size,
-                         cudaStream_t stream);
+template void invokePostEmbedding(const int* x,
+                                  const half* emb_0,
+                                  const half* emb_1,
+                                  const half* emb_2,
+                                  const half* emb_3,
+                                  const half* emb_4,
+                                  const half* emb_5,
+                                  const half* emb_6,
+                                  const half* emb_7,
+                                  half* output,
+                                  const int batch_size,
+                                  cudaStream_t stream);
 
 #ifdef ENABLE_BF16
-template<typename T, int LEN>
-void invokePostEmbedding(const int* x,
-                         const __nv_bfloat16* emb_0,
-                         const __nv_bfloat16* emb_1,
-                         const __nv_bfloat16* emb_2,
-                         const __nv_bfloat16* emb_3,
-                         const __nv_bfloat16* emb_4,
-                         const __nv_bfloat16* emb_5,
-                         const __nv_bfloat16* emb_6,
-                         const __nv_bfloat16* emb_7,
-                         __nv_bfloat16* output,
-                         const int batch_size,
-                         cudaStream_t stream);
+template void invokePostEmbedding(const int* x,
+                                  const __nv_bfloat16* emb_0,
+                                  const __nv_bfloat16* emb_1,
+                                  const __nv_bfloat16* emb_2,
+                                  const __nv_bfloat16* emb_3,
+                                  const __nv_bfloat16* emb_4,
+                                  const __nv_bfloat16* emb_5,
+                                  const __nv_bfloat16* emb_6,
+                                  const __nv_bfloat16* emb_7,
+                                  __nv_bfloat16* output,
+                                  const int batch_size,
+                                  cudaStream_t stream);
+#endif
+
+__inline__ __device__ float sigmoid(float x)
+{
+    return 1.0f / ( 1.0f + expf( -x));
+}
+
+__inline__ __device__ half sigmoid(half x)
+{
+    return __hdiv(__float2half(1.0f), __hadd(__float2half(1.0f), hexp(__hneg(x))));
+}
+
+#ifdef ENABLE_BF16
+__inline__ __device__ __nv_bfloat16 sigmoid(__nv_bfloat16 x)
+{
+    return __float2bfloat16(sigmoid(__bfloat162float(x)));
+}
+#endif
+
+template<typename T>
+__global__ void
+addTwoAddBiasSigmoid(const T* input0, const T* input1, const T* bias0, const T* bias1, T* output, const int batch_size)
+{
+    if (threadIdx.x < batch_size) {
+        const int idx = threadIdx.x;
+        output[idx] = sigmoid(input0[idx] + bias0[idx] + input1[idx] + bias1[idx]);
+    }
+}
+
+template<typename T>
+void invokeAddTwoAddBiasSigmoid(const T* input0,
+                                const T* input1,
+                                const T* bias0,
+                                const T* bias1,
+                                T* output,
+                                const int batch_size,
+                                cudaStream_t stream)
+{
+    FT_CHECK(batch_size <= 10);
+    addTwoAddBiasSigmoid<<<1, batch_size, 0, stream>>>(input0, input1, bias0, bias1, output, batch_size);
+}
+template void invokeAddTwoAddBiasSigmoid(const float* input0,
+                                         const float* input1,
+                                         const float* bias0,
+                                         const float* bias1,
+                                         float* output,
+                                         const int batch_size,
+                                         cudaStream_t stream);
+
+template void invokeAddTwoAddBiasSigmoid(const half* input0,
+                                         const half* input1,
+                                         const half* bias0,
+                                         const half* bias1,
+                                         half* output,
+                                         const int batch_size,
+                                         cudaStream_t stream);
+
+#ifdef ENABLE_BF16
+template void invokeAddTwoAddBiasSigmoid(const __nv_bfloat16* input0,
+                                         const __nv_bfloat16* input1,
+                                         const __nv_bfloat16* bias0,
+                                         const __nv_bfloat16* bias1,
+                                         __nv_bfloat16* output,
+                                         const int batch_size,
+                                         cudaStream_t stream);
 #endif
 }  // namespace fastertransformer
