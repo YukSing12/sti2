@@ -483,10 +483,9 @@ DimsExprs ErniePlugin::getOutputDimensions(int              index,
 {
     WHERE_AM_I();
     DimsExprs ret;
-    ret.nbDims = 3;
+    ret.nbDims = 2;
     ret.d[0]   = pInputDim[0].d[0];
-    ret.d[1]   = pInputDim[0].d[1];
-    ret.d[2]   = exprBuilder.constant(m_.d_model);
+    ret.d[1]   = exprBuilder.constant(1);
     return ret;
 }
 
@@ -594,7 +593,7 @@ int ErniePlugin::enqueue(const PluginTensorDesc* inputDesc,
             {"attn_out",
              Tensor{MEMORY_GPU,
                     TYPE_FP16,
-                    std::vector<size_t>{m_.batch_size, m_.seq_len, (size_t)(m_.head_num * m_.size_per_head)},
+                    std::vector<size_t>{m_.batch_size, 1},
                     (half*)outputs[0]}}};
         pErnieEncoderHalf_->setStream(stream);
         pErnieEncoderHalf_->forward(&outputTensor, &inputTensor, pErnieEncoderWeightHalf_);
@@ -604,7 +603,7 @@ int ErniePlugin::enqueue(const PluginTensorDesc* inputDesc,
             {"attn_out",
              Tensor{MEMORY_GPU,
                     TYPE_FP32,
-                    std::vector<size_t>{m_.batch_size, m_.seq_len, (size_t)(m_.head_num * m_.size_per_head)},
+                    std::vector<size_t>{m_.batch_size, 1},
                     (float*)outputs[0]}}};
         pErnieEncoderFloat_->setStream(stream);
         pErnieEncoderFloat_->forward(&outputTensor, &inputTensor, pErnieEncoderWeightFloat_);

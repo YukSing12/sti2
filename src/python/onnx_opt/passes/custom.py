@@ -301,8 +301,8 @@ class FTErnie(ReplacePass):
             sent_ids       = squeeze_node_2.inputs[0]
             mask           = matmul_node_0.inputs[0]
             # one ouput
-            add_node_0     = _deprecated_nodes_dict['p2o.Add.210']
-            ernie_out      = add_node_0.outputs[0]
+            output_node    = _deprecated_nodes_dict['p2o.MatMul.196']
+            ernie_out      = output_node.outputs[0]
             ernie = gs.Node(
                 op="ErniePlugin",
                 name="plugin.ErniePlugin.0",
@@ -324,7 +324,7 @@ class FTErnie(ReplacePass):
             squeeze_node_1.inputs.clear()
             squeeze_node_2.inputs.clear()
             matmul_node_0.inputs.clear()
-            add_node_0.outputs.clear()
+            output_node.outputs.clear()
 
             return ernie
         return None

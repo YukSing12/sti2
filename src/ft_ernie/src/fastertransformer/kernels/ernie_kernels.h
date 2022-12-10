@@ -5,6 +5,7 @@
 #include "src/fastertransformer/utils/Tensor.h"
 #include "src/fastertransformer/utils/memory_utils.h"
 #include "src/fastertransformer/utils/cuda_utils.h"
+#include "src/fastertransformer/kernels/activation_kernels.h"
 
 namespace fastertransformer {
 template<typename T>
@@ -24,6 +25,22 @@ void invokeEmbeddingLookupConcat(T* from_tensor,
                                  cudaStream_t stream);
 
 template<typename T>
-void invokeBuildErnieAttentionMask(
-    T* attention_mask, const int* sequence_lengths, const int batch_size, const int max_seq_len, cudaStream_t stream);
+void invokeSlice(T* dst, const T* src, const int batch_size, const int seq_len, const int d_model, cudaStream_t stream);
+
+template<typename T>
+void invokeAddBiasTanh(T* out, const T* bias, const int m, const int n, cudaStream_t stream);
+
+template<typename T, int LEN>
+void invokePostEmbedding(const int* x,
+                         const T* emb_0,
+                         const T* emb_1,
+                         const T* emb_2,
+                         const T* emb_3,
+                         const T* emb_4,
+                         const T* emb_5,
+                         const T* emb_6,
+                         const T* emb_7,
+                         T* output,
+                         const int batch_size,
+                         cudaStream_t stream);
 }  // namespace fastertransformer
