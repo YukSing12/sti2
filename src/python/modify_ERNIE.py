@@ -86,7 +86,7 @@ ENABLE_EMBLAYERNORM_PLUGIN = args.eln and not args.ft
 ENABLE_ADDLAYERNORM_PLUGIN = args.aln and not args.ft
 ENABLE_SLICERESHAPE_PLUGIN = args.slreshape and not args.ft
 ENABLE_FUSING_ADDRELU = args.addrelu and not args.ft
-ENABLE_POSTEMBEDDING_PLUGIN = args.postemb
+ENABLE_POSTEMBEDDING_PLUGIN = args.postemb and not args.ft
 ENABLE_PREEMBEDDING_PLUGIN = args.preemb and not args.ft
 ENABLE_FFNRELU = args.ffnrelu and not args.ft
 ENABLE_FASTERTRANSFORMER = args.ft
@@ -171,7 +171,10 @@ if ENABLE_FFNRELU:
 
 if ENABLE_FASTERTRANSFORMER:
     from onnx_opt.passes import FTErnie
-
+    graph.inputs = graph.inputs[:5]
+    graph.inputs[4].shape = (-1, 8)
+    graph.inputs[4].dtype = np.int32
+    graph.inputs[4].name = "read_file_0.tmp_6-13"
     passes.append(FTErnie())
     dst_onnx_path = dst_onnx_path.replace(".onnx", "_ft.onnx")
 

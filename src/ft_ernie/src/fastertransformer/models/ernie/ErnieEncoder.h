@@ -20,6 +20,7 @@
 #include <vector>
 
 #include "src/fastertransformer/kernels/bert_preprocess_kernels.h"
+#include "src/fastertransformer/kernels/activation_kernels.h"
 #include "src/fastertransformer/kernels/gpt_kernels.h"
 #include "src/fastertransformer/kernels/layernorm_kernels.h"
 #include "src/fastertransformer/layers/TensorParallelGeluFfnLayer.h"
@@ -89,16 +90,22 @@ private:
 
 protected:
     // model params
-    size_t* token_num_               = nullptr;
+    size_t* token_num_                  = nullptr;
     // size_t* h_token_num              = nullptr;  
-    int*    padding_offset_          = nullptr;
-    int*    trt_mha_padding_offset_  = nullptr;
-    T*      attention_mask_          = nullptr;
-    T*      relative_attention_bias_ = nullptr;
+    int*    padding_offset_             = nullptr;
+    int*    trt_mha_padding_offset_     = nullptr;
+    T*      attention_mask_             = nullptr;
+    T*      relative_attention_bias_    = nullptr;
     T*      ernie_encoder_emb_buf_      = nullptr;
     T*      ernie_encoder_in_buffer_    = nullptr;
-    T*      attn_out_buf_            = nullptr;
+    T*      attn_out_buf_               = nullptr;
     T*      ernie_encoder_out_buffer_   = nullptr;
+    T*      ernie_layer_out_buffer_     = nullptr;
+    T*      ernie_slice_out_buffer_     = nullptr;
+    T*      post_emb_out_buffer_        = nullptr;
+    T*      fea_emb_fc_out_buffer_      = nullptr;
+    T*      cls_out_buffer_      = nullptr;
+    T*      cls_out_aside_buffer_      = nullptr;
 
     T* normed_from_tensor_  = nullptr;
     T* normed_attn_out_buf_ = nullptr;
