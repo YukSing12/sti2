@@ -392,9 +392,9 @@ void ErnieEncoder<T>::forward(std::vector<Tensor>*       output_tensors,
                            const ErnieEncoderWeight<T>*  ernie_encoder_weights)
 {
     // input_tensors:
-    //      word_ids [batch, seqlen, 1]
-    //      pos_ids  [batch, seqlen, 1]
-    //      sent_ids [batch, seqlen, 1]
+    //      word_ids [batch, seqlen]
+    //      pos_ids  [batch, seqlen]
+    //      sent_ids [batch, seqlen]
     //      seq_len     [batch, 1]
     //      multi_ids   [batch, 8]
     // output tensors:
@@ -415,9 +415,9 @@ void ErnieEncoder<T>::forward(std::unordered_map<std::string, Tensor>*       out
                            const ErnieEncoderWeight<T>*                      ernie_encoder_weights)
 {
     // input_tensors:
-    //      word_ids [batch, seqlen, 1]
-    //      pos_ids  [batch, seqlen, 1]
-    //      sent_ids [batch, seqlen, 1]
+    //      word_ids [batch, seqlen]
+    //      pos_ids  [batch, seqlen]
+    //      sent_ids [batch, seqlen]
     //      seq_len     [batch, 1]
     //      multi_ids   [batch, 8]
     // output tensors:
@@ -430,11 +430,16 @@ void ErnieEncoder<T>::forward(std::unordered_map<std::string, Tensor>*       out
     const size_t request_seq_len    = input_tensors->at("word_ids").shape[1];
     FT_CHECK(input_tensors->size() == 5);
     FT_CHECK(request_batch_size == input_tensors->at("pos_ids").shape[0]);
+    FT_CHECK(request_seq_len == input_tensors->at("pos_ids").shape[1]);
     FT_CHECK(input_tensors->at("pos_ids").shape.size() == 2);
+
     FT_CHECK(request_batch_size == input_tensors->at("sent_ids").shape[0]);
+    FT_CHECK(request_seq_len == input_tensors->at("sent_ids").shape[1]);
     FT_CHECK(input_tensors->at("sent_ids").shape.size() == 2);
+
     FT_CHECK(request_batch_size == input_tensors->at("seq_len").shape[0]);
     FT_CHECK(input_tensors->at("seq_len").shape.size() == 2);
+
     FT_CHECK(request_batch_size == input_tensors->at("multi_ids").shape[0]);
     FT_CHECK(input_tensors->at("multi_ids").shape.size() == 2);
    // allocateBuffer(request_batch_size, request_seq_len);
@@ -446,9 +451,9 @@ void ErnieEncoder<T>::forward(std::unordered_map<std::string, Tensor>*       out
 
     if (attention_type_ == AttentionType::UNFUSED_MHA || attention_type_ == AttentionType::FUSED_MHA) {
         // prevent undefined behavior of the padding parts
-        cudaMemsetAsync(output_tensors->at("attn_out").getPtr<T>(),
+        cudaMemsetAsync(output_tensors->at("attn_out").getPtr<float>(),
                    0,
-                   sizeof(T) * request_batch_size * 1,
+                   sizeof(float) * request_batch_size * 1,
                    stream_);
     }
 
@@ -792,7 +797,7 @@ void ErnieEncoder<T>::forward(std::unordered_map<std::string, Tensor>*       out
                                cls_out_aside_buffer_,
                                ernie_encoder_weights->cls_out.bias,
                                ernie_encoder_weights->cls_out_aside.bias,
-                               output_tensors->at("attn_out").getPtr<T>(),
+                               output_tensors->at("attn_out").getPtr<float>(),
                                request_batch_size,
                                stream_);
 

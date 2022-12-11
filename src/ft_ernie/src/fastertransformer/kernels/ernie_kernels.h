@@ -49,7 +49,7 @@ void invokeAddTwoAddBiasSigmoid(const T* input0,
                                 const T* input1,
                                 const T* bias0,
                                 const T* bias1,
-                                T* output,
+                                float* output,
                                 const int batch_size,
                                 cudaStream_t stream);
 }  // namespace fastertransformer

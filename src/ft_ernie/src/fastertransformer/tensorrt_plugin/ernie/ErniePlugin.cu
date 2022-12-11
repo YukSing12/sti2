@@ -421,7 +421,7 @@ int ErniePlugin::getNbOutputs() const noexcept
 DataType ErniePlugin::getOutputDataType(int index, const DataType* inputTypes, int nbInputs) const noexcept
 {
     WHERE_AM_I();
-    return m_.useFP16 ? DataType::kHALF : DataType::kFLOAT;
+    return DataType::kFLOAT;
 }
 
 bool ErniePlugin::supportsFormatCombination(int                     pos,
@@ -441,7 +441,7 @@ bool ErniePlugin::supportsFormatCombination(int                     pos,
             res = (inOut[pos].type == DataType::kINT32) && (inOut[pos].format == TensorFormat::kLINEAR);
             break;
         case 5:
-            res = (inOut[pos].type == (m_.useFP16 ? DataType::kHALF : DataType::kFLOAT))
+            res = (inOut[pos].type == DataType::kFLOAT)
                   && (inOut[pos].format == TensorFormat::kLINEAR);
             break;
         default:  // should NOT be here!
@@ -590,23 +590,19 @@ int ErniePlugin::enqueue(const PluginTensorDesc* inputDesc,
         {"sent_ids", Tensor{MEMORY_GPU, TYPE_INT32, std::vector<size_t>{m_.batch_size, m_.seq_len}, (int*)inputs[2]}},
         {"seq_len", Tensor{MEMORY_GPU, TYPE_INT32, std::vector<size_t>{m_.batch_size, 1}, (int*)inputs[3]}},
         {"multi_ids", Tensor{MEMORY_GPU, TYPE_INT32, std::vector<size_t>{m_.batch_size, 8}, (int*)inputs[4]}}};
-    if (m_.useFP16) {
-        std::unordered_map<std::string, Tensor> outputTensor{
-            {"attn_out",
-             Tensor{MEMORY_GPU,
-                    TYPE_FP16,
-                    std::vector<size_t>{m_.batch_size, 1},
-                    (half*)outputs[0]}}};
-        pErnieEncoderHalf_->setStream(stream);
-        pErnieEncoderHalf_->forward(&outputTensor, &inputTensor, pErnieEncoderWeightHalf_);
-    }
-    else {
+
         std::unordered_map<std::string, Tensor> outputTensor{
             {"attn_out",
              Tensor{MEMORY_GPU,
                     TYPE_FP32,
                     std::vector<size_t>{m_.batch_size, 1},
                     (float*)outputs[0]}}};
+    if (m_.useFP16) {
+        pErnieEncoderHalf_->setStream(stream);
+        pErnieEncoderHalf_->forward(&outputTensor, &inputTensor, pErnieEncoderWeightHalf_);
+    }
+    else {
+        
         pErnieEncoderFloat_->setStream(stream);
         pErnieEncoderFloat_->forward(&outputTensor, &inputTensor, pErnieEncoderWeightFloat_);
     }

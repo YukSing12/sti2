@@ -1,15 +1,25 @@
 ROOT_DIR=$(cd $(dirname $0); pwd)
-echo $ROOT_DIR
-
 export LD_LIBRARY_PATH=$ROOT_DIR/so/tensorrt/lib/:$LD_LIBRARY_PATH
 export LD_PRELOAD="$ROOT_DIR/so/tensorrt/lib/libnvinfer_builder_resource.so.8.5.1  $ROOT_DIR/so/tensorrt/lib/libnvinfer_plugin.so.8.5.1  $ROOT_DIR/so/tensorrt/lib/libnvinfer.so.8.5.1  $ROOT_DIR/so/tensorrt/lib/libnvonnxparser.so.8.5.1 $ROOT_DIR/so/tensorrt/lib/libnvparsers.so.8.5.1"
-#rm *.res.txt
+
 if [ $# != 1 ]; then
-	echo "Enter <main/multiprofile>"
-	exit 1
+    echo -e "Usage test.sh <exe>"
+    echo -e "  <exe>  Execute program for testing."
+    echo -e "         Supported exe: main: static shape inference using TensorRT"
+    echo -e "                        main_ft: dynamic shape inference using FasterTransformer and TensorRT"
+    echo -e "                        ernie_infer: dynamic shape inference using FasterTransformer"
+    echo -e "                        multiprofile: dynamic shape and multiprofile inference using TensorRT"
+    exit 1
 fi
-./bin/$1 ./model/Ernie.plan ./data/label.test.txt ./label.res.txt ./so/plugins
-./bin/$1 ./model/Ernie.plan ./data/perf.test.txt ./perf.res.txt ./so/plugins
+
+rm *.res.txt -f
+if [ "$1" == "ernie_infer" ];then
+    ./bin/ernie_infer 1 ./model/bin ./data/label.test.txt ./label.res.txt
+    ./bin/ernie_infer 1 ./model/bin ./data/perf.test.txt ./perf.res.txt
+else
+    ./bin/$1 ./model/Ernie.plan ./data/label.test.txt ./label.res.txt ./so/plugins
+    ./bin/$1 ./model/Ernie.plan ./data/perf.test.txt ./perf.res.txt ./so/plugins
+fi
 nan_num=`cat label.res.txt | grep nan | wc -l`
 echo "Found $nan_num nan in label.res.txt"
 nan_num=`cat perf.res.txt | grep nan | wc -l`

@@ -392,15 +392,15 @@ __inline__ __device__ float sigmoid(float x)
     return 1.0f / ( 1.0f + expf( -x));
 }
 
-__inline__ __device__ half sigmoid(half x)
+__inline__ __device__ float sigmoid(half x)
 {
-    return __hdiv(__float2half(1.0f), __hadd(__float2half(1.0f), hexp(__hneg(x))));
+    return sigmoid(__half2float(x));
 }
 
 #ifdef ENABLE_BF16
-__inline__ __device__ __nv_bfloat16 sigmoid(__nv_bfloat16 x)
+__inline__ __device__ float sigmoid(__nv_bfloat16 x)
 {
-    return __float2bfloat16(sigmoid(__bfloat162float(x)));
+    return sigmoid(__bfloat162float(x));
 }
 #endif
 
@@ -409,7 +409,7 @@ __global__ void addTwoAddBiasSigmoid(const T* __restrict input0,
                                      const T* __restrict input1,
                                      const T* __restrict bias0,
                                      const T* __restrict bias1,
-                                     T* output,
+                                     float* output,
                                      const int batch_size)
 {
     if (threadIdx.x < batch_size) {
@@ -423,7 +423,7 @@ void invokeAddTwoAddBiasSigmoid(const T* input0,
                                 const T* input1,
                                 const T* bias0,
                                 const T* bias1,
-                                T* output,
+                                float* output,
                                 const int batch_size,
                                 cudaStream_t stream)
 {
@@ -442,7 +442,7 @@ template void invokeAddTwoAddBiasSigmoid(const half* input0,
                                          const half* input1,
                                          const half* bias0,
                                          const half* bias1,
-                                         half* output,
+                                         float* output,
                                          const int batch_size,
                                          cudaStream_t stream);
 
@@ -451,7 +451,7 @@ template void invokeAddTwoAddBiasSigmoid(const __nv_bfloat16* input0,
                                          const __nv_bfloat16* input1,
                                          const __nv_bfloat16* bias0,
                                          const __nv_bfloat16* bias1,
-                                         __nv_bfloat16* output,
+                                         float* output,
                                          const int batch_size,
                                          cudaStream_t stream);
 #endif
