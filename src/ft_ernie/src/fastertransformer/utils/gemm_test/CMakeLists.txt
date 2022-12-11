@@ -17,37 +17,37 @@ set(gemm_func_files
   gemm_func.cc
 )
 
-set(encoder_gemm_func_files
-  encoder_gemm_func.cc
-)
+# set(encoder_gemm_func_files
+#   encoder_gemm_func.cc
+# )
 
-set(encoder_igemm_func_files
-  encoder_igemm_func.cc
-)
+# set(encoder_igemm_func_files
+#   encoder_igemm_func.cc
+# )
 
-set(decoding_gemm_func_files
-  decoding_gemm_func.cc
-)
+# set(decoding_gemm_func_files
+#   decoding_gemm_func.cc
+# )
 
-set(gpt_gemm_func_files
-  gpt_gemm_func.cc
-)
+# set(gpt_gemm_func_files
+#   gpt_gemm_func.cc
+# )
 
-set(xlnet_gemm_func_files
-  xlnet_gemm_func.cc
-)
+# set(xlnet_gemm_func_files
+#   xlnet_gemm_func.cc
+# )
 
-set(t5_gemm_func_files
-  t5_gemm_func.cc
-)
+# set(t5_gemm_func_files
+#   t5_gemm_func.cc
+# )
 
-set(swin_igemm_func_files
-  swin_igemm_func.cc
-)
+# set(swin_igemm_func_files
+#   swin_igemm_func.cc
+# )
 
-set(swin_gemm_func_files
-  swin_gemm_func.cc
-)
+# set(swin_gemm_func_files
+#   swin_gemm_func.cc
+# )
 
 set(ernie_gemm_func_files
   ernie_gemm_func.cc
@@ -58,61 +58,61 @@ target_link_libraries(gemm_func PUBLIC -lcublas -lcublasLt -lcudart)
 set_property(TARGET gemm_func PROPERTY POSITION_INDEPENDENT_CODE ON)
 set_property(TARGET gemm_func PROPERTY CUDA_RESOLVE_DEVICE_SYMBOLS ON)
 
-add_library(encoder_gemm_func STATIC ${encoder_gemm_func_files})
-if (SPARSITY_SUPPORT)
-target_link_libraries(encoder_gemm_func PUBLIC -lcublas -lcublasLt -lcudart gemm_func -lcusparse -lcusparseLt)
-else()
-target_link_libraries(encoder_gemm_func PUBLIC -lcublas -lcublasLt -lcudart gemm_func)
-endif()
-set_property(TARGET encoder_gemm_func PROPERTY POSITION_INDEPENDENT_CODE ON)
-set_property(TARGET encoder_gemm_func PROPERTY CUDA_RESOLVE_DEVICE_SYMBOLS ON)
+# add_library(encoder_gemm_func STATIC ${encoder_gemm_func_files})
+# if (SPARSITY_SUPPORT)
+# target_link_libraries(encoder_gemm_func PUBLIC -lcublas -lcublasLt -lcudart gemm_func -lcusparse -lcusparseLt)
+# else()
+# target_link_libraries(encoder_gemm_func PUBLIC -lcublas -lcublasLt -lcudart gemm_func)
+# endif()
+# set_property(TARGET encoder_gemm_func PROPERTY POSITION_INDEPENDENT_CODE ON)
+# set_property(TARGET encoder_gemm_func PROPERTY CUDA_RESOLVE_DEVICE_SYMBOLS ON)
 
-add_library(encoder_igemm_func STATIC ${encoder_igemm_func_files})
-if (SPARSITY_SUPPORT)
-target_link_libraries(encoder_igemm_func PUBLIC -lcublas -lcublasLt -lcudart -lcusparse -lcusparseLt)
-else()
-target_link_libraries(encoder_igemm_func PUBLIC -lcublas -lcublasLt -lcudart)
-endif()
-set_property(TARGET encoder_igemm_func PROPERTY POSITION_INDEPENDENT_CODE ON)
-set_property(TARGET encoder_igemm_func PROPERTY CUDA_RESOLVE_DEVICE_SYMBOLS ON)
+# add_library(encoder_igemm_func STATIC ${encoder_igemm_func_files})
+# if (SPARSITY_SUPPORT)
+# target_link_libraries(encoder_igemm_func PUBLIC -lcublas -lcublasLt -lcudart -lcusparse -lcusparseLt)
+# else()
+# target_link_libraries(encoder_igemm_func PUBLIC -lcublas -lcublasLt -lcudart)
+# endif()
+# set_property(TARGET encoder_igemm_func PROPERTY POSITION_INDEPENDENT_CODE ON)
+# set_property(TARGET encoder_igemm_func PROPERTY CUDA_RESOLVE_DEVICE_SYMBOLS ON)
 
-add_library(decoding_gemm_func STATIC ${decoding_gemm_func_files})
-target_link_libraries(decoding_gemm_func PUBLIC -lcublas -lcublasLt -lcudart gemm_func)
-set_property(TARGET decoding_gemm_func PROPERTY POSITION_INDEPENDENT_CODE ON)
-set_property(TARGET decoding_gemm_func PROPERTY CUDA_RESOLVE_DEVICE_SYMBOLS ON)
+# add_library(decoding_gemm_func STATIC ${decoding_gemm_func_files})
+# target_link_libraries(decoding_gemm_func PUBLIC -lcublas -lcublasLt -lcudart gemm_func)
+# set_property(TARGET decoding_gemm_func PROPERTY POSITION_INDEPENDENT_CODE ON)
+# set_property(TARGET decoding_gemm_func PROPERTY CUDA_RESOLVE_DEVICE_SYMBOLS ON)
 
-add_library(gpt_gemm_func STATIC ${gpt_gemm_func_files})
-if (SPARSITY_SUPPORT)
-  target_link_libraries(gpt_gemm_func PUBLIC -lcublas -lcublasLt -lcudart gemm_func -lcusparse -lcusparseLt)
-else()
-  target_link_libraries(gpt_gemm_func PUBLIC -lcublas -lcublasLt -lcudart gemm_func)
-endif()
-set_property(TARGET gpt_gemm_func PROPERTY POSITION_INDEPENDENT_CODE ON)
-set_property(TARGET gpt_gemm_func PROPERTY CUDA_RESOLVE_DEVICE_SYMBOLS ON)
+# add_library(gpt_gemm_func STATIC ${gpt_gemm_func_files})
+# if (SPARSITY_SUPPORT)
+#   target_link_libraries(gpt_gemm_func PUBLIC -lcublas -lcublasLt -lcudart gemm_func -lcusparse -lcusparseLt)
+# else()
+#   target_link_libraries(gpt_gemm_func PUBLIC -lcublas -lcublasLt -lcudart gemm_func)
+# endif()
+# set_property(TARGET gpt_gemm_func PROPERTY POSITION_INDEPENDENT_CODE ON)
+# set_property(TARGET gpt_gemm_func PROPERTY CUDA_RESOLVE_DEVICE_SYMBOLS ON)
 
-add_library(xlnet_gemm_func STATIC ${xlnet_gemm_func_files})
-target_link_libraries(xlnet_gemm_func PUBLIC -lcublas -lcublasLt -lcudart gemm_func)
-set_property(TARGET xlnet_gemm_func PROPERTY POSITION_INDEPENDENT_CODE ON)
-set_property(TARGET xlnet_gemm_func PROPERTY CUDA_RESOLVE_DEVICE_SYMBOLS ON)
+# add_library(xlnet_gemm_func STATIC ${xlnet_gemm_func_files})
+# target_link_libraries(xlnet_gemm_func PUBLIC -lcublas -lcublasLt -lcudart gemm_func)
+# set_property(TARGET xlnet_gemm_func PROPERTY POSITION_INDEPENDENT_CODE ON)
+# set_property(TARGET xlnet_gemm_func PROPERTY CUDA_RESOLVE_DEVICE_SYMBOLS ON)
 
-add_library(t5_gemm_func STATIC ${t5_gemm_func_files})
-if (SPARSITY_SUPPORT)
-  target_link_libraries(t5_gemm_func PUBLIC -lcublas -lcublasLt -lcudart gemm_func -lcusparse -lcusparseLt)
-else()
-  target_link_libraries(t5_gemm_func PUBLIC -lcublas -lcublasLt -lcudart gemm_func)
-endif()
-set_property(TARGET t5_gemm_func PROPERTY POSITION_INDEPENDENT_CODE ON)
-set_property(TARGET t5_gemm_func PROPERTY CUDA_RESOLVE_DEVICE_SYMBOLS ON)
+# add_library(t5_gemm_func STATIC ${t5_gemm_func_files})
+# if (SPARSITY_SUPPORT)
+#   target_link_libraries(t5_gemm_func PUBLIC -lcublas -lcublasLt -lcudart gemm_func -lcusparse -lcusparseLt)
+# else()
+#   target_link_libraries(t5_gemm_func PUBLIC -lcublas -lcublasLt -lcudart gemm_func)
+# endif()
+# set_property(TARGET t5_gemm_func PROPERTY POSITION_INDEPENDENT_CODE ON)
+# set_property(TARGET t5_gemm_func PROPERTY CUDA_RESOLVE_DEVICE_SYMBOLS ON)
 
-add_library(swin_igemm_func STATIC ${swin_igemm_func_files})
-target_link_libraries(swin_igemm_func PUBLIC -lcublas -lcublasLt -lcudart gemm_func encoder_igemm_func)
-set_property(TARGET swin_igemm_func PROPERTY POSITION_INDEPENDENT_CODE ON)
-set_property(TARGET swin_igemm_func PROPERTY CUDA_RESOLVE_DEVICE_SYMBOLS ON)
+# add_library(swin_igemm_func STATIC ${swin_igemm_func_files})
+# target_link_libraries(swin_igemm_func PUBLIC -lcublas -lcublasLt -lcudart gemm_func encoder_igemm_func)
+# set_property(TARGET swin_igemm_func PROPERTY POSITION_INDEPENDENT_CODE ON)
+# set_property(TARGET swin_igemm_func PROPERTY CUDA_RESOLVE_DEVICE_SYMBOLS ON)
 
-add_library(swin_gemm_func STATIC ${swin_gemm_func_files})
-target_link_libraries(swin_gemm_func PUBLIC -lcublas -lcublasLt -lcudart gemm_func)
-set_property(TARGET swin_gemm_func PROPERTY POSITION_INDEPENDENT_CODE ON)
-set_property(TARGET swin_gemm_func PROPERTY CUDA_RESOLVE_DEVICE_SYMBOLS ON)
+# add_library(swin_gemm_func STATIC ${swin_gemm_func_files})
+# target_link_libraries(swin_gemm_func PUBLIC -lcublas -lcublasLt -lcudart gemm_func)
+# set_property(TARGET swin_gemm_func PROPERTY POSITION_INDEPENDENT_CODE ON)
+# set_property(TARGET swin_gemm_func PROPERTY CUDA_RESOLVE_DEVICE_SYMBOLS ON)
 
 add_library(ernie_gemm_func STATIC ${ernie_gemm_func_files})
 if (SPARSITY_SUPPORT)

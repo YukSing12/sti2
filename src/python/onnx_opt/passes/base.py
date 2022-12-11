@@ -56,7 +56,7 @@ class TowOpPass(ReplacePass):
         node_name = node.op
         if node_name in self.nodes_name[0]:
             for next_node in node.outputs:
-                next_node_name = next_node.output[0].op
+                next_node_name = next_node.outputs[0].op
                 if next_node_name in self.nodes_name[1]:
                     inputs = node.inputs
                     for v in next_node.inputs:

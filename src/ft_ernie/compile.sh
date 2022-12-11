@@ -1,9 +1,8 @@
 CUR_DIR=`pwd`
-CMAKE_DIR="/workspace/xys/cmake-3.24.3-linux-x86_64/bin"
-# rm -rf build
+rm -rf build
 mkdir -p build
 cd ${CUR_DIR}/build
-$CMAKE_DIR/cmake \
+cmake \
 	-DCMAKE_BUILD_TYPE=Release \
 	-DCMAKE_VERBOSE_MAKEFILE=OFF \
 	-DCMAKE_INSTALL_PREFIX=${CUR_DIR}/install \

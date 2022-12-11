@@ -26,9 +26,9 @@ set_property(TARGET FusedAttentionLayerINT8 PROPERTY CUDA_RESOLVE_DEVICE_SYMBOLS
 target_link_libraries(FusedAttentionLayerINT8 PUBLIC -lcublasLt -lcublas -lcudart nvtx_utils cublasMMWrapper
                         cublasINT8MMWrapper trt_fused_multi_head_attention)
 
-add_library(WindowAttentionINT8 STATIC WindowAttentionINT8.cu)
-set_property(TARGET WindowAttentionINT8 PROPERTY POSITION_INDEPENDENT_CODE  ON)
-set_property(TARGET WindowAttentionINT8 PROPERTY CUDA_RESOLVE_DEVICE_SYMBOLS  ON)
-target_link_libraries(WindowAttentionINT8 PUBLIC -lcublasLt -lcublas -lcudart cublasINT8MMWrapper reverse_roll_kernels 
-    trt_fused_multi_head_attention layout_transformer_int8_kernels transpose_int8_kernels unfused_attention_int8_kernels
-    layernorm_int8_kernels softmax_int8_kernels layernorm_kernels transform_mask_kernels)
+# add_library(WindowAttentionINT8 STATIC WindowAttentionINT8.cu)
+# set_property(TARGET WindowAttentionINT8 PROPERTY POSITION_INDEPENDENT_CODE  ON)
+# set_property(TARGET WindowAttentionINT8 PROPERTY CUDA_RESOLVE_DEVICE_SYMBOLS  ON)
+# target_link_libraries(WindowAttentionINT8 PUBLIC -lcublasLt -lcublas -lcudart cublasINT8MMWrapper reverse_roll_kernels 
+#     trt_fused_multi_head_attention layout_transformer_int8_kernels transpose_int8_kernels unfused_attention_int8_kernels
+#     layernorm_int8_kernels softmax_int8_kernels layernorm_kernels transform_mask_kernels)

@@ -79,6 +79,44 @@ class LayernormPass(ReplacePass):
             add_node.outputs.clear()
             return layernorm
 
+class AddResidualLayernormPass(ReplacePass):
+    def replace(self, node, count):
+        if node.op == "ReduceMean":
+            mean_node = node
+            
+            node_id = int(node.name.split(".")[-1])
+            if not (
+                ("p2o.Sub.{}".format(node_id // 2) in _deprecated_nodes_dict)
+                and ("p2o.Pow.{}".format(node_id // 2) in _deprecated_nodes_dict)
+                and ("p2o.Div.{}".format(node_id // 2) in _deprecated_nodes_dict)
+                and ("p2o.Sqrt.{}".format(node_id // 2) in _deprecated_nodes_dict)
+            ):
+                return None
+            redisual_add_node = mean_node.inputs[0].inputs[0]
+            if redisual_add_node.inputs[0].inputs[0].op != "Reshape":
+                return None
+            sub_node = _deprecated_nodes_dict["p2o.Sub.{}".format(node_id // 2)]
+            div_node = _deprecated_nodes_dict["p2o.Div.{}".format(node_id // 2)]
+            mul_node = div_node.outputs[0].outputs[0]
+            add_node = mul_node.outputs[0].outputs[0]
+
+            gamma = mul_node.inputs[1]
+            beta = add_node.inputs[1]
+            if len(add_node.outputs) == 0:
+                return None
+            name = "plugin.AddResidualLayerNorm.{}".format(node_id)
+            layernorm = gs.Node(
+                op="AddResidualLayerNorm",
+                name=name,
+                inputs=[redisual_add_node.inputs[1], redisual_add_node.inputs[0], gamma, beta],
+                outputs=[add_node.outputs[0]],
+                attrs={"epsilon": 1e-5},
+            )
+            redisual_add_node.inputs.clear()
+            sub_node.inputs.clear()
+            add_node.outputs.clear()
+            return layernorm
+
 
 class AddOpPass(TowOpPass):
     def __init__(self):
@@ -253,23 +291,27 @@ class FTErnie(ReplacePass):
         # Only replace once
         if not self.replaced:
             self.replaced = True
-            # four input
+            # five inputs
             squeeze_node_0 = _deprecated_nodes_dict['p2o.Squeeze.0']
             squeeze_node_1 = _deprecated_nodes_dict['p2o.Squeeze.1']
             squeeze_node_2 = _deprecated_nodes_dict['p2o.Squeeze.2']
             matmul_node_0  = _deprecated_nodes_dict['p2o.MatMul.0']
+            cast_node      = _deprecated_nodes_dict['p2o.Cast.0']
+
             word_ids       = squeeze_node_0.inputs[0]
             pos_ids        = squeeze_node_1.inputs[0]
             sent_ids       = squeeze_node_2.inputs[0]
             mask           = matmul_node_0.inputs[0]
+            multi_ids      = cast_node.inputs[0]
+
             # one ouput
-            add_node_0     = _deprecated_nodes_dict['p2o.Add.210']
-            ernie_out      = add_node_0.outputs[0]
+            output_node_0    = _deprecated_nodes_dict['p2o.Sigmoid.0']
+            ernie_out0       = output_node_0.outputs[0]
             ernie = gs.Node(
                 op="ErniePlugin",
                 name="plugin.ErniePlugin.0",
-                inputs=[word_ids, pos_ids, sent_ids, mask],
-                outputs=[ernie_out],
+                inputs=[word_ids, pos_ids, sent_ids, mask, multi_ids],
+                outputs=[ernie_out0],
                 attrs={"max_batch_size": 10,
                        "max_seq_len": 128,
                        "beam_width": 1,
@@ -286,7 +328,6 @@ class FTErnie(ReplacePass):
             squeeze_node_1.inputs.clear()
             squeeze_node_2.inputs.clear()
             matmul_node_0.inputs.clear()
-            add_node_0.outputs.clear()
-
+            output_node_0.outputs.clear()
             return ernie
         return None

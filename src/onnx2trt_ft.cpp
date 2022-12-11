@@ -174,17 +174,17 @@ int main(int argc, char** argv) {
     for (size_t i = 0; i < nProfiles; i++) {
 
         auto profile=builder->createOptimizationProfile();
-        profile->setDimensions(network->getInput(0)->getName(), OptProfileSelector::kMIN, Dims32{ 3, { 1, profileShape[i], 1 } });
-        profile->setDimensions(network->getInput(0)->getName(), OptProfileSelector::kOPT, Dims32{ 3, { 4, profileShape[i], 1 } });
-        profile->setDimensions(network->getInput(0)->getName(), OptProfileSelector::kMAX, Dims32{ 3, { 10, profileShape[i], 1 } });
+        profile->setDimensions(network->getInput(0)->getName(), OptProfileSelector::kMIN, Dims32{ 3, { 1, 32, 1 } });
+        profile->setDimensions(network->getInput(0)->getName(), OptProfileSelector::kOPT, Dims32{ 3, { 4, 96, 1 } });
+        profile->setDimensions(network->getInput(0)->getName(), OptProfileSelector::kMAX, Dims32{ 3, { 10, 128, 1 } });
 
-        profile->setDimensions(network->getInput(1)->getName(), OptProfileSelector::kMIN, Dims32{ 3, { 1, profileShape[i], 1 } });
-        profile->setDimensions(network->getInput(1)->getName(), OptProfileSelector::kOPT, Dims32{ 3, { 4, profileShape[i], 1 } });
-        profile->setDimensions(network->getInput(1)->getName(), OptProfileSelector::kMAX, Dims32{ 3, { 10, profileShape[i], 1 } });
+        profile->setDimensions(network->getInput(1)->getName(), OptProfileSelector::kMIN, Dims32{ 3, { 1, 32, 1 } });
+        profile->setDimensions(network->getInput(1)->getName(), OptProfileSelector::kOPT, Dims32{ 3, { 4, 96, 1 } });
+        profile->setDimensions(network->getInput(1)->getName(), OptProfileSelector::kMAX, Dims32{ 3, { 10, 128, 1 } });
 
-        profile->setDimensions(network->getInput(2)->getName(), OptProfileSelector::kMIN, Dims32{ 3, { 1, profileShape[i], 1 } });
-        profile->setDimensions(network->getInput(2)->getName(), OptProfileSelector::kOPT, Dims32{ 3, { 4, profileShape[i], 1 } });
-        profile->setDimensions(network->getInput(2)->getName(), OptProfileSelector::kMAX, Dims32{ 3, { 10, profileShape[i], 1 } });
+        profile->setDimensions(network->getInput(2)->getName(), OptProfileSelector::kMIN, Dims32{ 3, { 1, 32, 1 } });
+        profile->setDimensions(network->getInput(2)->getName(), OptProfileSelector::kOPT, Dims32{ 3, { 4, 96, 1 } });
+        profile->setDimensions(network->getInput(2)->getName(), OptProfileSelector::kMAX, Dims32{ 3, { 10, 128, 1 } });
 
         profile->setDimensions(network->getInput(3)->getName(), OptProfileSelector::kMIN, Dims32{ 2, { 1, 1 } });
         profile->setDimensions(network->getInput(3)->getName(), OptProfileSelector::kOPT, Dims32{ 2, { 4, 1 } });

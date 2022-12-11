@@ -27,7 +27,6 @@ TensorParallelGeluFfnLayer
 TensorParallelSiluFfnLayer 
 layernorm_kernels 
 add_residual_kernels 
-gpt_kernels 
 decoding_kernels
 ernie_kernels
 nccl_utils tensor)

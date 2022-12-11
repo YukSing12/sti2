@@ -29,6 +29,10 @@ namespace fastertransformer {
 template<typename T>
 class FusedAttentionLayer: public BaseAttentionLayer<T> {
 private:
+    // buffer handling
+    size_t max_batch_size_ = 0;
+    size_t max_seq_len_    = 0;
+
     // metadata
     size_t head_num_;
     size_t size_per_head_;
@@ -38,6 +42,7 @@ private:
     // calculated params
     size_t hidden_units_;
 
+    void initialize();
     void allocateBuffer() override;
     void freeBuffer() override;
     void allocateBuffer(size_t batch_size, size_t seq_len);

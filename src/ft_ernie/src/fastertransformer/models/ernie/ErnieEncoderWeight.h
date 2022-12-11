@@ -43,6 +43,19 @@ struct ErnieEncoderWeight {
     T*                                    word_embedding_table                    = nullptr;
     T*                                    pos_embedding_table                     = nullptr;
     T*                                    sent_embedding_table                    = nullptr;
+    T*                                    multi_field_1                           = nullptr;
+    T*                                    multi_field_3                           = nullptr;
+    T*                                    multi_field_6                           = nullptr;
+    T*                                    multi_field_0                           = nullptr;
+    T*                                    multi_field_5                           = nullptr;
+    T*                                    multi_field_7                           = nullptr;
+    T*                                    multi_field_4                           = nullptr;
+    T*                                    multi_field_2                           = nullptr;
+    DenseWeight<T>                        pooled_fc;
+    DenseWeight<T>                        fea_emb_fc;
+    DenseWeight<T>                        fea_emb_fc2;
+    DenseWeight<T>                        cls_out;
+    DenseWeight<T>                        cls_out_aside;
     PositionEmbeddingType                 position_embedding_type                 = PositionEmbeddingType::relative;
 
     void loadModel(std::string dir_path);
@@ -68,7 +81,7 @@ private:
 
     int real_weights_num_;
 
-    const static int weights_num_ = 5;
+    const static int weights_num_ = 23;
     T*               weights_ptr[weights_num_];
     size_t           weights_size[weights_num_];
 };

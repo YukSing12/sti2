@@ -20,6 +20,7 @@
 #include <vector>
 
 #include "src/fastertransformer/kernels/bert_preprocess_kernels.h"
+#include "src/fastertransformer/kernels/activation_kernels.h"
 #include "src/fastertransformer/kernels/gpt_kernels.h"
 #include "src/fastertransformer/kernels/layernorm_kernels.h"
 #include "src/fastertransformer/layers/TensorParallelGeluFfnLayer.h"
@@ -29,6 +30,7 @@
 #include "src/fastertransformer/layers/attention_layers/TensorParallelUnfusedAttentionLayer.h"
 #include "src/fastertransformer/models/ernie/ErnieEncoderWeight.h"
 #include "src/fastertransformer/utils/custom_ar_comm.h"
+#include "src/fastertransformer/models/ernie/FTCudaGraph.h"
 
 namespace fastertransformer {
 
@@ -49,16 +51,24 @@ private:
     const size_t           word_size_;
     const size_t           pos_size_;
     const size_t           sent_size_;
+    size_t  h_token_num;
     int                    sm_;
     constexpr static float layernorm_eps_ = 1e-6f;
     float                  q_scaling_;
     AttentionType          attention_type_;
     bool                   sparse_;
 
-    BaseAttentionLayer<T>* attention_layer_;
-    FfnLayer<T>*           ffn_layer_;
+    std::vector<BaseAttentionLayer<T>*> attention_layer_;
+    std::vector<FfnLayer<T>*>           ffn_layer_;
 
     bool is_allocate_buffer_ = false;
+
+    // for pos_emb cache and cuda graph
+    bool is_enqueue_init_ = false;
+
+    // for cuda graph
+    bool use_cuda_graph_ = true;
+    std::unordered_map<std::string, FTCudaGraph*> cuda_graph_pool_;
 
     void allocateBuffer() override;
     void allocateBuffer(size_t batch_size, size_t seq_len);
@@ -80,15 +90,22 @@ private:
 
 protected:
     // model params
-    size_t* token_num_               = nullptr;
-    int*    padding_offset_          = nullptr;
-    int*    trt_mha_padding_offset_  = nullptr;
-    T*      attention_mask_          = nullptr;
-    T*      relative_attention_bias_ = nullptr;
+    size_t* token_num_                  = nullptr;
+    // size_t* h_token_num              = nullptr;  
+    int*    padding_offset_             = nullptr;
+    int*    trt_mha_padding_offset_     = nullptr;
+    T*      attention_mask_             = nullptr;
+    T*      relative_attention_bias_    = nullptr;
     T*      ernie_encoder_emb_buf_      = nullptr;
     T*      ernie_encoder_in_buffer_    = nullptr;
-    T*      attn_out_buf_            = nullptr;
+    T*      attn_out_buf_               = nullptr;
     T*      ernie_encoder_out_buffer_   = nullptr;
+    T*      ernie_layer_out_buffer_     = nullptr;
+    T*      ernie_slice_out_buffer_     = nullptr;
+    T*      post_emb_out_buffer_        = nullptr;
+    T*      fea_emb_fc_out_buffer_      = nullptr;
+    T*      cls_out_buffer_      = nullptr;
+    T*      cls_out_aside_buffer_      = nullptr;
 
     T* normed_from_tensor_  = nullptr;
     T* normed_attn_out_buf_ = nullptr;
@@ -122,7 +139,6 @@ public:
     ErnieEncoder(ErnieEncoder<T> const& ernie_layer);
 
     ~ErnieEncoder();
-
     void forward(std::vector<Tensor>*       output_tensors,
                  const std::vector<Tensor>* input_tensors,
                  const ErnieEncoderWeight<T>*  ernie_weights);

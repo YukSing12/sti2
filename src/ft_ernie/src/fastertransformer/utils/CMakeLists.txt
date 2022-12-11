@@ -68,18 +68,18 @@ set_property(TARGET custom_ar_comm PROPERTY POSITION_INDEPENDENT_CODE  ON)
 set_property(TARGET custom_ar_comm PROPERTY CUDA_RESOLVE_DEVICE_SYMBOLS  ON)
 target_link_libraries(custom_ar_comm PUBLIC custom_ar_kernels memory_utils)
 
-add_library(gemm STATIC gemm.cc)
-set_property(TARGET gemm PROPERTY POSITION_INDEPENDENT_CODE  ON)
-set_property(TARGET gemm PROPERTY CUDA_RESOLVE_DEVICE_SYMBOLS  ON)
-if (SPARSITY_SUPPORT)
-    target_link_libraries(gemm PUBLIC
-                          -lcublas -lcublasLt -lcudart -lcurand -lcusparse -lcusparseLt
-                          cublasAlgoMap memory_utils)
-else()
-    target_link_libraries(gemm PUBLIC
-                          -lcublas -lcublasLt -lcudart -lcurand
-                          cublasAlgoMap memory_utils)
-endif()
+# add_library(gemm STATIC gemm.cc)
+# set_property(TARGET gemm PROPERTY POSITION_INDEPENDENT_CODE  ON)
+# set_property(TARGET gemm PROPERTY CUDA_RESOLVE_DEVICE_SYMBOLS  ON)
+# if (SPARSITY_SUPPORT)
+#     target_link_libraries(gemm PUBLIC
+#                           -lcublas -lcublasLt -lcudart -lcurand -lcusparse -lcusparseLt
+#                           cublasAlgoMap memory_utils)
+# else()
+#     target_link_libraries(gemm PUBLIC
+#                           -lcublas -lcublasLt -lcudart -lcurand
+#                           cublasAlgoMap memory_utils)
+# endif()
 
 add_library(tensor STATIC Tensor.cc)
 set_property(TARGET tensor PROPERTY POSITION_INDEPENDENT_CODE  ON)

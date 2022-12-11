@@ -29,7 +29,7 @@ def get_args():
         "--aln",
         action="store_true",
         default=False,
-        help="Replace ops with LayernormPlugin or not",
+        help="Replace ops with AddResidualLayernormPlugin or not",
     )
     parser.add_argument(
         "--eln",
@@ -86,7 +86,7 @@ ENABLE_EMBLAYERNORM_PLUGIN = args.eln and not args.ft
 ENABLE_ADDLAYERNORM_PLUGIN = args.aln and not args.ft
 ENABLE_SLICERESHAPE_PLUGIN = args.slreshape and not args.ft
 ENABLE_FUSING_ADDRELU = args.addrelu and not args.ft
-ENABLE_POSTEMBEDDING_PLUGIN = args.postemb
+ENABLE_POSTEMBEDDING_PLUGIN = args.postemb and not args.ft
 ENABLE_PREEMBEDDING_PLUGIN = args.preemb and not args.ft
 ENABLE_FFNRELU = args.ffnrelu and not args.ft
 ENABLE_FASTERTRANSFORMER = args.ft
@@ -115,27 +115,30 @@ for node in nodes:
 passes = []
 onnx_opt_plugins = []
 sys.path.append("src/python")
+if ENABLE_FFNRELU:
+    from onnx_opt.passes import FFNReluPass
+
+    passes.append(FFNReluPass())
+    dst_onnx_path = dst_onnx_path.replace(".onnx", "_ffnrelu.onnx")
+
 if ENABLE_EMBLAYERNORM_PLUGIN:
     from onnx_opt.passes import EmbLayerNormPass
 
     passes.append(EmbLayerNormPass())
     dst_onnx_path = dst_onnx_path.replace(".onnx", "_eln.onnx")
 
+if ENABLE_ADDLAYERNORM_PLUGIN:
+    from onnx_opt.passes import AddResidualLayernormPass
+
+    passes.append(AddResidualLayernormPass())
+    dst_onnx_path = dst_onnx_path.replace(".onnx", "_aln.onnx")
+
 if ENABLE_LAYERNORM_PLUGIN:
     from onnx_opt.passes import LayernormPass
 
     passes.append(LayernormPass())
     dst_onnx_path = dst_onnx_path.replace(".onnx", "_ln.onnx")
-
-if ENABLE_ADDLAYERNORM_PLUGIN:
-    from onnx_opt.passes import TowOpPass
-
-    if not ENABLE_LAYERNORM_PLUGIN:
-        passes.append(LayernormPass())
-    passes.append(TowOpPass((["Add"], ["Layernorm"])))
-    dst_onnx_path = dst_onnx_path.replace(".onnx", "_aln.onnx")
-
-
+    
 if ENABLE_SLICERESHAPE_PLUGIN:
     from onnx_opt.passes import SliceReshapePass
 
@@ -168,7 +171,10 @@ if ENABLE_FFNRELU:
 
 if ENABLE_FASTERTRANSFORMER:
     from onnx_opt.passes import FTErnie
-
+    graph.inputs = graph.inputs[:5]
+    graph.inputs[4].shape = (-1, 8)
+    graph.inputs[4].dtype = np.int32
+    graph.inputs[4].name = "read_file_0.tmp_6-13"
     passes.append(FTErnie())
     dst_onnx_path = dst_onnx_path.replace(".onnx", "_ft.onnx")
 

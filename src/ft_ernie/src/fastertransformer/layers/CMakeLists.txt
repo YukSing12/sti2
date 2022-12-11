@@ -16,9 +16,9 @@ cmake_minimum_required(VERSION 3.8)
 
 add_subdirectory(attention_layers)
 add_subdirectory(attention_layers_int8)
-add_subdirectory(xlnet_attention_layers)
-add_subdirectory(beam_search_layers)
-add_subdirectory(sampling_layers)
+# add_subdirectory(xlnet_attention_layers)
+# add_subdirectory(beam_search_layers)
+# add_subdirectory(sampling_layers)
 
 add_library(FfnLayer STATIC FfnLayer.cc)
 set_property(TARGET FfnLayer PROPERTY POSITION_INDEPENDENT_CODE  ON)
@@ -40,13 +40,13 @@ set_property(TARGET TensorParallelReluFfnLayer PROPERTY POSITION_INDEPENDENT_COD
 set_property(TARGET TensorParallelReluFfnLayer PROPERTY CUDA_RESOLVE_DEVICE_SYMBOLS  ON)
 target_link_libraries(TensorParallelReluFfnLayer PUBLIC -lcudart FfnLayer nccl_utils tensor)
 
-add_library(DynamicDecodeLayer STATIC DynamicDecodeLayer.cc)
-set_property(TARGET DynamicDecodeLayer PROPERTY POSITION_INDEPENDENT_CODE  ON)
-set_property(TARGET DynamicDecodeLayer PROPERTY CUDA_RESOLVE_DEVICE_SYMBOLS  ON)
-target_link_libraries(DynamicDecodeLayer PUBLIC -lcudart
-                        TopKSamplingLayer TopPSamplingLayer TopKTopPSamplingLayer
-                        OnlineBeamSearchLayer BeamSearchLayer ban_bad_words stop_criteria
-                        gpt_kernels tensor)
+# add_library(DynamicDecodeLayer STATIC DynamicDecodeLayer.cc)
+# set_property(TARGET DynamicDecodeLayer PROPERTY POSITION_INDEPENDENT_CODE  ON)
+# set_property(TARGET DynamicDecodeLayer PROPERTY CUDA_RESOLVE_DEVICE_SYMBOLS  ON)
+# target_link_libraries(DynamicDecodeLayer PUBLIC -lcudart
+#                         TopKSamplingLayer TopPSamplingLayer TopKTopPSamplingLayer
+#                         OnlineBeamSearchLayer BeamSearchLayer ban_bad_words stop_criteria
+#                         gpt_kernels tensor)
 
 add_library(TensorParallelSiluFfnLayer STATIC TensorParallelSiluFfnLayer.cc)
 set_property(TARGET TensorParallelSiluFfnLayer PROPERTY POSITION_INDEPENDENT_CODE  ON)

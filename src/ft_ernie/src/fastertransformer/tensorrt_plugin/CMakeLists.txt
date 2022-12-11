@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_subdirectory(swin)
-add_subdirectory(t5)
-add_subdirectory(vit)
+# add_subdirectory(swin)
+# add_subdirectory(t5)
+# add_subdirectory(vit)
 add_subdirectory(ernie)

@@ -91,7 +91,8 @@ private:
     void freeBuffer() override;
     bool isValidTokenNum(size_t token_num);
     void allocateBuffer(size_t token_num);
-
+    void initialize();
+    
 protected:
     T* inter_buf_   = nullptr;
     T* inter_buf_2_ = nullptr;  // for gated activation

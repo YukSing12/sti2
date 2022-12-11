@@ -33,7 +33,7 @@ void FfnLayer<T>::forward(std::vector<fastertransformer::Tensor>*       output_t
     FT_CHECK(input_tensors->size() == 1);
     FT_CHECK(output_tensors->size() == 1);
     // FT_CHECK(isValidTokenNum(input_tensors->at(0).shape[0]));
-    allocateBuffer(input_tensors->at(0).shape[0]);
+    //  allocateBuffer(input_tensors->at(0).shape[0]);
 
     const int m             = input_tensors->at(0).shape[0];
     T*        output_tensor = (T*)output_tensors->at(0).data;
@@ -186,6 +186,7 @@ FfnLayer<T>::FfnLayer(size_t           max_batch_size,
     use_gated_activation_(use_gated_activation)
 {
     FT_LOG_DEBUG(__PRETTY_FUNCTION__);
+    initialize();
 }
 
 template<typename T>
@@ -206,6 +207,7 @@ FfnLayer<T>::FfnLayer(FfnLayer<T> const& ffn_layer):
     use_gated_activation_(ffn_layer.use_gated_activation_)
 {
     FT_LOG_DEBUG(__PRETTY_FUNCTION__);
+    initialize();
 }
 
 template<typename T>
@@ -215,7 +217,11 @@ FfnLayer<T>::~FfnLayer()
     cublas_wrapper_ = nullptr;
     freeBuffer();
 }
-
+template<typename T>
+void FfnLayer<T>::initialize()
+{
+    allocateBuffer(max_token_num_);
+}
 template<typename T>
 void FfnLayer<T>::allocateBuffer()
 {

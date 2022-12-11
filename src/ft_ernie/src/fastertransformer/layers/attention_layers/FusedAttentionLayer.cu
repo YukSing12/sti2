@@ -82,7 +82,7 @@ void FusedAttentionLayer<T>::forward(std::vector<fastertransformer::Tensor>*    
 
     const int request_batch_size = input_tensors->at(1).shape[0];
     const int request_seq_len    = input_tensors->at(1).shape[2];
-    allocateBuffer(request_batch_size, request_seq_len);
+    //allocateBuffer(request_batch_size, request_seq_len);
 
     T*         attention_out  = (T*)output_tensors->at(0).data;
     const T*   from_tensor    = (const T*)input_tensors->at(0).data;
@@ -230,6 +230,8 @@ FusedAttentionLayer<T>::FusedAttentionLayer(size_t           max_batch_size,
                                             bool             is_free_buffer_after_forward,
                                             bool             sparse):
     BaseAttentionLayer<T>(stream, cublas_wrapper, allocator, is_free_buffer_after_forward),
+    max_batch_size_(max_batch_size),
+    max_seq_len_(max_seq_len),
     head_num_(head_num),
     size_per_head_(size_per_head),
     d_model_(d_model),
@@ -245,6 +247,7 @@ FusedAttentionLayer<T>::FusedAttentionLayer(size_t           max_batch_size,
         throw std::runtime_error(std::string("[FT][ERROR] FusedAttentionLayer not support \n"));
     }
     hidden_units_ = head_num_ * size_per_head_;
+    initialize();
 }
 
 template<typename T>
@@ -262,6 +265,7 @@ FusedAttentionLayer<T>::FusedAttentionLayer(FusedAttentionLayer<T> const& attent
                         attention_layer.is_free_buffer_after_forward_,
                         attention_layer.sparse_)
 {
+    initialize();
 }
 
 template<typename T>
@@ -270,6 +274,12 @@ FusedAttentionLayer<T>::~FusedAttentionLayer()
     FT_LOG_DEBUG(__PRETTY_FUNCTION__);
     cublas_wrapper_ = nullptr;
     freeBuffer();
+}
+
+template<typename T>
+void FusedAttentionLayer<T>::initialize()
+{
+    allocateBuffer(max_batch_size_,max_seq_len_);
 }
 
 template<typename T>

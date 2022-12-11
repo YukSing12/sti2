@@ -437,9 +437,10 @@ bool ErniePlugin::supportsFormatCombination(int                     pos,
         case 1:
         case 2:
         case 3:
+        case 4:
             res = (inOut[pos].type == DataType::kINT32) && (inOut[pos].format == TensorFormat::kLINEAR);
             break;
-        case 4:
+        case 5:
             res = (inOut[pos].type == (m_.useFP16 ? DataType::kHALF : DataType::kFLOAT))
                   && (inOut[pos].format == TensorFormat::kLINEAR);
             break;
@@ -477,16 +478,15 @@ bool ErniePlugin::supportsFormatCombination(int                     pos,
 }
 
 DimsExprs ErniePlugin::getOutputDimensions(int              index,
-                                               const DimsExprs* pInputDim,
-                                               int              nInputDim,
-                                               IExprBuilder&    exprBuilder) noexcept
+                                           const DimsExprs* pInputDim,
+                                           int              nInputDim,
+                                           IExprBuilder&    exprBuilder) noexcept
 {
     WHERE_AM_I();
     DimsExprs ret;
-    ret.nbDims = 3;
+    ret.nbDims = 2;
     ret.d[0]   = pInputDim[0].d[0];
-    ret.d[1]   = pInputDim[0].d[1];
-    ret.d[2]   = exprBuilder.constant(m_.d_model);
+    ret.d[1]   = exprBuilder.constant(1);
     return ret;
 }
 
@@ -588,13 +588,14 @@ int ErniePlugin::enqueue(const PluginTensorDesc* inputDesc,
         {"word_ids", Tensor{MEMORY_GPU, TYPE_INT32, std::vector<size_t>{m_.batch_size, m_.seq_len}, (int*)inputs[0]}},
         {"pos_ids", Tensor{MEMORY_GPU, TYPE_INT32, std::vector<size_t>{m_.batch_size, m_.seq_len}, (int*)inputs[1]}},
         {"sent_ids", Tensor{MEMORY_GPU, TYPE_INT32, std::vector<size_t>{m_.batch_size, m_.seq_len}, (int*)inputs[2]}},
-        {"seq_len", Tensor{MEMORY_GPU, TYPE_INT32, std::vector<size_t>{m_.batch_size}, (int*)inputs[3]}}};
+        {"seq_len", Tensor{MEMORY_GPU, TYPE_INT32, std::vector<size_t>{m_.batch_size, 1}, (int*)inputs[3]}},
+        {"multi_ids", Tensor{MEMORY_GPU, TYPE_INT32, std::vector<size_t>{m_.batch_size, 8}, (int*)inputs[4]}}};
     if (m_.useFP16) {
         std::unordered_map<std::string, Tensor> outputTensor{
             {"attn_out",
              Tensor{MEMORY_GPU,
                     TYPE_FP16,
-                    std::vector<size_t>{m_.batch_size, m_.seq_len, (size_t)(m_.head_num * m_.size_per_head)},
+                    std::vector<size_t>{m_.batch_size, 1},
                     (half*)outputs[0]}}};
         pErnieEncoderHalf_->setStream(stream);
         pErnieEncoderHalf_->forward(&outputTensor, &inputTensor, pErnieEncoderWeightHalf_);
@@ -604,7 +605,7 @@ int ErniePlugin::enqueue(const PluginTensorDesc* inputDesc,
             {"attn_out",
              Tensor{MEMORY_GPU,
                     TYPE_FP32,
-                    std::vector<size_t>{m_.batch_size, m_.seq_len, (size_t)(m_.head_num * m_.size_per_head)},
+                    std::vector<size_t>{m_.batch_size, 1},
                     (float*)outputs[0]}}};
         pErnieEncoderFloat_->setStream(stream);
         pErnieEncoderFloat_->forward(&outputTensor, &inputTensor, pErnieEncoderWeightFloat_);
