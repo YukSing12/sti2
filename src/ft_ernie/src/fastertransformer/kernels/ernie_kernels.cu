@@ -24,28 +24,53 @@ __inline__ __device__ float tanh_opt(float x)
 
 __inline__ __device__ half tanh_opt(half x)
 {
+#if (__CUDA_ARCH__ >= 750 && CUDART_VERSION >= 11000)
+    half r;
+    asm("tanh.approx.f16 %0,%1; \n\t" : "=h"(__HALF_TO_US(r)) : "h"(__HALF_TO_US(x)));
+    return r;
+#else
     return __float2half(tanh_opt(__half2float(x)));
+#endif
 }
 
 __inline__ __device__ half2 tanh_opt(half2 x)
 {
+#if (__CUDA_ARCH__ >= 750 && CUDART_VERSION >= 11000)
+    half2 r;
+    asm("tanh.approx.f16x2 %0,%1; \n\t" : "=r"(__HALF2_TO_UI(r)) : "r"(__HALF2_TO_UI(x)));
+    return r;
+#else
     half2 y;
     y.x = __float2half(tanh_opt(__half2float(x.x)));
     y.y = __float2half(tanh_opt(__half2float(x.y)));
     return y;
+#endif
+    
 }
 
 __inline__ __device__ __nv_bfloat16 tanh_opt(__nv_bfloat16 x)
 {
+#if (__CUDA_ARCH__ >= 750 && CUDART_VERSION >= 11000)
+    __nv_bfloat16 r;
+    asm("tanh.approx.bf16 %0,%1; \n\t" : "=h"(__BFLOAT16_TO_US(r)) : "h"(__BFLOAT16_TO_US(x)));
+    return r;
+#else
     return __float2bfloat16(tanh_opt(__bfloat162float(x)));
+#endif
 }
 
 __inline__ __device__ __nv_bfloat162 tanh_opt(__nv_bfloat162 x)
 {
+#if (__CUDA_ARCH__ >= 900 && CUDART_VERSION >= 11000)
+    __nv_bfloat162 r;
+    asm("tanh.approx.bf16x2 %0,%1; \n\t" : "=r"(__BFLOAT162_TO_UI(r)) : "r"(__BFLOAT162_TO_UI(x)));
+    return r;
+#else
     __nv_bfloat162 y;
     y.x = __float2bfloat16(tanh_opt(__bfloat162float(x.x)));
     y.y = __float2bfloat16(tanh_opt(__bfloat162float(x.y)));
     return y;
+#endif
 }
 
 template<typename T, int TPB>
@@ -53,12 +78,12 @@ __global__ void embeddingLookupConcatKernel(const int ld,
                                             const int vocab_size,
                                             const int pos_size,
                                             const int sent_vocab_size,
-                                            const T* sendEmb,
-                                            const T* wordEmb,
-                                            const T* posEmb,
-                                            const int32_t* sendIds,
-                                            const int32_t* wordIds,
-                                            const int32_t* posIds,
+                                            const T* __restrict sendEmb,
+                                            const T* __restrict wordEmb,
+                                            const T* __restrict posEmb,
+                                            const int32_t* __restrict sendIds,
+                                            const int32_t* __restrict wordIds,
+                                            const int32_t* __restrict posIds,
                                             T* output)  // const half* gamma, const half* beta,
 {
     __shared__ int wordId;
@@ -67,9 +92,9 @@ __global__ void embeddingLookupConcatKernel(const int ld,
 
     int32_t const seqPos = blockIdx.y + blockIdx.x * gridDim.y;
     if (threadIdx.x == 0) {
-        wordId = (int)wordIds[seqPos];
-        sendId = (int)sendIds[seqPos];
-        posId = (int)posIds[seqPos];
+        wordId = (int)ldg(&wordIds[seqPos]);
+        sendId = (int)ldg(&sendIds[seqPos]);
+        posId = (int)ldg(&posIds[seqPos]);
     }
     __syncthreads();
 
@@ -81,7 +106,7 @@ __global__ void embeddingLookupConcatKernel(const int ld,
     if (wordId >= 0 && wordId < vocab_size && sendId >= 0 && sendId < sent_vocab_size && posId >= 0
         && posId < pos_size) {
         for (int it = threadIdx.x; it < ld; it += TPB) {
-            T val = wordEmb[woffset + it] + sendEmb[toffset + it] + posEmb[poffset + it];
+            T val = ldg(&wordEmb[woffset + it]) + ldg(&sendEmb[toffset + it]) + ldg(&posEmb[poffset + it]);
             output[outOffset + it] = val;
         }
     }
@@ -155,12 +180,12 @@ template void invokeEmbeddingLookupConcat(__nv_bfloat16* from_tensor,
                                           cudaStream_t stream);
 #endif
 template<typename T>
-__global__ void slice(T* dst, const T* src, const int batch_size, const int seq_len, const int d_model)
+__global__ void slice(T* dst, const T* __restrict src, const int batch_size, const int seq_len, const int d_model)
 {
     // TODO: vectorize
     const int src_idx = blockIdx.x * seq_len * d_model + 0 * d_model + threadIdx.x;
     const int dst_idx = blockIdx.x * d_model + threadIdx.x;
-    dst[dst_idx] = src[src_idx];
+    dst[dst_idx] = ldg(&src[src_idx]);
 }
 
 template<typename T>
@@ -256,14 +281,14 @@ invokeAddBiasTanh(__nv_bfloat16* out, const __nv_bfloat16* bias, const int m, co
 
 template<typename T, int TPB, int VPT, int LEN>
 __global__ void postEmbedding(const int* x,
-                              const T* emb_0,
-                              const T* emb_1,
-                              const T* emb_2,
-                              const T* emb_3,
-                              const T* emb_4,
-                              const T* emb_5,
-                              const T* emb_6,
-                              const T* emb_7,
+                              const T* __restrict emb_0,
+                              const T* __restrict emb_1,
+                              const T* __restrict emb_2,
+                              const T* __restrict emb_3,
+                              const T* __restrict emb_4,
+                              const T* __restrict emb_5,
+                              const T* __restrict emb_6,
+                              const T* __restrict emb_7,
                               T* output)
 {
     // shared memory
@@ -290,14 +315,14 @@ __global__ void postEmbedding(const int* x,
     if (threadIdx.x < LEN) {
         const int batch_idx = blockIdx.x * 8 * LEN;
 
-        output[batch_idx + threadIdx.x + LEN * 0] = emb_0[local_x_0 + threadIdx.x];
-        output[batch_idx + threadIdx.x + LEN * 1] = emb_1[local_x_1 + threadIdx.x];
-        output[batch_idx + threadIdx.x + LEN * 2] = emb_2[local_x_2 + threadIdx.x];
-        output[batch_idx + threadIdx.x + LEN * 3] = emb_3[local_x_3 + threadIdx.x];
-        output[batch_idx + threadIdx.x + LEN * 4] = emb_4[local_x_4 + threadIdx.x];
-        output[batch_idx + threadIdx.x + LEN * 5] = emb_5[local_x_5 + threadIdx.x];
-        output[batch_idx + threadIdx.x + LEN * 6] = emb_6[local_x_6 + threadIdx.x];
-        output[batch_idx + threadIdx.x + LEN * 7] = emb_7[local_x_7 + threadIdx.x];
+        output[batch_idx + threadIdx.x + LEN * 0] = ldg(&emb_0[local_x_0 + threadIdx.x]);
+        output[batch_idx + threadIdx.x + LEN * 1] = ldg(&emb_1[local_x_1 + threadIdx.x]);
+        output[batch_idx + threadIdx.x + LEN * 2] = ldg(&emb_2[local_x_2 + threadIdx.x]);
+        output[batch_idx + threadIdx.x + LEN * 3] = ldg(&emb_3[local_x_3 + threadIdx.x]);
+        output[batch_idx + threadIdx.x + LEN * 4] = ldg(&emb_4[local_x_4 + threadIdx.x]);
+        output[batch_idx + threadIdx.x + LEN * 5] = ldg(&emb_5[local_x_5 + threadIdx.x]);
+        output[batch_idx + threadIdx.x + LEN * 6] = ldg(&emb_6[local_x_6 + threadIdx.x]);
+        output[batch_idx + threadIdx.x + LEN * 7] = ldg(&emb_7[local_x_7 + threadIdx.x]);
     }
 }
 
@@ -380,12 +405,16 @@ __inline__ __device__ __nv_bfloat16 sigmoid(__nv_bfloat16 x)
 #endif
 
 template<typename T>
-__global__ void
-addTwoAddBiasSigmoid(const T* input0, const T* input1, const T* bias0, const T* bias1, T* output, const int batch_size)
+__global__ void addTwoAddBiasSigmoid(const T* __restrict input0,
+                                     const T* __restrict input1,
+                                     const T* __restrict bias0,
+                                     const T* __restrict bias1,
+                                     T* output,
+                                     const int batch_size)
 {
     if (threadIdx.x < batch_size) {
         const int idx = threadIdx.x;
-        output[idx] = sigmoid(input0[idx] + bias0[idx] + input1[idx] + bias1[idx]);
+        output[idx] = sigmoid(ldg(&input0[idx]) + ldg(&bias0[idx]) + ldg(&input1[idx]) + ldg(&bias1[idx]));
     }
 }
 
