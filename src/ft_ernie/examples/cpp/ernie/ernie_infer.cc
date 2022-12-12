@@ -375,6 +375,31 @@ int ernieInference(ErnieStruct ernie_struct, const std::string& ckpt_path, std::
     float* attn_out;
     deviceMalloc(&attn_out, ernie_struct.max_batch_size * 1, false);
 
+    //warmup
+    unsigned int seed               = 0;
+    for (size_t i = 0; i < 10; i++)
+    {
+       for(size_t j=1;j<129;j++)
+       {
+             std::unordered_map<std::string, Tensor> inputTensor{
+            {"word_ids", Tensor{MEMORY_GPU, TYPE_INT32, std::vector<size_t>{i+1, j}, (int*)word_ids}},
+            {"pos_ids", Tensor{MEMORY_GPU, TYPE_INT32, std::vector<size_t>{i+1, j}, (int*)pos_ids}},
+            {"sent_ids", Tensor{MEMORY_GPU, TYPE_INT32, std::vector<size_t>{i+1, j}, (int*)sent_ids}},
+            {"seq_len", Tensor{MEMORY_GPU, TYPE_INT32, std::vector<size_t>{i+1, 1}, (int*)seq_len}},
+            {"multi_ids", Tensor{MEMORY_GPU, TYPE_INT32, std::vector<size_t>{i+1, 8}, (int*)multi_ids}}};
+
+            std::unordered_map<std::string, Tensor> outputTensor{
+                {"attn_out", Tensor{MEMORY_GPU, TYPE_FP32, std::vector<size_t>{i+1, 1}, (float*)attn_out}}};
+            deviceFill(word_ids, (i+1) * j, 1, stream);
+            deviceFill(pos_ids, (i+1) * j, 2, stream);
+            deviceFill(sent_ids, (i+1) * j, 3, stream);
+            deviceFill(seq_len, (i+1), (int)j, stream);
+            deviceFill(multi_ids, (i+1) * 8, 1, stream);
+            ernie.forward(&outputTensor, &inputTensor, &ernie_weights);
+       }   
+    }
+    
+
     // inference
     for (auto& s : sample_vec) {
         std::unordered_map<std::string, Tensor> inputTensor{

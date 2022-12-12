@@ -17,15 +17,11 @@
 #pragma once
 
 #include "src/fastertransformer/utils/cuda_utils.h"
-#
-#include <cassert>
 #include <cuda.h>
 #include <cuda_runtime.h>
-#include <iostream>
 #include <sstream>
 #include <string>
 #include <vector>
-#include <thread>
 
 namespace fastertransformer {
 
@@ -43,38 +39,65 @@ public:
 
     ~FTCudaGraph()
     {
-        if (mGraphExec) {
-            check_cuda_error(cudaGraphExecDestroy(mGraphExec));
+        if (instantiated_) {
+            check_cuda_error(cudaGraphDestroy(graph_));
+            check_cuda_error(cudaGraphExecDestroy(graph_exec_));
+            instantiated_ = false;
         }
     }
 
     void beginCapture(cudaStream_t stream)
     {
-        check_cuda_error(cudaStreamBeginCapture(stream, cudaStreamCaptureModeThreadLocal));
+        check_cuda_error(cudaStreamBeginCapture(stream, cudaStreamCaptureModeGlobal));
     }
 
-    bool launch(cudaStream_t stream)
+    void launch(cudaStream_t stream)
     {
-        check_cuda_error(cudaGraphLaunch(mGraphExec, stream));
-        return true;
+        if (instantiated_) {
+            check_cuda_error(cudaGraphLaunch(graph_exec_, stream));
+        }
+        else {
+            FT_LOG_ERROR("Launching an invalid or uninstantiated graph\n");
+        }
     }
 
     void endCapture(cudaStream_t stream)
     {
-        check_cuda_error(cudaStreamEndCapture(stream, &mGraph));
-        check_cuda_error(cudaGraphInstantiate(&mGraphExec, mGraph, nullptr, nullptr, 0));
-        check_cuda_error(cudaGraphDestroy(mGraph));
+        if (instantiated_) {
+            check_cuda_error(cudaGraphDestroy(graph_));
+        }
+        check_cuda_error(cudaStreamEndCapture(stream, &graph_));
+
+        bool need_instantiation;
+
+        if (instantiated_) {
+            cudaGraphExecUpdateResult updateResult;
+            cudaGraphNode_t errorNode;
+            // First we try to update the graph as this is much cheaper than re-instantiation
+            cudaGraphExecUpdate(graph_exec_, graph_, &errorNode, &updateResult);
+            if (graph_exec_ == nullptr || updateResult != cudaGraphExecUpdateSuccess) {
+                // The update is unsuccessful, need to re-instantiate
+                cudaGetLastError();  // <- Clear the error state
+                if (graph_exec_ != nullptr) {
+                    check_cuda_error(cudaGraphExecDestroy(graph_exec_));
+                }
+                need_instantiation = true;
+            }
+            else {
+                // The update is successful, no need to re-instantiate
+                need_instantiation = false;
+            }
+        }
+        else {
+            need_instantiation = true;
+        }
+
+        if (need_instantiation) {
+            check_cuda_error(cudaGraphInstantiate(&graph_exec_, graph_, nullptr, nullptr, 0));
+        }
+        instantiated_ = true;
     }
 
-    void endCaptureOnError(cudaStream_t stream)
-    {
-        const auto ret = cudaStreamEndCapture(stream, &mGraph);
-        assert(ret == cudaErrorStreamCaptureInvalidated);
-        assert(mGraph == nullptr);
-        // Clean up the above CUDA error.
-        cudaGetLastError();
-        printf("The CUDA graph capture on the stream has failed.");
-    }
     static std::string AppendShape2Key(std::vector<size_t> shape, std::string key = "")
     {
         std::ostringstream oss;
@@ -85,8 +108,9 @@ public:
     }
 
 private:
-    cudaGraph_t mGraph{};
-    cudaGraphExec_t mGraphExec{};
+    cudaGraph_t graph_{};
+    cudaGraphExec_t graph_exec_{};
+    bool instantiated_;
 };
 
 }  // namespace fastertransformer

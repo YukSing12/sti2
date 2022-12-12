@@ -51,7 +51,7 @@ private:
     const size_t           word_size_;
     const size_t           pos_size_;
     const size_t           sent_size_;
-    size_t  h_token_num;
+    size_t                 h_token_num_;
     int                    sm_;
     constexpr static float layernorm_eps_ = 1e-6f;
     float                  q_scaling_;
@@ -63,10 +63,9 @@ private:
 
     bool is_allocate_buffer_ = false;
 
-    // for pos_emb cache and cuda graph
-    bool is_enqueue_init_ = false;
-
     // for cuda graph
+    FTCudaGraph* cur_graph_ptr_ = nullptr;
+    bool is_enqueue_init_ = false;
     bool use_cuda_graph_ = true;
     std::unordered_map<std::string, FTCudaGraph*> cuda_graph_pool_;
 
@@ -91,7 +90,6 @@ private:
 protected:
     // model params
     size_t* token_num_                  = nullptr;
-    // size_t* h_token_num              = nullptr;  
     int*    padding_offset_             = nullptr;
     int*    trt_mha_padding_offset_     = nullptr;
     T*      attention_mask_             = nullptr;
