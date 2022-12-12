@@ -56,5 +56,5 @@ with open("data/perf.res.txt", 'r') as fid1,\
     print("Mean diff is {}".format(mean_diff))
 EOF
 
-python src/python/utils/local_evaluate.py ./label.res.txt
-python src/python/utils/local_evaluate.py ./perf.res.txt
+python tools/local_evaluate.py ./label.res.txt
+python tools/local_evaluate.py ./perf.res.txt
