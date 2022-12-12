@@ -32,6 +32,7 @@
 #include "src/fastertransformer/utils/custom_ar_comm.h"
 #include "src/fastertransformer/models/ernie/FTCudaGraph.h"
 
+
 namespace fastertransformer {
 
 template<typename T>
@@ -57,6 +58,16 @@ private:
     float                  q_scaling_;
     AttentionType          attention_type_;
     bool                   sparse_;
+    
+    // feature_stream
+    cudaStream_t stream_fea_;
+    std::mutex* cublas_wrapper_mutex_fea_;
+    cublasAlgoMap* cublas_algo_map_fea_; 
+    cublasMMWrapper *cublas_wrapper_fea_;
+    Allocator<AllocatorType::CUDA> *allocator_fea_;
+    cublasHandle_t cublas_handle_fea_;
+    cublasLtHandle_t cublaslt_handle_fea_;
+    
 
     std::vector<BaseAttentionLayer<T>*> attention_layer_;
     std::vector<FfnLayer<T>*>           ffn_layer_;

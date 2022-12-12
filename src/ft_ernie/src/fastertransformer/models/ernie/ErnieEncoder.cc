@@ -23,7 +23,29 @@ namespace fastertransformer {
 
 template<typename T>
 void ErnieEncoder<T>::initialize()
-{
+{   
+    cudaStreamCreate(&stream_fea_);
+    cublasCreate(&cublas_handle_fea_);
+    cublasLtCreate(&cublaslt_handle_fea_);
+    allocator_fea_=new Allocator<AllocatorType::CUDA>(getDevice());
+    cublas_wrapper_mutex_fea_= new std::mutex();
+    cublas_algo_map_fea_ = new cublasAlgoMap("gemm_fea_config.in", "");
+
+    cublas_wrapper_fea_ =
+        new cublasMMWrapper(cublas_handle_fea_, cublaslt_handle_fea_, stream_fea_, cublas_algo_map_fea_, cublas_wrapper_mutex_fea_, allocator_fea_);
+
+    if (std::is_same<T, half>::value) {
+        cublas_wrapper_fea_->setFP16GemmConfig();
+    }
+#ifdef ENABLE_BF16
+    else if (std::is_same<T, __nv_bfloat16>::value) {
+        cublas_wrapper_fea_->setBF16GemmConfig();
+    }
+#endif
+    else if (std::is_same<T, float>::value) {
+        cublas_wrapper_fea_->setFP32GemmConfig();
+    }
+
     attention_layer_.resize(num_layer_);
     ffn_layer_.resize(num_layer_);
     if ((attention_type_ == AttentionType::FUSED_MHA || attention_type_ == AttentionType::FUSED_PADDED_MHA)
@@ -213,6 +235,10 @@ ErnieEncoder<T>::~ErnieEncoder()
         delete attention_layer_[i];
         delete ffn_layer_[i];
     }
+    delete cublas_wrapper_mutex_fea_;
+    delete cublas_algo_map_fea_;
+    delete cublas_wrapper_fea_;
+    delete allocator_fea_;
     freeBuffer();
 }
 
@@ -638,7 +664,75 @@ void ErnieEncoder<T>::forward(std::unordered_map<std::string, Tensor>*       out
             stream_);
         sync_check_cuda_error();
     }
+     //postemb
+      invokePostEmbedding(input_tensors->at("multi_ids").getPtr<int>(),
+                               ernie_encoder_weights->multi_field_1,
+                               ernie_encoder_weights->multi_field_3,
+                               ernie_encoder_weights->multi_field_6,
+                               ernie_encoder_weights->multi_field_0,
+                               ernie_encoder_weights->multi_field_5,
+                               ernie_encoder_weights->multi_field_7,
+                               ernie_encoder_weights->multi_field_4,
+                               ernie_encoder_weights->multi_field_2,
+                               post_emb_out_buffer_,
+                               request_batch_size,
+                               stream_fea_);
 
+    // MatMul(fea_emb_fc)
+    {
+        int m = request_batch_size;
+        int n = d_model_;
+        int k = 160;
+        cublas_wrapper_fea_->Gemm(CUBLAS_OP_N,
+                              CUBLAS_OP_N,
+                              n,
+                              m,
+                              k,
+                              ernie_encoder_weights->fea_emb_fc.kernel,
+                              n,
+                              post_emb_out_buffer_,
+                              k,
+                              fea_emb_fc_out_buffer_,
+                              n);
+        invokeAddBiasRelu(fea_emb_fc_out_buffer_, ernie_encoder_weights->fea_emb_fc.bias, m, n, stream_fea_);
+    }
+    
+    // MatMul(fea_emb_fc2)
+    {
+        int m = request_batch_size;
+        int n = 384;
+        int k = d_model_;
+        cublas_wrapper_fea_->Gemm(CUBLAS_OP_N,
+                              CUBLAS_OP_N,
+                              n,
+                              m,
+                              k,
+                              ernie_encoder_weights->fea_emb_fc2.kernel,
+                              n,
+                              fea_emb_fc_out_buffer_,
+                              k,
+                              post_emb_out_buffer_,
+                              n);
+        invokeAddBiasRelu(post_emb_out_buffer_, ernie_encoder_weights->fea_emb_fc2.bias, m, n, stream_fea_);
+    }
+
+    // MatMul(cls_out_aside)
+    {
+        int m = request_batch_size;
+        int n = 1;
+        int k = 384;
+        cublas_wrapper_fea_->Gemm(CUBLAS_OP_N,
+                              CUBLAS_OP_N,
+                              n,
+                              m,
+                              k,
+                              ernie_encoder_weights->cls_out_aside.kernel,
+                              n,
+                              post_emb_out_buffer_,
+                              k,
+                              cls_out_aside_buffer_,
+                              n);
+    }
     // exit(0);
 
     if (pipeline_para_.rank_ == pipeline_para_.world_size_ - 1) {
@@ -725,74 +819,74 @@ void ErnieEncoder<T>::forward(std::unordered_map<std::string, Tensor>*       out
     }
 
     // todo invokePostEmbedding
-    invokePostEmbedding(input_tensors->at("multi_ids").getPtr<int>(),
-                               ernie_encoder_weights->multi_field_1,
-                               ernie_encoder_weights->multi_field_3,
-                               ernie_encoder_weights->multi_field_6,
-                               ernie_encoder_weights->multi_field_0,
-                               ernie_encoder_weights->multi_field_5,
-                               ernie_encoder_weights->multi_field_7,
-                               ernie_encoder_weights->multi_field_4,
-                               ernie_encoder_weights->multi_field_2,
-                               post_emb_out_buffer_,
-                               request_batch_size,
-                               stream_);
+    // invokePostEmbedding(input_tensors->at("multi_ids").getPtr<int>(),
+    //                            ernie_encoder_weights->multi_field_1,
+    //                            ernie_encoder_weights->multi_field_3,
+    //                            ernie_encoder_weights->multi_field_6,
+    //                            ernie_encoder_weights->multi_field_0,
+    //                            ernie_encoder_weights->multi_field_5,
+    //                            ernie_encoder_weights->multi_field_7,
+    //                            ernie_encoder_weights->multi_field_4,
+    //                            ernie_encoder_weights->multi_field_2,
+    //                            post_emb_out_buffer_,
+    //                            request_batch_size,
+    //                            stream_);
 
-    // MatMul(fea_emb_fc)
-    {
-        int m = request_batch_size;
-        int n = d_model_;
-        int k = 160;
-        cublas_wrapper_->Gemm(CUBLAS_OP_N,
-                              CUBLAS_OP_N,
-                              n,
-                              m,
-                              k,
-                              ernie_encoder_weights->fea_emb_fc.kernel,
-                              n,
-                              post_emb_out_buffer_,
-                              k,
-                              fea_emb_fc_out_buffer_,
-                              n);
-        invokeAddBiasRelu(fea_emb_fc_out_buffer_, ernie_encoder_weights->fea_emb_fc.bias, m, n, stream_);
-    }
+    // // MatMul(fea_emb_fc)
+    // {
+    //     int m = request_batch_size;
+    //     int n = d_model_;
+    //     int k = 160;
+    //     cublas_wrapper_->Gemm(CUBLAS_OP_N,
+    //                           CUBLAS_OP_N,
+    //                           n,
+    //                           m,
+    //                           k,
+    //                           ernie_encoder_weights->fea_emb_fc.kernel,
+    //                           n,
+    //                           post_emb_out_buffer_,
+    //                           k,
+    //                           fea_emb_fc_out_buffer_,
+    //                           n);
+    //     invokeAddBiasRelu(fea_emb_fc_out_buffer_, ernie_encoder_weights->fea_emb_fc.bias, m, n, stream_);
+    // }
     
-    // MatMul(fea_emb_fc2)
-    {
-        int m = request_batch_size;
-        int n = 384;
-        int k = d_model_;
-        cublas_wrapper_->Gemm(CUBLAS_OP_N,
-                              CUBLAS_OP_N,
-                              n,
-                              m,
-                              k,
-                              ernie_encoder_weights->fea_emb_fc2.kernel,
-                              n,
-                              fea_emb_fc_out_buffer_,
-                              k,
-                              post_emb_out_buffer_,
-                              n);
-        invokeAddBiasRelu(post_emb_out_buffer_, ernie_encoder_weights->fea_emb_fc2.bias, m, n, stream_);
-    }
+    // // MatMul(fea_emb_fc2)
+    // {
+    //     int m = request_batch_size;
+    //     int n = 384;
+    //     int k = d_model_;
+    //     cublas_wrapper_->Gemm(CUBLAS_OP_N,
+    //                           CUBLAS_OP_N,
+    //                           n,
+    //                           m,
+    //                           k,
+    //                           ernie_encoder_weights->fea_emb_fc2.kernel,
+    //                           n,
+    //                           fea_emb_fc_out_buffer_,
+    //                           k,
+    //                           post_emb_out_buffer_,
+    //                           n);
+    //     invokeAddBiasRelu(post_emb_out_buffer_, ernie_encoder_weights->fea_emb_fc2.bias, m, n, stream_);
+    // }
 
-    // MatMul(cls_out_aside)
-    {
-        int m = request_batch_size;
-        int n = 1;
-        int k = 384;
-        cublas_wrapper_->Gemm(CUBLAS_OP_N,
-                              CUBLAS_OP_N,
-                              n,
-                              m,
-                              k,
-                              ernie_encoder_weights->cls_out_aside.kernel,
-                              n,
-                              post_emb_out_buffer_,
-                              k,
-                              cls_out_aside_buffer_,
-                              n);
-    }
+    // // MatMul(cls_out_aside)
+    // {
+    //     int m = request_batch_size;
+    //     int n = 1;
+    //     int k = 384;
+    //     cublas_wrapper_->Gemm(CUBLAS_OP_N,
+    //                           CUBLAS_OP_N,
+    //                           n,
+    //                           m,
+    //                           k,
+    //                           ernie_encoder_weights->cls_out_aside.kernel,
+    //                           n,
+    //                           post_emb_out_buffer_,
+    //                           k,
+    //                           cls_out_aside_buffer_,
+    //                           n);
+    // }
     invokeAddTwoAddBiasSigmoid(cls_out_buffer_,
                                cls_out_aside_buffer_,
                                ernie_encoder_weights->cls_out.bias,
