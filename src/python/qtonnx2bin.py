@@ -17,27 +17,51 @@ def get_args():
     args = parser.parse_args()
     return args
 
-def dump_weights(nodes):
+def dump_dequantize_node(node, rst):
+    name = node.inputs[0].name.replace("w_0_0", "w_0")
+    print("Export {}".format(name))
+    rst[name] = node.inputs[0].values
+    name = node.inputs[0].name.replace("w_0_0", "w_0_scales")
+    print("Export {}".format(name))
+    rst[name] = node.inputs[1].values
+
+def dump_weights(nodes, nodes_dict):
     rst = dict()
+    layer_num = 0
     for node in nodes:
-        for inp_variable in node.inputs :
-            if "helper" in inp_variable.name:
-                continue
-            if hasattr(inp_variable, "values"):
-                print("Export {}".format(inp_variable.name))
-                rst[inp_variable.name] = inp_variable.values
+        if node.op == "Add" and len(node.outputs[0].outputs) == 7:
+            q_mm = nodes_dict["p2o.MatMul.{}".format(2 + layer_num * 16)]
+            k_mm = nodes_dict["p2o.MatMul.{}".format(4 + layer_num * 16)]
+            v_mm = nodes_dict["p2o.MatMul.{}".format(6 + layer_num * 16)]
+            proj_mm = nodes_dict["p2o.MatMul.{}".format(12 + layer_num * 16)]
+            ffn1_mm = nodes_dict["p2o.MatMul.{}".format(14 + layer_num * 16)]
+            ffn2_mm = nodes_dict["p2o.MatMul.{}".format(16 + layer_num * 16)]
+            
+            dump_dequantize_node(q_mm.inputs[1].inputs[0], rst)
+            dump_dequantize_node(k_mm.inputs[1].inputs[0], rst)
+            dump_dequantize_node(v_mm.inputs[1].inputs[0], rst)
+            dump_dequantize_node(proj_mm.inputs[1].inputs[0], rst)
+            dump_dequantize_node(ffn1_mm.inputs[1].inputs[0], rst)
+            dump_dequantize_node(ffn2_mm.inputs[1].inputs[0], rst)
+            
+            layer_num += 1
+            continue
     return rst
 
 if __name__ == "__main__":
     args = get_args()
     os.system("mkdir -p " + args.bin)
-    
+
     graph = gs.import_onnx(onnx.load(args.onnx))
     print("Nodes:{}".format(len(graph.nodes)))
     graph.fold_constants().cleanup()
     print("Nodes:{}".format(len(graph.nodes)))
     nodes = graph.nodes
-    weights=dump_weights(nodes)
+    nodes_dict = {}
+    for node in nodes:
+        name = node.name
+        nodes_dict.update({name: node})
+    weights=dump_weights(nodes, nodes_dict)
     
     conf = configparser.ConfigParser()
     conf.add_section("ernie")
