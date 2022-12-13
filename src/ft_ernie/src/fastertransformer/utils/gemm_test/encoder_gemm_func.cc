@@ -74,11 +74,11 @@ void generate_encoder_gemm_config(
         }
     }
 
-    const int gemm_num = 7;
+    const int gemm_num = 6;
     int       M[gemm_num];
     int       N[gemm_num];
     int       K[gemm_num];
-    int       batchCount[gemm_num] = {1, 1, 1, 1, 1, 1, 1};
+    int       batchCount[gemm_num];
     char      mess[gemm_num][256];
     float     exec_times[gemm_num];
 
@@ -86,18 +86,21 @@ void generate_encoder_gemm_config(
     M[0] = batch_size * seq_len;
     K[0] = head_num * size_per_head;
     N[0] = (head_num / tensor_para_size) * size_per_head;
+    batchCount[0] = 1;
     strcpy(mess[0], "from_tensor * weightQ/K/V");
 
     // gemm2
     M[1] = M[0];
     K[1] = head_num * size_per_head;
     N[1] = 4 * head_num * size_per_head / tensor_para_size;
+    batchCount[1] = 1;
     strcpy(mess[1], "attr_output * inter_kernel");
 
     // gemm3
     M[2] = M[0];
     K[2] = 4 * head_num * size_per_head / tensor_para_size;
     N[2] = head_num * size_per_head;
+    batchCount[2] = 1;
     strcpy(mess[2], "inter_matmul * output_kernel");
 
     M[3]          = seq_len;
@@ -118,11 +121,6 @@ void generate_encoder_gemm_config(
     batchCount[5] = 3;
     strcpy(mess[5], "from_tensor * weight_QKV in BatchGemm");
     
-    M[6] = batch_size * seq_len;
-    K[6] = (head_num / tensor_para_size) * size_per_head;
-    N[6] = head_num * size_per_head;
-    strcpy(mess[6], "attr * output_kernel");
-
     cublasHandle_t cublas_handle;
     check_cuda_error(cublasCreate(&cublas_handle));
     cublasLtHandle_t ltHandle;
@@ -214,7 +212,7 @@ void generate_encoder_gemm_config(
             cudaDeviceSynchronize();
             gettimeofday(&start, NULL);
             for (int ite = 0; ite < ites; ++ite) {
-                if (i < 3) {
+                if (i < 3 || i > 5 ) {
                     status = cublasGemmEx(cublas_handle,
                                           CUBLAS_OP_N,
                                           CUBLAS_OP_N,

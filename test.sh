@@ -13,6 +13,7 @@ if [ $# != 1 ]; then
 fi
 
 rm *.res.txt -f
+# rm gemm_config*.in
 if [ "$1" == "ernie_infer" ];then
     ./bin/ernie_infer 1 ./model/bin ./data/label.test.txt ./label.res.txt
     ./bin/ernie_infer 1 ./model/bin ./data/perf.test.txt ./perf.res.txt

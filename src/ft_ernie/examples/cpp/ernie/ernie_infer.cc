@@ -1,5 +1,6 @@
 #include "src/fastertransformer/models/ernie/ErnieEncoder.h"
 #include "src/fastertransformer/models/ernie/ErnieEncoderWeight.h"
+#include "ErnieGemm.h"
 #include "src/fastertransformer/utils/Tensor.h"
 #include "src/fastertransformer/utils/logger.h"
 #include <assert.h>
@@ -66,8 +67,8 @@ struct ErnieStruct {
     fastertransformer::ActivationType activation_type = fastertransformer::ActivationType::Relu;
     LayerNormType layernorm_type = LayerNormType::post_layernorm;
     // runtime parameter
-    size_t batch_size = 0;
-    size_t seq_len = 0;
+    size_t batch_size = 10;
+    size_t seq_len = 128;
 } g_ernie_struct;
 
 void split_string(const std::string& str, const std::string& delimiter, std::vector<std::string>& fields)
@@ -299,7 +300,36 @@ int ernieInference(ErnieStruct ernie_struct, const std::string& ckpt_path, std::
     CHECK_CUSPARSE(cusparseLtInit(&cusparselt_handle));
 #endif
     cublasSetStream(cublas_handle, stream);
-    cublasAlgoMap* cublas_algo_map = new cublasAlgoMap("gemm_config.in", "");
+
+    // Gemm file selection
+    std::string gemmFileName = std::string("gemm_config.in").substr(0, 11) + std::string("-SM") + std::to_string(ernie_struct.sm)
+                               + std::string("-FP") + std::to_string(std::is_same<T, half>::value ? 16 : 32) + std::string("-BS")
+                               + std::to_string(ernie_struct.batch_size) + std::string("-SL") + std::to_string(ernie_struct.seq_len)
+                               + std::string("-BM") + std::to_string(ernie_struct.beam_width) + std::string(".in");
+    std::ifstream infile(gemmFileName);
+    if (infile.good()) {
+        printf("Gemm file exist!\n");
+    }
+    else {
+        printf("Gemm file do not exist!\n");
+        for (size_t b = 1; b <= ernie_struct.max_batch_size; b++)
+        {
+            int argv[8] = {
+                0,
+                (int)b,
+                (ernie_struct.batch_size == 128 && ernie_struct.seq_len == 384) ? 128 : (int)ernie_struct.seq_len,  // seq_len, in case of OOM
+                (int)ernie_struct.head_num,
+                (int)ernie_struct.size_per_head,
+                std::is_same<T, half>::value ? 1 : 0,  // // 0 FP32, 1 FP16
+                0,                   // int8 mode
+                1,                   // tensor_para_size
+            };
+            ernie_gemm(argv);
+        }
+        rename(std::string("gemm_config.in").c_str(), gemmFileName.c_str());
+    }
+
+    cublasAlgoMap* cublas_algo_map = new cublasAlgoMap(gemmFileName, "");
 
     Allocator<AllocatorType::CUDA> allocator(getDevice());
 

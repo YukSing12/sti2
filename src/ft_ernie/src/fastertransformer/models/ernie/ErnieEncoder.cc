@@ -29,7 +29,12 @@ void ErnieEncoder<T>::initialize()
     cublasLtCreate(&cublaslt_handle_fea_);
     allocator_fea_=new Allocator<AllocatorType::CUDA>(getDevice());
     cublas_wrapper_mutex_fea_= new std::mutex();
-    cublas_algo_map_fea_ = new cublasAlgoMap("gemm_fea_config.in", "");
+    std::string gemmFileName = std::string("gemm_config.in").substr(0, 11) + std::string("-SM") + std::to_string(sm_)
+                               + std::string("-FP") + std::to_string(std::is_same<T, half>::value ? 16 : 32) + std::string("-BS")
+                               + std::to_string(max_batch_size_) + std::string("-SL") + std::to_string(max_seq_len_)
+                               + std::string("-BM") + std::to_string(1) + std::string(".in");
+
+    cublas_algo_map_fea_ = new cublasAlgoMap(gemmFileName, "");
 
     cublas_wrapper_fea_ =
         new cublasMMWrapper(cublas_handle_fea_, cublaslt_handle_fea_, stream_fea_, cublas_algo_map_fea_, cublas_wrapper_mutex_fea_, allocator_fea_);
