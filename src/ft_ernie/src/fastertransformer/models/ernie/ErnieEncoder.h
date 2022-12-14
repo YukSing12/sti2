@@ -30,7 +30,7 @@
 #include "src/fastertransformer/layers/attention_layers/TensorParallelUnfusedAttentionLayer.h"
 #include "src/fastertransformer/models/ernie/ErnieEncoderWeight.h"
 #include "src/fastertransformer/utils/custom_ar_comm.h"
-#include "src/fastertransformer/models/ernie/FTCudaGraph.h"
+#include "src/fastertransformer/models/ernie/CudaGraph.h"
 
 
 namespace fastertransformer {
@@ -53,11 +53,23 @@ private:
     const size_t           pos_size_;
     const size_t           sent_size_;
     size_t                 h_token_num_;
+    size_t                 request_batch_size_;
+    size_t                 request_seq_len_;
     int                    sm_;
     constexpr static float layernorm_eps_ = 1e-6f;
     float                  q_scaling_;
     AttentionType          attention_type_;
     bool                   sparse_;
+    bool                   is_host_ptr_=false;
+
+    //five inputs
+    int* d_word_ids_;
+    int* d_pos_ids_;
+    int* d_sent_ids_;
+    int* d_seq_len_;
+    int* d_multi_ids_;
+    // one output
+    float*  d_attn_out_;
     
     // feature_stream
     cudaStream_t stream_fea_;
@@ -75,10 +87,10 @@ private:
     bool is_allocate_buffer_ = false;
 
     // for cuda graph
-    FTCudaGraph* cur_graph_ptr_ = nullptr;
+    CudaGraph* cur_graph_ptr_ = nullptr;
     bool is_enqueue_init_ = false;
     bool use_cuda_graph_ = true;
-    std::unordered_map<std::string, FTCudaGraph*> cuda_graph_pool_;
+    std::unordered_map<std::string, CudaGraph*> cuda_graph_pool_;
 
     void allocateBuffer() override;
     void allocateBuffer(size_t batch_size, size_t seq_len);
@@ -88,7 +100,6 @@ private:
     bool isFirstLayerParallelId(uint l);
     bool isLastLayerParallelId(uint l);
     int  getFirstLayerParallelId();
-
     const ActivationType activation_type_;
     const LayerNormType  layernorm_type_;
 
@@ -154,11 +165,34 @@ public:
 
     void forward(std::unordered_map<std::string, Tensor>*       output_tensors,
                  const std::unordered_map<std::string, Tensor>* input_tensors,
-                 const ErnieEncoderWeight<T>*                      ernie_weights);
-
+                 const ErnieEncoderWeight<T>*                    ernie_weights);
+                 
+    void forward(const int* h_word_ids_,
+                const int* h_pos_ids_,
+                const int* h_sent_ids_,
+                const int* h_seq_len_,
+                const int* h_multi_ids_,
+                const int request_batch_size,
+                const int request_seq_len,
+                const ErnieEncoderWeight<T>* ernie_encoder_weights);
+    void copyToCpu(float* h_attn_out_, const int request_batch_size);
     inline size_t getDModel()
     {
         return d_model_;
+    }
+    void setUseGraph(bool useGraph)
+    {
+        use_cuda_graph_=useGraph;
+    }
+    void setHostMode(bool is_host_ptr)
+    {
+        is_host_ptr_=is_host_ptr;
+        d_word_ids_ = (int *)allocator_->reMalloc(d_word_ids_, sizeof(int) * max_batch_size_ * max_seq_len_, false);
+        d_pos_ids_ = (int *)allocator_->reMalloc(d_pos_ids_, sizeof(int) * max_batch_size_ * max_seq_len_, false);
+        d_sent_ids_ = (int *)allocator_->reMalloc(d_sent_ids_, sizeof(int) * max_batch_size_ * max_seq_len_, false);
+        d_seq_len_ = (int *)allocator_->reMalloc(d_seq_len_, sizeof(int) * max_batch_size_ * 1, false);
+        d_multi_ids_ = (int *)allocator_->reMalloc(d_multi_ids_, sizeof(int) * max_batch_size_ * 8, false);
+        d_attn_out_     = (float*)allocator_->reMalloc(d_attn_out_, sizeof(float) * max_batch_size_ * 1, false);
     }
     void setStream(cudaStream_t stream) override;
 };

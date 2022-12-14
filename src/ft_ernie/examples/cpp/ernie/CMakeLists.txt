@@ -12,9 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+
+add_executable(ernie_infer_graph ernie_infer_graph.cc  ErnieGemm.cc)
 add_executable(ernie_infer ernie_infer.cc ErnieGemm.cc)
 if (SPARSITY_SUPPORT)
 target_link_libraries(ernie_infer PUBLIC -lcublas -lcublasLt -lcudart -lcusparse -lcusparseLt ErnieEncoder encoder_gemm_func encoder_igemm_func)
 else()
+target_link_libraries(ernie_infer_graph PUBLIC -lcublas -lcublasLt -lcudart ErnieEncoder encoder_gemm_func encoder_igemm_func)
 target_link_libraries(ernie_infer PUBLIC -lcublas -lcublasLt -lcudart ErnieEncoder encoder_gemm_func encoder_igemm_func)
 endif()

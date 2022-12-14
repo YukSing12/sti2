@@ -19,6 +19,10 @@
 #include "src/fastertransformer/kernels/decoding_kernels.h"
 #include "src/fastertransformer/kernels/ernie_kernels.h"
 
+
+#define POSTGRAPH_IDX 4
+#define PREGRAPH_IDX 3
+
 namespace fastertransformer {
 
 template<typename T>
@@ -148,8 +152,7 @@ void ErnieEncoder<T>::initialize()
                                                        custom_all_reduce_comm_,
                                                        enable_custom_all_reduce_);
     }
-    allocateBuffer(max_batch_size_, max_seq_len_);
-    cur_graph_ptr_ = new FTCudaGraph();
+    allocateBuffer();
 }
 
 template<typename T>
@@ -235,6 +238,9 @@ template<typename T>
 ErnieEncoder<T>::~ErnieEncoder()
 {
     FT_LOG_DEBUG(__PRETTY_FUNCTION__);
+    for (auto& it : cuda_graph_pool_)
+        delete it.second;
+    cuda_graph_pool_.clear();
     for(size_t i=0;i<num_layer_;i++)
     {
         delete attention_layer_[i];
@@ -246,7 +252,6 @@ ErnieEncoder<T>::~ErnieEncoder()
     delete allocator_fea_;
     freeBuffer();
 }
-
 template<typename T>
 void ErnieEncoder<T>::setStream(cudaStream_t stream)
 {
@@ -263,49 +268,7 @@ template<typename T>
 void ErnieEncoder<T>::allocateBuffer()
 {
     if (is_allocate_buffer_ == false) {
-        token_num_ = (size_t*)allocator_->reMalloc(token_num_, sizeof(size_t) * 1, false);
-        padding_offset_ =
-            (int*)allocator_->reMalloc(padding_offset_, sizeof(int) * max_batch_size_ * max_seq_len_, false);
-        trt_mha_padding_offset_ =
-            (int*)allocator_->reMalloc(trt_mha_padding_offset_, sizeof(int) * (2 * max_batch_size_ + 1), false);
-
-        attention_mask_ =
-            (T*)allocator_->reMalloc(attention_mask_, sizeof(T) * max_batch_size_ * max_seq_len_ * max_seq_len_, false);
-        relative_attention_bias_ = (T*)allocator_->reMalloc(
-            relative_attention_bias_, sizeof(T) * head_num_ * max_seq_len_ * max_seq_len_, false);
-
-        ernie_encoder_emb_buf_ =
-            (T*)allocator_->reMalloc(ernie_encoder_emb_buf_, sizeof(T) * max_batch_size_ * max_seq_len_ * d_model_, false);
-        ernie_encoder_in_buffer_ = (T*)allocator_->reMalloc(
-            ernie_encoder_in_buffer_, sizeof(T) * max_batch_size_ * max_seq_len_ * d_model_, false);
-        attn_out_buf_ =
-            (T*)allocator_->reMalloc(attn_out_buf_, sizeof(T) * max_batch_size_ * max_seq_len_ * d_model_, false);
-        ernie_encoder_out_buffer_ = (T*)allocator_->reMalloc(
-            ernie_encoder_out_buffer_, sizeof(T) * max_batch_size_ * max_seq_len_ * d_model_, false);
-
-        ernie_layer_out_buffer_ = (T*)allocator_->reMalloc(
-            ernie_layer_out_buffer_, sizeof(T) * max_batch_size_ * max_seq_len_ * d_model_, false);
-        ernie_slice_out_buffer_ = (T*)allocator_->reMalloc(
-            ernie_slice_out_buffer_, sizeof(T) * max_batch_size_ * 1 * d_model_, false);
-        post_emb_out_buffer_ = (T*)allocator_->reMalloc(
-            post_emb_out_buffer_, sizeof(T) * max_batch_size_ * d_model_, false);
-        fea_emb_fc_out_buffer_ = (T*)allocator_->reMalloc(
-            fea_emb_fc_out_buffer_, sizeof(T) * max_batch_size_ * d_model_, false);
-        cls_out_buffer_ = (T*)allocator_->reMalloc(
-            cls_out_buffer_, sizeof(T) * max_batch_size_ * 1, false);
-        cls_out_aside_buffer_ = (T*)allocator_->reMalloc(
-            cls_out_aside_buffer_, sizeof(T) * max_batch_size_ * 1, false);
-
-        if (layernorm_type_ == LayerNormType::post_layernorm) {
-            normed_from_tensor_  = nullptr;
-            normed_attn_out_buf_ = nullptr;
-        }
-        else {
-            normed_from_tensor_ = (T*)allocator_->reMalloc(
-                normed_from_tensor_, sizeof(T) * max_batch_size_ * max_seq_len_ * d_model_, false);
-            normed_attn_out_buf_ = (T*)allocator_->reMalloc(
-                normed_attn_out_buf_, sizeof(T) * max_batch_size_ * max_seq_len_ * d_model_, false);
-        }
+        allocateBuffer(max_batch_size_,max_seq_len_);
         is_allocate_buffer_ = true;
     }
 }
@@ -353,13 +316,21 @@ void ErnieEncoder<T>::allocateBuffer(size_t batch_size, size_t seq_len)
         normed_attn_out_buf_ =
             (T*)allocator_->reMalloc(normed_attn_out_buf_, sizeof(T) * batch_size * seq_len * d_model_, false);
     }
-    is_allocate_buffer_ = true;
 }
 
 template<typename T>
 void ErnieEncoder<T>::freeBuffer()
 {
     if (is_allocate_buffer_) {
+        if(is_host_ptr_)
+        {
+            allocator_->free((void**)(&d_word_ids_));
+            allocator_->free((void**)(&d_pos_ids_));
+            allocator_->free((void**)(&d_sent_ids_));
+            allocator_->free((void**)(&d_seq_len_));
+            allocator_->free((void**)(&d_multi_ids_));
+            allocator_->free((void**)(&d_attn_out_));
+        }
         allocator_->free((void**)(&token_num_));
         allocator_->free((void**)(&padding_offset_));
         allocator_->free((void**)(&trt_mha_padding_offset_));
@@ -417,7 +388,11 @@ int ErnieEncoder<T>::getFirstLayerParallelId()
     int local_num_layer = (int)(ceil(num_layer_ * 1.0f / pipeline_para_.world_size_));
     return local_num_layer * pipeline_para_.rank_;
 }
-
+template<typename T>
+void ErnieEncoder<T>::copyToCpu(float* h_attn_out_, const int request_batch_size)
+{
+    cudaAutoCpy(h_attn_out_, d_attn_out_, request_batch_size, stream_);
+}
 template<typename T>
 void ErnieEncoder<T>::forward(std::vector<Tensor>*       output_tensors,
                            const std::vector<Tensor>* input_tensors,
@@ -443,7 +418,7 @@ void ErnieEncoder<T>::forward(std::vector<Tensor>*       output_tensors,
 
 template<typename T>
 void ErnieEncoder<T>::forward(std::unordered_map<std::string, Tensor>*       output_tensors,
-                           const std::unordered_map<std::string, Tensor>* input_tensors,
+                           const std::unordered_map<std::string, Tensor>*    input_tensors,
                            const ErnieEncoderWeight<T>*                      ernie_encoder_weights)
 {
     // input_tensors:
@@ -456,54 +431,79 @@ void ErnieEncoder<T>::forward(std::unordered_map<std::string, Tensor>*       out
     //      attn_out [batch, 1]
 
     FT_LOG_DEBUG(__PRETTY_FUNCTION__);
-    FT_CHECK(input_tensors->at("word_ids").shape.size() == 2);
+    FT_CHECK(is_host_ptr_ == false);
 
-    const size_t request_batch_size = input_tensors->at("word_ids").shape[0];
-    const size_t request_seq_len    = input_tensors->at("word_ids").shape[1];
+    FT_CHECK(input_tensors->at("word_ids").shape.size() == 2);
+    request_batch_size_ = input_tensors->at("word_ids").shape[0];
+    request_seq_len_    = input_tensors->at("word_ids").shape[1];
     FT_CHECK(input_tensors->size() == 5);
-    FT_CHECK(request_batch_size == input_tensors->at("pos_ids").shape[0]);
-    FT_CHECK(request_seq_len == input_tensors->at("pos_ids").shape[1]);
+    FT_CHECK(request_batch_size_ == input_tensors->at("pos_ids").shape[0]);
+    FT_CHECK(request_seq_len_ == input_tensors->at("pos_ids").shape[1]);
     FT_CHECK(input_tensors->at("pos_ids").shape.size() == 2);
 
-    FT_CHECK(request_batch_size == input_tensors->at("sent_ids").shape[0]);
-    FT_CHECK(request_seq_len == input_tensors->at("sent_ids").shape[1]);
+    FT_CHECK(request_batch_size_ == input_tensors->at("sent_ids").shape[0]);
+    FT_CHECK(request_seq_len_ == input_tensors->at("sent_ids").shape[1]);
     FT_CHECK(input_tensors->at("sent_ids").shape.size() == 2);
 
-    FT_CHECK(request_batch_size == input_tensors->at("seq_len").shape[0]);
+    FT_CHECK(request_batch_size_ == input_tensors->at("seq_len").shape[0]);
     FT_CHECK(input_tensors->at("seq_len").shape.size() == 2);
 
-    FT_CHECK(request_batch_size == input_tensors->at("multi_ids").shape[0]);
+    FT_CHECK(request_batch_size_ == input_tensors->at("multi_ids").shape[0]);
     FT_CHECK(input_tensors->at("multi_ids").shape.size() == 2);
-   // allocateBuffer(request_batch_size, request_seq_len);
 
-    if (attention_type_ == AttentionType::UNFUSED_MHA || attention_type_ == AttentionType::FUSED_MHA) {
-        // prevent undefined behavior of the padding parts
-        cudaMemsetAsync(output_tensors->at("attn_out").getPtr<float>(),
-                   0,
-                   sizeof(float) * request_batch_size * 1,
-                   stream_);
+    d_word_ids_  = input_tensors->at("word_ids").getPtr<int>();
+    d_pos_ids_   = input_tensors->at("pos_ids").getPtr<int>();
+    d_sent_ids_  = input_tensors->at("sent_ids").getPtr<int>();
+    d_seq_len_   = input_tensors->at("seq_len").getPtr<int>();
+    d_multi_ids_ = input_tensors->at("multi_ids").getPtr<int>();
+
+    // preprocess (build embedding and layernorm)
+    std::string cur_graph_key_pre = CudaGraph::AppendShape2Key({PREGRAPH_IDX,request_batch_size_,request_seq_len_});  
+    CudaGraph* cur_graph_ptr_pre = nullptr;
+    bool launched_=0;
+    if (is_enqueue_init_ && use_cuda_graph_) {
+        FT_CHECK(is_free_buffer_after_forward_ == false);
+        if (cuda_graph_pool_.find(cur_graph_key_pre) == cuda_graph_pool_.end()) {
+            cur_graph_ptr_pre = new CudaGraph();
+            cur_graph_ptr_pre->beginCapture(stream_);
+        }
+        else {
+            cur_graph_ptr_pre = cuda_graph_pool_[cur_graph_key_pre];
+            cur_graph_ptr_pre ->launch(stream_);
+            launched_=1;
+        }
     }
 
-    // parallal num = 1
-    // local batch size = request batch size
-
-    const int* sequence_lengths = input_tensors->at("seq_len").getPtr<int>();
-    // preprocess (build embedding and layernorm)
-    invokeEmbeddingLookupConcat(ernie_encoder_emb_buf_,
-                                head_num_ * size_per_head_,
-                                request_batch_size,
-                                request_seq_len,
-                                word_size_,
-                                pos_size_,
-                                sent_size_,
-                                ernie_encoder_weights->sent_embedding_table,
-                                ernie_encoder_weights->word_embedding_table,
-                                ernie_encoder_weights->pos_embedding_table,
-                                input_tensors->at("sent_ids").getPtr<int>(),
-                                input_tensors->at("word_ids").getPtr<int>(),
-                                input_tensors->at("pos_ids").getPtr<int>(),
-                                stream_);
-
+    if(!launched_)
+    {
+        if (attention_type_ == AttentionType::UNFUSED_MHA || attention_type_ == AttentionType::FUSED_MHA) {
+            // prevent undefined behavior of the padding parts
+            invokeGetPaddingOffsetErnie(
+                token_num_, padding_offset_, d_seq_len_, request_batch_size_, request_seq_len_, stream_);
+        }
+        invokeEmbeddingLookupConcat(ernie_encoder_emb_buf_,
+                                    head_num_ * size_per_head_,
+                                    request_batch_size_,
+                                    request_seq_len_,
+                                    word_size_,
+                                    pos_size_,
+                                    sent_size_,
+                                    ernie_encoder_weights->sent_embedding_table,
+                                    ernie_encoder_weights->word_embedding_table,
+                                    ernie_encoder_weights->pos_embedding_table,
+                                    d_sent_ids_,
+                                    d_word_ids_,
+                                    d_pos_ids_,
+                                    stream_);
+        
+        if (is_enqueue_init_ && use_cuda_graph_) {
+            if (cuda_graph_pool_.find(cur_graph_key_pre) == cuda_graph_pool_.end()) {
+                cur_graph_ptr_pre->endCapture(stream_);
+                cuda_graph_pool_[cur_graph_key_pre] = cur_graph_ptr_pre;
+                cur_graph_ptr_pre->launch(stream_);
+            }
+        }
+    }
     sync_check_cuda_error();
     
     T*      ernie_encoder_input_ptr;
@@ -513,16 +513,10 @@ void ErnieEncoder<T>::forward(std::unordered_map<std::string, Tensor>*       out
     switch (attention_type_) {
         case AttentionType::UNFUSED_MHA: {
             invokeBuildEncoderAttentionMask(
-                attention_mask_, sequence_lengths, request_batch_size, request_seq_len, stream_);
+                attention_mask_, d_seq_len_, request_batch_size_, request_seq_len_, stream_);
 
             sync_check_cuda_error();
-            invokeGetPaddingOffset(&h_token_num_,
-                                    token_num_,
-                                    padding_offset_,
-                                    sequence_lengths,
-                                    request_batch_size,
-                                    request_seq_len,
-                                    stream_);
+            cudaMemcpyAsync(&h_token_num_, token_num_, sizeof(size_t), cudaMemcpyDeviceToHost, stream_);
             sync_check_cuda_error();
             invokeRemovePadding(ernie_encoder_in_buffer_,
                                 ernie_encoder_emb_buf_,
@@ -540,26 +534,18 @@ void ErnieEncoder<T>::forward(std::unordered_map<std::string, Tensor>*       out
         }
         case AttentionType::UNFUSED_PADDED_MHA: {
             invokeBuildEncoderAttentionMask(
-                attention_mask_, sequence_lengths, request_batch_size, request_seq_len, stream_);
+                attention_mask_, d_seq_len_, request_batch_size_, request_seq_len_, stream_);
 
-            h_token_num_ = request_batch_size * request_seq_len;
+            h_token_num_ = request_batch_size_ * request_seq_len_;
 
             sync_check_cuda_error();
-            h_token_num_               = request_batch_size * request_seq_len;
             ernie_encoder_input_ptr      = ernie_encoder_emb_buf_;
             ernie_encoder_output_ptr     = ernie_layer_out_buffer_;
             padding_offset_tensor_ptr = new Tensor(MEMORY_GPU, TYPE_INT32, std::vector<size_t>{0}, nullptr);
             break;
         }
         case AttentionType::FUSED_MHA: {
-            invokeGetPaddingOffset(&h_token_num_,
-                                    token_num_,
-                                    padding_offset_,
-                                    sequence_lengths,
-                                    request_batch_size,
-                                    request_seq_len,
-                                    stream_);
-
+            cudaMemcpyAsync(&h_token_num_, token_num_, sizeof(size_t), cudaMemcpyDeviceToHost, stream_);
             if (pipeline_para_.rank_ == 0) {
                 invokeRemovePadding(
                     ernie_encoder_in_buffer_, ernie_encoder_emb_buf_, padding_offset_, h_token_num_, d_model_, stream_);
@@ -569,18 +555,18 @@ void ErnieEncoder<T>::forward(std::unordered_map<std::string, Tensor>*       out
             ernie_encoder_input_ptr = ernie_encoder_in_buffer_;
             ernie_encoder_output_ptr = ernie_encoder_out_buffer_;
 
-            invokeGetTrtPaddingOffset(trt_mha_padding_offset_, sequence_lengths, request_batch_size, stream_);
+            invokeGetTrtPaddingOffset(trt_mha_padding_offset_, d_seq_len_, request_batch_size_, stream_);
 
             padding_offset_tensor_ptr = new Tensor(
-                MEMORY_GPU, TYPE_INT32, std::vector<size_t>{request_batch_size + 1}, trt_mha_padding_offset_);
+                MEMORY_GPU, TYPE_INT32, std::vector<size_t>{request_batch_size_ + 1}, trt_mha_padding_offset_);
             break;
         }
         case AttentionType::FUSED_PADDED_MHA: {
-            h_token_num_ = request_batch_size * request_seq_len;
+            h_token_num_ = request_batch_size_ * request_seq_len_;
             invokeGetTrtPaddingOffset(
-                trt_mha_padding_offset_, sequence_lengths, request_batch_size, request_seq_len, stream_);
+                trt_mha_padding_offset_, d_seq_len_, request_batch_size_, request_seq_len_, stream_);
             padding_offset_tensor_ptr = new Tensor(
-                MEMORY_GPU, TYPE_INT32, std::vector<size_t>{request_batch_size * 2 + 1}, trt_mha_padding_offset_);
+                MEMORY_GPU, TYPE_INT32, std::vector<size_t>{request_batch_size_ * 2 + 1}, trt_mha_padding_offset_);
             ernie_encoder_input_ptr = ernie_encoder_emb_buf_;
             ernie_encoder_output_ptr = ernie_layer_out_buffer_;
             break;
@@ -615,12 +601,12 @@ void ErnieEncoder<T>::forward(std::unordered_map<std::string, Tensor>*       out
                         from_tensor},
                 Tensor{MEMORY_GPU,
                         data_type,
-                        std::vector<size_t>{request_batch_size, 1, request_seq_len, request_seq_len},
+                        std::vector<size_t>{request_batch_size_, 1, request_seq_len_, request_seq_len_},
                         attention_mask_},
                 *padding_offset_tensor_ptr,
                 Tensor{MEMORY_GPU,
                         data_type,
-                        std::vector<size_t>{1, head_num_, request_seq_len, request_seq_len},
+                        std::vector<size_t>{1, head_num_, request_seq_len_, request_seq_len_},
                         nullptr}};
             std::vector<Tensor> attn_output_tensors{
                 Tensor{MEMORY_GPU, data_type, std::vector<size_t>{h_token_num_, d_model_}, attn_out_buf_}};
@@ -670,22 +656,22 @@ void ErnieEncoder<T>::forward(std::unordered_map<std::string, Tensor>*       out
         sync_check_cuda_error();
     }
      //postemb
-      invokePostEmbedding(input_tensors->at("multi_ids").getPtr<int>(),
-                               ernie_encoder_weights->multi_field_1,
-                               ernie_encoder_weights->multi_field_3,
-                               ernie_encoder_weights->multi_field_6,
-                               ernie_encoder_weights->multi_field_0,
-                               ernie_encoder_weights->multi_field_5,
-                               ernie_encoder_weights->multi_field_7,
-                               ernie_encoder_weights->multi_field_4,
-                               ernie_encoder_weights->multi_field_2,
-                               post_emb_out_buffer_,
-                               request_batch_size,
-                               stream_fea_);
+      invokePostEmbedding(d_multi_ids_,
+                        ernie_encoder_weights->multi_field_1,
+                        ernie_encoder_weights->multi_field_3,
+                        ernie_encoder_weights->multi_field_6,
+                        ernie_encoder_weights->multi_field_0,
+                        ernie_encoder_weights->multi_field_5,
+                        ernie_encoder_weights->multi_field_7,
+                        ernie_encoder_weights->multi_field_4,
+                        ernie_encoder_weights->multi_field_2,
+                        post_emb_out_buffer_,
+                        request_batch_size_,
+                        stream_fea_);
 
     // MatMul(fea_emb_fc)
     {
-        int m = request_batch_size;
+        int m = request_batch_size_;
         int n = d_model_;
         int k = 160;
         cublas_wrapper_fea_->Gemm(CUBLAS_OP_N,
@@ -704,7 +690,7 @@ void ErnieEncoder<T>::forward(std::unordered_map<std::string, Tensor>*       out
     
     // MatMul(fea_emb_fc2)
     {
-        int m = request_batch_size;
+        int m = request_batch_size_;
         int n = 384;
         int k = d_model_;
         cublas_wrapper_fea_->Gemm(CUBLAS_OP_N,
@@ -723,7 +709,7 @@ void ErnieEncoder<T>::forward(std::unordered_map<std::string, Tensor>*       out
 
     // MatMul(cls_out_aside)
     {
-        int m = request_batch_size;
+        int m = request_batch_size_;
         int n = 1;
         int k = 384;
         cublas_wrapper_fea_->Gemm(CUBLAS_OP_N,
@@ -779,14 +765,25 @@ void ErnieEncoder<T>::forward(std::unordered_map<std::string, Tensor>*       out
 
     delete padding_offset_tensor_ptr;
     // todo postprocess
-    if (is_enqueue_init_ && use_cuda_graph_) {
+    std::string cur_graph_key_post = CudaGraph::AppendShape2Key({POSTGRAPH_IDX,request_batch_size_,request_seq_len_});  
+    CudaGraph* cur_graph_ptr_post = nullptr;
+
+    if (is_enqueue_init_ && false) {
         FT_CHECK(is_free_buffer_after_forward_ == false);
-        cur_graph_ptr_->beginCapture(stream_);
+        if (cuda_graph_pool_.find(cur_graph_key_post) == cuda_graph_pool_.end()) {
+            cur_graph_ptr_post = new CudaGraph();
+            cur_graph_ptr_post->beginCapture(stream_);
+        }
+        else {
+            cur_graph_ptr_post = cuda_graph_pool_[cur_graph_key_post];
+            cur_graph_ptr_post->launch(stream_);
+            return;
+        }
     }
-    invokeSlice(ernie_slice_out_buffer_, ernie_layer_out_buffer_, request_batch_size, request_seq_len, d_model_, stream_);
+    invokeSlice(ernie_slice_out_buffer_, ernie_layer_out_buffer_, request_batch_size_, request_seq_len_, d_model_, stream_);
     // MatMul(pooled_fc_matmul)
     {
-        int m = request_batch_size;
+        int m = request_batch_size_;
         int n = d_model_;
         int k = d_model_;
         cublas_wrapper_->Gemm(CUBLAS_OP_N,
@@ -807,7 +804,7 @@ void ErnieEncoder<T>::forward(std::unordered_map<std::string, Tensor>*       out
 
     // MatMul(cls_out_matmul)
     {
-        int m = request_batch_size;
+        int m = request_batch_size_;
         int n = 1;
         int k = d_model_;
         cublas_wrapper_->Gemm(CUBLAS_OP_N,
@@ -823,87 +820,442 @@ void ErnieEncoder<T>::forward(std::unordered_map<std::string, Tensor>*       out
                               n);
     }
 
-    // todo invokePostEmbedding
-    // invokePostEmbedding(input_tensors->at("multi_ids").getPtr<int>(),
-    //                            ernie_encoder_weights->multi_field_1,
-    //                            ernie_encoder_weights->multi_field_3,
-    //                            ernie_encoder_weights->multi_field_6,
-    //                            ernie_encoder_weights->multi_field_0,
-    //                            ernie_encoder_weights->multi_field_5,
-    //                            ernie_encoder_weights->multi_field_7,
-    //                            ernie_encoder_weights->multi_field_4,
-    //                            ernie_encoder_weights->multi_field_2,
-    //                            post_emb_out_buffer_,
-    //                            request_batch_size,
-    //                            stream_);
-
-    // // MatMul(fea_emb_fc)
-    // {
-    //     int m = request_batch_size;
-    //     int n = d_model_;
-    //     int k = 160;
-    //     cublas_wrapper_->Gemm(CUBLAS_OP_N,
-    //                           CUBLAS_OP_N,
-    //                           n,
-    //                           m,
-    //                           k,
-    //                           ernie_encoder_weights->fea_emb_fc.kernel,
-    //                           n,
-    //                           post_emb_out_buffer_,
-    //                           k,
-    //                           fea_emb_fc_out_buffer_,
-    //                           n);
-    //     invokeAddBiasRelu(fea_emb_fc_out_buffer_, ernie_encoder_weights->fea_emb_fc.bias, m, n, stream_);
-    // }
-    
-    // // MatMul(fea_emb_fc2)
-    // {
-    //     int m = request_batch_size;
-    //     int n = 384;
-    //     int k = d_model_;
-    //     cublas_wrapper_->Gemm(CUBLAS_OP_N,
-    //                           CUBLAS_OP_N,
-    //                           n,
-    //                           m,
-    //                           k,
-    //                           ernie_encoder_weights->fea_emb_fc2.kernel,
-    //                           n,
-    //                           fea_emb_fc_out_buffer_,
-    //                           k,
-    //                           post_emb_out_buffer_,
-    //                           n);
-    //     invokeAddBiasRelu(post_emb_out_buffer_, ernie_encoder_weights->fea_emb_fc2.bias, m, n, stream_);
-    // }
-
-    // // MatMul(cls_out_aside)
-    // {
-    //     int m = request_batch_size;
-    //     int n = 1;
-    //     int k = 384;
-    //     cublas_wrapper_->Gemm(CUBLAS_OP_N,
-    //                           CUBLAS_OP_N,
-    //                           n,
-    //                           m,
-    //                           k,
-    //                           ernie_encoder_weights->cls_out_aside.kernel,
-    //                           n,
-    //                           post_emb_out_buffer_,
-    //                           k,
-    //                           cls_out_aside_buffer_,
-    //                           n);
-    // }
     invokeAddTwoAddBiasSigmoid(cls_out_buffer_,
                                cls_out_aside_buffer_,
                                ernie_encoder_weights->cls_out.bias,
                                ernie_encoder_weights->cls_out_aside.bias,
                                output_tensors->at("attn_out").getPtr<float>(),
-                               request_batch_size,
+                               request_batch_size_,
                                stream_);
 
+    if (is_enqueue_init_ && false) {
+        if (cuda_graph_pool_.find(cur_graph_key_post) == cuda_graph_pool_.end()) {
+            cur_graph_ptr_post->endCapture(stream_);
+            cuda_graph_pool_[cur_graph_key_post] = cur_graph_ptr_post;
+            // NOTE(yuqingding): If we don't rerun the stream, the result will be wrong.  Graph capture will destroy the
+            // result???
+            cur_graph_ptr_post->launch(stream_);
+        }
+    }
+
+    if (is_free_buffer_after_forward_ == true) {
+        freeBuffer();
+    }
+    sync_check_cuda_error();
+    if (!is_enqueue_init_) {
+        is_enqueue_init_ = true;
+    }
+
+}
+template<typename T>
+void ErnieEncoder<T>::forward(const int* h_word_ids_,
+                              const int* h_pos_ids_,
+                              const int* h_sent_ids_,
+                              const int* h_seq_len_,
+                              const int* h_multi_ids_,
+                              const int request_batch_size,
+                              const int request_seq_len,
+                              const ErnieEncoderWeight<T>* ernie_encoder_weights)
+{
+    // input_tensors:
+    //      word_ids [batch, seqlen]
+    //      pos_ids  [batch, seqlen]
+    //      sent_ids [batch, seqlen]
+    //      seq_len     [batch, 1]
+    //      multi_ids   [batch, 8]
+    // output tensors:
+    //      attn_out [batch, 1]
+
+    FT_LOG_DEBUG(__PRETTY_FUNCTION__);
+    FT_CHECK(is_host_ptr_ == true);
+
+    request_batch_size_=request_batch_size;
+    request_seq_len_=request_seq_len;
+    // preprocess (build embedding and layernorm)
+    std::string cur_graph_key_pre = CudaGraph::AppendShape2Key({PREGRAPH_IDX,request_batch_size_,request_seq_len_});  
+    CudaGraph* cur_graph_ptr_pre = nullptr;
+    bool launched_=0;
     if (is_enqueue_init_ && use_cuda_graph_) {
         FT_CHECK(is_free_buffer_after_forward_ == false);
-        cur_graph_ptr_->endCapture(stream_);
-        cur_graph_ptr_->launch(stream_);
+        if (cuda_graph_pool_.find(cur_graph_key_pre) == cuda_graph_pool_.end()) {
+            cur_graph_ptr_pre = new CudaGraph();
+            cur_graph_ptr_pre->beginCapture(stream_);
+        }
+        else {
+            cur_graph_ptr_pre = cuda_graph_pool_[cur_graph_key_pre];
+            cur_graph_ptr_pre ->launch(stream_);
+            launched_=1;
+        }
+    }
+
+    if(!launched_)
+    {
+        cudaAutoCpy(d_word_ids_, h_word_ids_, request_batch_size_ * request_seq_len_, stream_);
+        cudaAutoCpy(d_pos_ids_, h_pos_ids_, request_batch_size_ * request_seq_len_, stream_);
+        cudaAutoCpy(d_sent_ids_, h_sent_ids_, request_batch_size_ * request_seq_len_, stream_);
+        cudaAutoCpy(d_seq_len_, h_seq_len_, request_batch_size_ * 1, stream_);
+        cudaAutoCpy(d_multi_ids_, h_multi_ids_, request_batch_size_ * 8, stream_);
+
+        if (attention_type_ == AttentionType::UNFUSED_MHA || attention_type_ == AttentionType::FUSED_MHA) {
+            // prevent undefined behavior of the padding parts
+            invokeGetPaddingOffsetErnie(
+                token_num_, padding_offset_, d_seq_len_, request_batch_size_, request_seq_len_, stream_);
+        }
+        invokeEmbeddingLookupConcat(ernie_encoder_emb_buf_,
+                                    head_num_ * size_per_head_,
+                                    request_batch_size_,
+                                    request_seq_len_,
+                                    word_size_,
+                                    pos_size_,
+                                    sent_size_,
+                                    ernie_encoder_weights->sent_embedding_table,
+                                    ernie_encoder_weights->word_embedding_table,
+                                    ernie_encoder_weights->pos_embedding_table,
+                                    d_sent_ids_,
+                                    d_word_ids_,
+                                    d_pos_ids_,
+                                    stream_);
+        
+        if (is_enqueue_init_ && use_cuda_graph_) {
+            if (cuda_graph_pool_.find(cur_graph_key_pre) == cuda_graph_pool_.end()) {
+                cur_graph_ptr_pre->endCapture(stream_);
+                cuda_graph_pool_[cur_graph_key_pre] = cur_graph_ptr_pre;
+                cur_graph_ptr_pre->launch(stream_);
+            }
+        }
+    }
+    sync_check_cuda_error();
+    
+    T*      ernie_encoder_input_ptr;
+    T*      ernie_encoder_output_ptr;
+    Tensor* padding_offset_tensor_ptr;
+    // preprocess (remove padding and build mask)
+    switch (attention_type_) {
+        case AttentionType::UNFUSED_MHA: {
+            invokeBuildEncoderAttentionMask(
+                attention_mask_, d_seq_len_, request_batch_size_, request_seq_len_, stream_);
+
+            sync_check_cuda_error();
+            cudaMemcpyAsync(&h_token_num_, token_num_, sizeof(size_t), cudaMemcpyDeviceToHost, stream_);
+            sync_check_cuda_error();
+            invokeRemovePadding(ernie_encoder_in_buffer_,
+                                ernie_encoder_emb_buf_,
+                                padding_offset_,
+                                h_token_num_,
+                                d_model_,
+                                stream_);
+            sync_check_cuda_error();
+            ernie_encoder_input_ptr  = ernie_encoder_in_buffer_;
+            ernie_encoder_output_ptr = ernie_encoder_out_buffer_;
+
+            padding_offset_tensor_ptr =
+                new Tensor(MEMORY_GPU, TYPE_INT32, std::vector<size_t>{h_token_num_}, padding_offset_);
+            break;
+        }
+        case AttentionType::UNFUSED_PADDED_MHA: {
+            invokeBuildEncoderAttentionMask(
+                attention_mask_, d_seq_len_, request_batch_size_, request_seq_len_, stream_);
+
+            h_token_num_ = request_batch_size_ * request_seq_len_;
+
+            sync_check_cuda_error();
+            ernie_encoder_input_ptr      = ernie_encoder_emb_buf_;
+            ernie_encoder_output_ptr     = ernie_layer_out_buffer_;
+            padding_offset_tensor_ptr = new Tensor(MEMORY_GPU, TYPE_INT32, std::vector<size_t>{0}, nullptr);
+            break;
+        }
+        case AttentionType::FUSED_MHA: {
+            cudaMemcpyAsync(&h_token_num_, token_num_, sizeof(size_t), cudaMemcpyDeviceToHost, stream_);
+            if (pipeline_para_.rank_ == 0) {
+                invokeRemovePadding(
+                    ernie_encoder_in_buffer_, ernie_encoder_emb_buf_, padding_offset_, h_token_num_, d_model_, stream_);
+                sync_check_cuda_error();
+            }
+            sync_check_cuda_error();
+            ernie_encoder_input_ptr = ernie_encoder_in_buffer_;
+            ernie_encoder_output_ptr = ernie_encoder_out_buffer_;
+
+            invokeGetTrtPaddingOffset(trt_mha_padding_offset_, d_seq_len_, request_batch_size_, stream_);
+
+            padding_offset_tensor_ptr = new Tensor(
+                MEMORY_GPU, TYPE_INT32, std::vector<size_t>{request_batch_size_ + 1}, trt_mha_padding_offset_);
+            break;
+        }
+        case AttentionType::FUSED_PADDED_MHA: {
+            h_token_num_ = request_batch_size_ * request_seq_len_;
+            invokeGetTrtPaddingOffset(
+                trt_mha_padding_offset_, d_seq_len_, request_batch_size_, request_seq_len_, stream_);
+            padding_offset_tensor_ptr = new Tensor(
+                MEMORY_GPU, TYPE_INT32, std::vector<size_t>{request_batch_size_ * 2 + 1}, trt_mha_padding_offset_);
+            ernie_encoder_input_ptr = ernie_encoder_emb_buf_;
+            ernie_encoder_output_ptr = ernie_layer_out_buffer_;
+            break;
+        }
+        default: {
+            throw std::runtime_error(std::string("[FT][ERROR] Invalid attention type \n"));
+        }
+    }
+
+    invokeGeneralLayerNorm(ernie_encoder_input_ptr,
+                            ernie_encoder_input_ptr,
+                            ernie_encoder_weights->pre_transformer_layernorm_weights.gamma,
+                            ernie_encoder_weights->pre_transformer_layernorm_weights.beta,
+                            layernorm_eps_,
+                            h_token_num_,
+                            d_model_,
+                            stream_);
+    sync_check_cuda_error();
+
+    DataType data_type = getTensorType<T>();
+    
+    for (uint i = 0; i < num_layer_; i++) {
+        T* from_tensor = (i == 0 ? ernie_encoder_input_ptr : ernie_encoder_output_ptr);
+        T* out_tensor  = ernie_encoder_output_ptr;
+
+        // attn
+        {
+            std::vector<Tensor> attn_input_tensors{
+                Tensor{MEMORY_GPU,
+                        data_type,
+                        std::vector<size_t>{h_token_num_, d_model_},
+                        from_tensor},
+                Tensor{MEMORY_GPU,
+                        data_type,
+                        std::vector<size_t>{request_batch_size_, 1, request_seq_len_, request_seq_len_},
+                        attention_mask_},
+                *padding_offset_tensor_ptr,
+                Tensor{MEMORY_GPU,
+                        data_type,
+                        std::vector<size_t>{1, head_num_, request_seq_len_, request_seq_len_},
+                        nullptr}};
+            std::vector<Tensor> attn_output_tensors{
+                Tensor{MEMORY_GPU, data_type, std::vector<size_t>{h_token_num_, d_model_}, attn_out_buf_}};
+
+            attention_layer_[i]->forward(&attn_output_tensors,
+                                        &attn_input_tensors,
+                                        &ernie_encoder_weights->ernie_encoder_layer_weights[i]->attention_weights);
+        }
+        // ln
+        invokeGeneralAddBiasResidualPreLayerNorm(
+            attn_out_buf_,
+            attn_out_buf_,
+            from_tensor,
+            ernie_encoder_weights->ernie_encoder_layer_weights[i]->attn_layernorm_weights.gamma,
+            ernie_encoder_weights->ernie_encoder_layer_weights[i]->attn_layernorm_weights.beta,
+            ernie_encoder_weights->ernie_encoder_layer_weights[i]->attention_weights.attention_output_weight.bias,
+            layernorm_eps_,
+            h_token_num_,
+            d_model_,
+            stream_);
+
+        // FFN
+        {
+            std::vector<Tensor> ffn_input_tensors{
+                Tensor{MEMORY_GPU,
+                        data_type,
+                        std::vector<size_t>{h_token_num_, d_model_},
+                        layernorm_type_ == LayerNormType::pre_layernorm ? normed_attn_out_buf_ : attn_out_buf_}};
+            std::vector<Tensor> ffn_output_tensors{
+                Tensor{MEMORY_GPU, data_type, std::vector<size_t>{h_token_num_, d_model_}, out_tensor}};
+            ffn_layer_[i]->forward(&ffn_output_tensors,
+                                &ffn_input_tensors,
+                                &ernie_encoder_weights->ernie_encoder_layer_weights[i]->ffn_weights);
+        }
+        // ln
+        invokeGeneralAddBiasResidualPreLayerNorm(
+            out_tensor,
+            out_tensor,
+            attn_out_buf_,
+            ernie_encoder_weights->ernie_encoder_layer_weights[i]->ffn_layernorm_weights.gamma,
+            ernie_encoder_weights->ernie_encoder_layer_weights[i]->ffn_layernorm_weights.beta,
+            ernie_encoder_weights->ernie_encoder_layer_weights[i]->ffn_weights.output_weight.bias,
+            layernorm_eps_,
+            h_token_num_,
+            d_model_,
+            stream_);
+        sync_check_cuda_error();
+    }
+     //postemb
+      invokePostEmbedding(d_multi_ids_,
+                        ernie_encoder_weights->multi_field_1,
+                        ernie_encoder_weights->multi_field_3,
+                        ernie_encoder_weights->multi_field_6,
+                        ernie_encoder_weights->multi_field_0,
+                        ernie_encoder_weights->multi_field_5,
+                        ernie_encoder_weights->multi_field_7,
+                        ernie_encoder_weights->multi_field_4,
+                        ernie_encoder_weights->multi_field_2,
+                        post_emb_out_buffer_,
+                        request_batch_size_,
+                        stream_fea_);
+
+    // MatMul(fea_emb_fc)
+    {
+        int m = request_batch_size_;
+        int n = d_model_;
+        int k = 160;
+        cublas_wrapper_fea_->Gemm(CUBLAS_OP_N,
+                              CUBLAS_OP_N,
+                              n,
+                              m,
+                              k,
+                              ernie_encoder_weights->fea_emb_fc.kernel,
+                              n,
+                              post_emb_out_buffer_,
+                              k,
+                              fea_emb_fc_out_buffer_,
+                              n);
+        invokeAddBiasRelu(fea_emb_fc_out_buffer_, ernie_encoder_weights->fea_emb_fc.bias, m, n, stream_fea_);
+    }
+    
+    // MatMul(fea_emb_fc2)
+    {
+        int m = request_batch_size_;
+        int n = 384;
+        int k = d_model_;
+        cublas_wrapper_fea_->Gemm(CUBLAS_OP_N,
+                              CUBLAS_OP_N,
+                              n,
+                              m,
+                              k,
+                              ernie_encoder_weights->fea_emb_fc2.kernel,
+                              n,
+                              fea_emb_fc_out_buffer_,
+                              k,
+                              post_emb_out_buffer_,
+                              n);
+        invokeAddBiasRelu(post_emb_out_buffer_, ernie_encoder_weights->fea_emb_fc2.bias, m, n, stream_fea_);
+    }
+
+    // MatMul(cls_out_aside)
+    {
+        int m = request_batch_size_;
+        int n = 1;
+        int k = 384;
+        cublas_wrapper_fea_->Gemm(CUBLAS_OP_N,
+                              CUBLAS_OP_N,
+                              n,
+                              m,
+                              k,
+                              ernie_encoder_weights->cls_out_aside.kernel,
+                              n,
+                              post_emb_out_buffer_,
+                              k,
+                              cls_out_aside_buffer_,
+                              n);
+    }
+    // exit(0);
+
+    if (pipeline_para_.rank_ == pipeline_para_.world_size_ - 1) {
+        // post process (rebuild padding)
+        switch (attention_type_) {
+            case AttentionType::UNFUSED_MHA: {
+                if (pipeline_para_.rank_ == pipeline_para_.world_size_ - 1) {
+                    invokeRebuildPadding(ernie_layer_out_buffer_,
+                                            ernie_encoder_out_buffer_,
+                                            padding_offset_,
+                                            h_token_num_,
+                                            d_model_,
+                                            stream_);
+                }
+                break;
+            }
+            case AttentionType::UNFUSED_PADDED_MHA: {
+                break;
+            }
+            case AttentionType::FUSED_MHA: {
+                if (pipeline_para_.rank_ == pipeline_para_.world_size_ - 1) {
+                    invokeRebuildPadding(ernie_layer_out_buffer_,
+                                            ernie_encoder_out_buffer_,
+                                            padding_offset_,
+                                            h_token_num_,
+                                            d_model_,
+                                            stream_);
+                }
+                break;
+            }
+            case AttentionType::FUSED_PADDED_MHA: {
+                break;
+            }
+            default: {
+                throw std::runtime_error(std::string("[FT][ERROR] Invalid attention type \n"));
+            }
+        }
+    }
+
+    delete padding_offset_tensor_ptr;
+    // todo postprocess
+    std::string cur_graph_key_post = CudaGraph::AppendShape2Key({POSTGRAPH_IDX,request_batch_size_,request_seq_len_});  
+    CudaGraph* cur_graph_ptr_post = nullptr;
+
+    if (is_enqueue_init_ && false) {
+        FT_CHECK(is_free_buffer_after_forward_ == false);
+        if (cuda_graph_pool_.find(cur_graph_key_post) == cuda_graph_pool_.end()) {
+            cur_graph_ptr_post = new CudaGraph();
+            cur_graph_ptr_post->beginCapture(stream_);
+        }
+        else {
+            cur_graph_ptr_post = cuda_graph_pool_[cur_graph_key_post];
+            cur_graph_ptr_post->launch(stream_);
+            return;
+        }
+    }
+    invokeSlice(ernie_slice_out_buffer_, ernie_layer_out_buffer_, request_batch_size_, request_seq_len_, d_model_, stream_);
+    // MatMul(pooled_fc_matmul)
+    {
+        int m = request_batch_size_;
+        int n = d_model_;
+        int k = d_model_;
+        cublas_wrapper_->Gemm(CUBLAS_OP_N,
+                              CUBLAS_OP_N,
+                              n,
+                              m,
+                              k,
+                              ernie_encoder_weights->pooled_fc.kernel,
+                              n,
+                              ernie_slice_out_buffer_,
+                              k,
+                              ernie_layer_out_buffer_,
+                              n);
+        // Add(pooled_fc_add + tanh)
+        invokeAddBiasTanh(ernie_layer_out_buffer_, ernie_encoder_weights->pooled_fc.bias, m, n, stream_);
+    }
+    
+
+    // MatMul(cls_out_matmul)
+    {
+        int m = request_batch_size_;
+        int n = 1;
+        int k = d_model_;
+        cublas_wrapper_->Gemm(CUBLAS_OP_N,
+                              CUBLAS_OP_N,
+                              n,
+                              m,
+                              k,
+                              ernie_encoder_weights->cls_out.kernel,
+                              n,
+                              ernie_layer_out_buffer_,
+                              k,
+                              cls_out_buffer_,
+                              n);
+    }
+
+    invokeAddTwoAddBiasSigmoid(cls_out_buffer_,
+                               cls_out_aside_buffer_,
+                               ernie_encoder_weights->cls_out.bias,
+                               ernie_encoder_weights->cls_out_aside.bias,
+                               d_attn_out_,
+                               request_batch_size_,
+                               stream_);
+
+    if (is_enqueue_init_ && false) {
+        if (cuda_graph_pool_.find(cur_graph_key_post) == cuda_graph_pool_.end()) {
+            cur_graph_ptr_post->endCapture(stream_);
+            cuda_graph_pool_[cur_graph_key_post] = cur_graph_ptr_post;
+            // NOTE(yuqingding): If we don't rerun the stream, the result will be wrong.  Graph capture will destroy the
+            // result???
+            cur_graph_ptr_post->launch(stream_);
+        }
     }
 
     if (is_free_buffer_after_forward_ == true) {

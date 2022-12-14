@@ -67,10 +67,17 @@ struct ErnieStruct {
     fastertransformer::ActivationType activation_type = fastertransformer::ActivationType::Relu;
     LayerNormType layernorm_type = LayerNormType::post_layernorm;
     // runtime parameter
-    size_t batch_size = 10;
-    size_t seq_len = 128;
+    size_t batch_size = 0;
+    size_t seq_len = 0;
     bool search_gemm = false;
 } g_ernie_struct;
+
+int* HostFill(int size, int value)
+{
+    int* arr = new int[size];
+    std::fill(arr, arr + size, value);
+    return arr;
+}
 
 void split_string(const std::string& str, const std::string& delimiter, std::vector<std::string>& fields)
 {
@@ -204,7 +211,6 @@ void printHelp()
               << "\t<output_data_file>   \tPath of output data file to save.\n"
               << "Options:\n"
               << "\t--help,-h            \tPrint usage information and exit.\n"
-              << "\t--searchGEMM         \tEnable gemm selection.\n"
               << "Examples:\n"
               << "\t ernie_infer 1 model/bin data/label.test.txt label.res.txt\n"
               << std::endl;
@@ -306,7 +312,7 @@ int ernieInference(ErnieStruct ernie_struct, const std::string& ckpt_path, std::
     CHECK_CUSPARSE(cusparseLtInit(&cusparselt_handle));
 #endif
     cublasSetStream(cublas_handle, stream);
-    
+
     // Gemm file selection
     std::string gemmFileName;
     if(ernie_struct.search_gemm)
@@ -345,9 +351,9 @@ int ernieInference(ErnieStruct ernie_struct, const std::string& ckpt_path, std::
         gemmFileName = std::string("gemm_config.in").substr(0, 11) + std::string("-SM") + std::to_string(ernie_struct.sm)
                                + std::string("-FP") + std::to_string(std::is_same<T, half>::value ? 16 : 32) + std::string("-BS")
                                + std::to_string(ernie_struct.max_batch_size) + std::string("-SL") + std::to_string(ernie_struct.max_seq_len)
-                               + std::string("-BM") + std::to_string(ernie_struct.beam_width) + std::string(".in");;
+                               + std::string("-BM") + std::to_string(ernie_struct.beam_width) + std::string(".in");
     }
-    
+
     cublasAlgoMap* cublas_algo_map = new cublasAlgoMap(gemmFileName, "");
 
     Allocator<AllocatorType::CUDA> allocator(getDevice());
@@ -408,65 +414,56 @@ int ernieInference(ErnieStruct ernie_struct, const std::string& ckpt_path, std::
                                             NcclParam(0, 1),  // tensor_para
                                             NcclParam(0, 1)   // pipeline_para
     );
-
+    ernie.setUseGraph(true);
+    ernie.setHostMode(true);
     // five inputs
     int* word_ids;
     int* pos_ids;
     int* sent_ids;
     int* seq_len;
     int* multi_ids;
-    deviceMalloc(&word_ids, ernie_struct.max_batch_size * ernie_struct.max_seq_len, false);
-    deviceMalloc(&pos_ids, ernie_struct.max_batch_size * ernie_struct.max_seq_len, false);
-    deviceMalloc(&sent_ids, ernie_struct.max_batch_size * ernie_struct.max_seq_len, false);
-    deviceMalloc(&seq_len, ernie_struct.max_batch_size * 1, false);
-    deviceMalloc(&multi_ids, ernie_struct.max_batch_size * 8, false);
+    cudaHostAlloc(&word_ids, ernie_struct.max_batch_size * ernie_struct.max_seq_len * sizeof(int), cudaHostAllocWriteCombined);
+    cudaHostAlloc(&pos_ids, ernie_struct.max_batch_size * ernie_struct.max_seq_len * sizeof(int), cudaHostAllocWriteCombined);
+    cudaHostAlloc(&sent_ids, ernie_struct.max_batch_size * ernie_struct.max_seq_len * sizeof(int), cudaHostAllocWriteCombined);
+    cudaHostAlloc(&seq_len, ernie_struct.max_batch_size * 1 * sizeof(int), cudaHostAllocWriteCombined);
+    cudaHostAlloc(&multi_ids, ernie_struct.max_batch_size * 8 * sizeof(int), cudaHostAllocWriteCombined);
+
     // one output
     float* attn_out;
     deviceMalloc(&attn_out, ernie_struct.max_batch_size * 1, false);
 
-    //warmup
-    unsigned int seed               = 0;
+    // //warmup
+    // unsigned int seed               = 0;
     for (size_t i = 0; i < 10; i++)
     {
        for(size_t j=1;j<129;j++)
        {
-             std::unordered_map<std::string, Tensor> inputTensor{
-            {"word_ids", Tensor{MEMORY_GPU, TYPE_INT32, std::vector<size_t>{i+1, j}, (int*)word_ids}},
-            {"pos_ids", Tensor{MEMORY_GPU, TYPE_INT32, std::vector<size_t>{i+1, j}, (int*)pos_ids}},
-            {"sent_ids", Tensor{MEMORY_GPU, TYPE_INT32, std::vector<size_t>{i+1, j}, (int*)sent_ids}},
-            {"seq_len", Tensor{MEMORY_GPU, TYPE_INT32, std::vector<size_t>{i+1, 1}, (int*)seq_len}},
-            {"multi_ids", Tensor{MEMORY_GPU, TYPE_INT32, std::vector<size_t>{i+1, 8}, (int*)multi_ids}}};
-
-            std::unordered_map<std::string, Tensor> outputTensor{
-                {"attn_out", Tensor{MEMORY_GPU, TYPE_FP32, std::vector<size_t>{i+1, 1}, (float*)attn_out}}};
-            deviceFill(word_ids, (i+1) * j, 1, stream);
-            deviceFill(pos_ids, (i+1) * j, 2, stream);
-            deviceFill(sent_ids, (i+1) * j, 3, stream);
-            deviceFill(seq_len, (i+1), (int)j, stream);
-            deviceFill(multi_ids, (i+1) * 8, 1, stream);
-            ernie.forward(&outputTensor, &inputTensor, &ernie_weights);
+            auto temp1=HostFill((i+1) * j, 1);
+            memcpy(word_ids,temp1,(i+1) * j*sizeof(int));
+            auto temp2=HostFill((i+1) * j, 2);
+            memcpy(pos_ids,temp2,(i+1) * j*sizeof(int));
+            auto temp3=HostFill((i+1) * j, 3);
+            memcpy(sent_ids,temp3,(i+1) * j*sizeof(int));
+            auto temp4=HostFill((i+1), (int)j);
+            memcpy(seq_len,temp4,(i+1) * sizeof(int));
+            auto temp5=HostFill((i+1) * 8, 1);
+            memcpy(multi_ids,temp5,(i+1) * 8*sizeof(int));
+            ernie.forward(word_ids, pos_ids, sent_ids, seq_len, multi_ids, i+1, j, &ernie_weights);
        }   
     }
     
 
     // inference
     for (auto& s : sample_vec) {
-        std::unordered_map<std::string, Tensor> inputTensor{
-            {"word_ids", Tensor{MEMORY_GPU, TYPE_INT32, std::vector<size_t>{s.batchsize, s.shape_info_0[1]}, (int*)word_ids}},
-            {"pos_ids", Tensor{MEMORY_GPU, TYPE_INT32, std::vector<size_t>{s.batchsize, s.shape_info_1[1]}, (int*)pos_ids}},
-            {"sent_ids", Tensor{MEMORY_GPU, TYPE_INT32, std::vector<size_t>{s.batchsize, s.shape_info_2[1]}, (int*)sent_ids}},
-            {"seq_len", Tensor{MEMORY_GPU, TYPE_INT32, std::vector<size_t>{s.batchsize, 1}, (int*)seq_len}},
-            {"multi_ids", Tensor{MEMORY_GPU, TYPE_INT32, std::vector<size_t>{s.batchsize, 8}, (int*)multi_ids}}};
 
-        std::unordered_map<std::string, Tensor> outputTensor{
-            {"attn_out", Tensor{MEMORY_GPU, TYPE_FP32, std::vector<size_t>{s.batchsize, 1}, (float*)attn_out}}};
-        cudaAutoCpy(word_ids, s.i0.data(), s.size0, stream);
-        cudaAutoCpy(pos_ids, s.i1.data(), s.size1, stream);
-        cudaAutoCpy(sent_ids, s.i2.data(), s.size2, stream);
-        cudaAutoCpy(seq_len, s.i3.data(), s.size3, stream);
-        cudaAutoCpy(multi_ids, s.i4.data(), s.size4, stream);
-        ernie.forward(&outputTensor, &inputTensor, &ernie_weights);
-        cudaAutoCpy(s.out_data.data(), attn_out, s.batchsize, stream);
+        memcpy(word_ids, s.i0.data(), s.size0 * sizeof(int));
+        memcpy(pos_ids, s.i1.data(), s.size1 * sizeof(int));
+        memcpy(sent_ids, s.i2.data(), s.size2 * sizeof(int));
+        memcpy(seq_len, s.i3.data(), s.size3 * sizeof(int));
+        memcpy(multi_ids, s.i4.data(), s.size4 * sizeof(int));
+
+        ernie.forward(word_ids, pos_ids, sent_ids, seq_len, multi_ids, s.batchsize, s.shape_info_0[1], &ernie_weights);
+        ernie.copyToCpu(s.out_data.data(), s.batchsize);
 
         struct timeval tv;
         gettimeofday(&tv, NULL);
@@ -476,12 +473,15 @@ int ernieInference(ErnieStruct ernie_struct, const std::string& ckpt_path, std::
 #ifdef SPARSITY_ENABLED
     cusparseLtDestroy(&cusparselt_handle);
 #endif
-    deviceFree(word_ids);
-    deviceFree(pos_ids);
-    deviceFree(sent_ids);
-    deviceFree(seq_len);
-    deviceFree(multi_ids);
+
+    cudaFreeHost(word_ids);
+    cudaFreeHost(pos_ids);
+    cudaFreeHost(sent_ids);
+    cudaFreeHost(seq_len);
+    cudaFreeHost(multi_ids);
+
     deviceFree(attn_out);
+
     delete cublas_algo_map;
     delete cublas_wrapper_mutex;
     return 0;

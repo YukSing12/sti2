@@ -1,4 +1,5 @@
 CUR_DIR=`pwd`
+
 rm -rf build
 mkdir -p build
 
@@ -21,4 +22,4 @@ cmake \
 make -j$(nproc) 
 cp ${CUR_DIR}/build/lib/libErniePlugin.so ${STI2_ROOT}/so/plugins/libErniePlugin.so
 cp ${CUR_DIR}/build/bin/ernie_infer ${STI2_ROOT}/bin
-
+cp ${CUR_DIR}/build/bin/ernie_infer_graph ${STI2_ROOT}/bin

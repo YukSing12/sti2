@@ -52,4 +52,11 @@ void invokeAddTwoAddBiasSigmoid(const T* input0,
                                 float* output,
                                 const int batch_size,
                                 cudaStream_t stream);
+void invokeGetPaddingOffsetErnie(size_t*      d_token_num,
+                                int*         tmp_mask_offset,
+                                const int*   sequence_lengths,
+                                const int    batch_size,
+                                const int    max_seq_len,
+                                cudaStream_t stream);
+
 }  // namespace fastertransformer
