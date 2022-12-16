@@ -13,11 +13,7 @@
 # limitations under the License.
 
 
-add_executable(ernie_infer_graph ernie_infer_graph.cc  ErnieGemm.cc)
-add_executable(ernie_infer ernie_infer.cc ErnieGemm.cc)
-if (SPARSITY_SUPPORT)
-target_link_libraries(ernie_infer PUBLIC -lcublas -lcublasLt -lcudart -lcusparse -lcusparseLt Ernie encoder_gemm_func encoder_igemm_func)
-else()
-target_link_libraries(ernie_infer_graph PUBLIC -lcublas -lcublasLt -lcudart Ernie encoder_gemm_func encoder_igemm_func)
+add_executable(ernie_infer ernie_infer.cc ErnieGemm.cc ErnieEngine.cpp)
+
 target_link_libraries(ernie_infer PUBLIC -lcublas -lcublasLt -lcudart Ernie encoder_gemm_func encoder_igemm_func)
-endif()
+

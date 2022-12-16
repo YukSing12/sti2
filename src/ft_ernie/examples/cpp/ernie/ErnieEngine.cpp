@@ -2,7 +2,9 @@
 
 using namespace fastertransformer;
 
-ErnieEngine::ErnieEngine(const CublasDataType data_type, const std::string& ckpt_path): data_type_(data_type)
+template<typename T>
+ErnieEngine<T>::ErnieEngine(const std::string& ckpt_path, const bool int8_mode, const bool useCudaGraph):
+    int8_mode_(int8_mode), useCudaGraph_(useCudaGraph)
 {
     struct cudaDeviceProp prop;
     cudaGetDeviceProperties(&prop, 0);
@@ -15,175 +17,133 @@ ErnieEngine::ErnieEngine(const CublasDataType data_type, const std::string& ckpt
     CHECK_CUSPARSE(cusparseLtInit(&cusparselt_handle_));
 #endif
     cublasSetStream(cublas_handle_, stream_);
-
-    cublas_algo_map_ = new cublasAlgoMap("gemm_config.in", "");
+    std::string gemmFileName = std::string("gemm_config.in").substr(0, 11) + std::string("-SM") + std::to_string(m_.sm)
+                               + std::string("-FP") + std::to_string(std::is_same<T, half>::value ? 16 : 32)
+                               + std::string("-BS") + std::to_string(m_.max_batch_size) + std::string("-SL")
+                               + std::to_string(m_.max_seq_len) + std::string("-BM") + std::to_string(m_.beam_width)
+                               + std::string(".in");
+    std::ifstream infile(gemmFileName);
+    if (infile.good()) {
+        printf("[INFO] Gemm file exist!\n");
+    }
+    else {
+        printf("[Warning] Gemm file do not exist!\n");
+        for (size_t b = 1; b <= m_.max_batch_size; b++) {
+            for (size_t l = 16; l <= m_.max_seq_len; l++) {
+                int argv[8] = {
+                    0,
+                    (int)b,
+                    (int)l,  // seq_len, in case of OOM
+                    (int)m_.head_num,
+                    (int)m_.size_per_head,
+                    std::is_same<T, half>::value ? 1 : 0,  // // 0 FP32, 1 FP16
+                    (int)int8_mode_,                       // int8 mode
+                    1,                                     // tensor_para_size
+                };
+                ernie_gemm(argv);
+            }
+        }
+        rename(std::string("gemm_config.in").c_str(), gemmFileName.c_str());
+    }
+    cublas_algo_map_ = new cublasAlgoMap(gemmFileName, "");
     allocator_ = new Allocator<AllocatorType::CUDA>(getDevice());
     cublas_wrapper_mutex_ = new std::mutex();
 
 #ifdef SPARSITY_ENABLED
-    cublas_wrapper_ = new cublasMMWrapper(
-        cublas_handle_, cublaslt_handle_, cusparselt_handle_, stream_, cublas_algo_map_, cublas_wrapper_mutex_, allocator_);
+    cublas_wrapper_ = new cublasMMWrapper(cublas_handle_,
+                                          cublaslt_handle_,
+                                          cusparselt_handle_,
+                                          stream_,
+                                          cublas_algo_map_,
+                                          cublas_wrapper_mutex_,
+                                          allocator_);
 #else
-    cublas_wrapper_ =
-        new cublasMMWrapper(cublas_handle_, cublaslt_handle_, stream_, cublas_algo_map_, cublas_wrapper_mutex_, allocator_);
+    cublas_wrapper_ = new cublasMMWrapper(
+        cublas_handle_, cublaslt_handle_, stream_, cublas_algo_map_, cublas_wrapper_mutex_, allocator_);
 #endif
-    if (data_type_ == HALF_DATATYPE) {
-        FT_LOG_INFO("FP16");
+
+    if (std::is_same<T, half>::value) {
         cublas_wrapper_->setFP16GemmConfig();
-        ernie_weights_half_ = new ErnieWeight<half>(m_.head_num,
-                                                          m_.size_per_head,
-                                                          m_.d_model,
-                                                          m_.inter_size,
-                                                          m_.vocab_size,
-                                                          m_.pos_size,
-                                                          m_.sent_vocab_size,
-                                                          m_.num_layer);
-
-        m_.attention_type =
-            getAttentionType<half>(m_.size_per_head, getSMVersion(), m_.is_remove_padding, m_.max_seq_len, true);
-        ernie_weights_half_->loadModel(ckpt_path);
-
-        ernie_half_ = new Ernie<half>(m_.max_batch_size,
-                                            m_.max_seq_len,
-                                            m_.head_num,
-                                            m_.size_per_head,
-                                            m_.inter_size,
-                                            m_.d_model,
-                                            m_.num_layer,
-                                            m_.vocab_size,
-                                            m_.pos_size,
-                                            m_.sent_vocab_size,
-                                            m_.sm,
-                                            m_.q_scaling,
-                                            stream_,  // stream_ placeholder
-                                            cublas_wrapper_,
-                                            allocator_,
-                                            m_.is_free_buffer_after_forward,
-                                            m_.attention_type,
-                                            m_.is_sparse,
-                                            m_.activation_type,
-                                            m_.layernorm_type,
-                                            NcclParam(0, 1),  // tensor_para
-                                            NcclParam(0, 1)   // pipeline_para
-        );
-    }
-#ifdef ENABLE_BF16
-    else if (data_type_ == BFLOAT16_DATATYPE) {
-        FT_LOG_INFO("BF16");
-        cublas_wrapper_->setBF16GemmConfig();
-        ernie_weights_bfloat_ = new ErnieWeight<__nv_bfloat16>(m_.head_num,
-                                                                     m_.size_per_head,
-                                                                     m_.d_model,
-                                                                     m_.inter_size,
-                                                                     m_.vocab_size,
-                                                                     m_.pos_size,
-                                                                     m_.sent_vocab_size,
-                                                                     m_.num_layer);
-
-        m_.attention_type = getAttentionType<__nv_bfloat16>(
-            m_.size_per_head, getSMVersion(), m_.is_remove_padding, m_.max_seq_len, true);
-        ernie_weights_bfloat_->loadModel(ckpt_path);
-
-        ernie_bfloat_ = new Ernie<__nv_bfloat16>(m_.max_batch_size,
-                                                       m_.max_seq_len,
-                                                       m_.head_num,
-                                                       m_.size_per_head,
-                                                       m_.inter_size,
-                                                       m_.d_model,
-                                                       m_.num_layer,
-                                                       m_.vocab_size,
-                                                       m_.pos_size,
-                                                       m_.sent_vocab_size,
-                                                       m_.sm,
-                                                       m_.q_scaling,
-                                                       stream_,  // stream_ placeholder
-                                                       cublas_wrapper_,
-                                                       allocator_,
-                                                       m_.is_free_buffer_after_forward,
-                                                       m_.attention_type,
-                                                       m_.is_sparse,
-                                                       m_.activation_type,
-                                                       m_.layernorm_type,
-                                                       NcclParam(0, 1),  // tensor_para
-                                                       NcclParam(0, 1)   // pipeline_para
-        );
-    }
-#endif
-    else if (data_type_ == FLOAT_DATATYPE) {
-        FT_LOG_INFO("FP32");
-        cublas_wrapper_->setFP32GemmConfig();
-        ernie_weights_float_ = new ErnieWeight<float>(m_.head_num,
-                                                            m_.size_per_head,
-                                                            m_.d_model,
-                                                            m_.inter_size,
-                                                            m_.vocab_size,
-                                                            m_.pos_size,
-                                                            m_.sent_vocab_size,
-                                                            m_.num_layer);
-
-        m_.attention_type =
-            getAttentionType<float>(m_.size_per_head, getSMVersion(), m_.is_remove_padding, m_.max_seq_len, true);
-        ernie_weights_float_->loadModel(ckpt_path);
-
-        ernie_float_ = new Ernie<float>(m_.max_batch_size,
-                                              m_.max_seq_len,
-                                              m_.head_num,
-                                              m_.size_per_head,
-                                              m_.inter_size,
-                                              m_.d_model,
-                                              m_.num_layer,
-                                              m_.vocab_size,
-                                              m_.pos_size,
-                                              m_.sent_vocab_size,
-                                              m_.sm,
-                                              m_.q_scaling,
-                                              stream_,  // stream_ placeholder
-                                              cublas_wrapper_,
-                                              allocator_,
-                                              m_.is_free_buffer_after_forward,
-                                              m_.attention_type,
-                                              m_.is_sparse,
-                                              m_.activation_type,
-                                              m_.layernorm_type,
-                                              NcclParam(0, 1),  // tensor_para
-                                              NcclParam(0, 1)   // pipeline_para
-        );
     }
     else {
-        throw std::runtime_error(std::string("[FT][ERROR] data_type should be 0 (use float)"
-                                             "or 1 (use half). \n "));
+        cublas_wrapper_->setFP32GemmConfig();
     }
+
+    ernie_weights_ = new ErnieWeight<T>(m_.head_num,
+                                        m_.size_per_head,
+                                        m_.d_model,
+                                        m_.inter_size,
+                                        m_.vocab_size,
+                                        m_.pos_size,
+                                        m_.sent_vocab_size,
+                                        m_.num_layer);
+
+    m_.attention_type =
+        getAttentionType<T>(m_.size_per_head, getSMVersion(), m_.is_remove_padding, m_.max_seq_len, true);
+    ernie_weights_->loadModel(ckpt_path);
+
+    ernie_ = new Ernie<T>(m_.max_batch_size,
+                          m_.max_seq_len,
+                          m_.head_num,
+                          m_.size_per_head,
+                          m_.inter_size,
+                          m_.d_model,
+                          m_.num_layer,
+                          m_.vocab_size,
+                          m_.pos_size,
+                          m_.sent_vocab_size,
+                          m_.sm,
+                          m_.q_scaling,
+                          stream_,  // stream_ placeholder
+                          cublas_wrapper_,
+                          allocator_,
+                          m_.is_free_buffer_after_forward,
+                          m_.attention_type,
+                          m_.is_sparse,
+                          m_.activation_type,
+                          m_.layernorm_type,
+                          NcclParam(0, 1),  // tensor_para
+                          NcclParam(0, 1)   // pipeline_para
+    );
+    ernie_->setUseGraph(useCudaGraph_);
+    ernie_->setHostMode(true);
 }
 
-ErnieEngine::~ErnieEngine()
+template<typename T>
+ErnieEngine<T>::~ErnieEngine()
 {
+    if (ernie_weights_ != nullptr) {
+        delete ernie_weights_;
+    }
+    if (ernie_ != nullptr) {
+        delete ernie_;
+    }
 #ifdef SPARSITY_ENABLED
     cusparseLtDestroy(&cusparselt_handle_);
 #endif
     delete cublas_algo_map_;
+    delete cublas_wrapper_;
     delete cublas_wrapper_mutex_;
+    delete allocator_;
 }
 
-void ErnieEngine::Run(std::unordered_map<std::string, Tensor>* output_tensors, const std::unordered_map<std::string, Tensor>* input_tensors)
+template<typename T>
+void ErnieEngine<T>::run(const int* h_word_ids_,
+                         const int* h_pos_ids_,
+                         const int* h_sent_ids_,
+                         const int* h_seq_len_,
+                         const int* h_multi_ids_,
+                         const int request_batch_size,
+                         const int request_seq_len)
 {
-    if (data_type_ == HALF_DATATYPE) {
-        ernie_half_->forward(output_tensors, input_tensors, ernie_weights_half_);
-    }
-#ifdef ENABLE_BF16
-    else if (data_type_ == BFLOAT16_DATATYPE) {
-        ernie_bfloat_->forward(output_tensors, input_tensors, ernie_weights_bfloat_);
-    }
-#endif
-    else if (data_type_ == FLOAT_DATATYPE) {
-        ernie_float_->forward(output_tensors, input_tensors, ernie_weights_float_);
-    }
-    else {
-        throw std::runtime_error(std::string("[FT][ERROR] data_type should be 0 (use float)"
-                                             "or 1 (use half). \n "));
-    }
+    ernie_->forward(h_word_ids_, h_pos_ids_, h_sent_ids_, h_seq_len_, h_multi_ids_, request_batch_size, request_seq_len, ernie_weights_);
 }
 
-cudaStream_t ErnieEngine::GetStream()
+template<typename T>
+void ErnieEngine<T>::copyToCpu(float* h_attn_out, const int request_batch_size)
 {
-    return stream_;
+    ernie_->copyToCpu(h_attn_out, request_batch_size);
 }
+
+template class ErnieEngine<float>;
+template class ErnieEngine<half>;

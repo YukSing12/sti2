@@ -1,20 +1,21 @@
 #pragma once
+#include "ErnieGemm.h"
 #include "src/fastertransformer/models/ernie/Ernie.h"
 #include "src/fastertransformer/models/ernie/ErnieWeight.h"
 #include "src/fastertransformer/utils/Tensor.h"
 #include "src/fastertransformer/utils/cuda_utils.h"
-#include <NvInfer.h>
 #include <cstdio>
 #include <cstring>
 #include <cublasLt.h>
 #include <cublas_v2.h>
 #include <cuda.h>
 #include <cuda_fp16.h>
-#include <vector>
 #include <unordered_map>
+#include <vector>
 
 using namespace fastertransformer;
 
+template<typename T>
 class ErnieEngine {
 private:
     cudaStream_t stream_;
@@ -27,15 +28,13 @@ private:
     Allocator<AllocatorType::CUDA>* allocator_ = nullptr;
     std::mutex* cublas_wrapper_mutex_ = nullptr;
     cublasMMWrapper* cublas_wrapper_ = nullptr;
-    CublasDataType data_type_;
 
-    ErnieWeight<half>* ernie_weights_half_ = nullptr;
-    ErnieWeight<float>* ernie_weights_float_ = nullptr;
-    ErnieWeight<__nv_bfloat16>* ernie_weights_bfloat_ = nullptr;
+    ErnieWeight<T>* ernie_weights_ = nullptr;
 
-    Ernie<half>* ernie_half_ = nullptr;
-    Ernie<float>* ernie_float_ = nullptr;
-    Ernie<__nv_bfloat16>* ernie_bfloat_ = nullptr;
+    Ernie<T>* ernie_ = nullptr;
+
+    bool int8_mode_ = false;
+    bool useCudaGraph_ = false;
     struct {
         // constructor parameter
         size_t max_batch_size = 10;
@@ -64,13 +63,31 @@ private:
     } m_;
 
 public:
-    explicit ErnieEngine(const CublasDataType data_type, const std::string& ckpt_path);
+    ErnieEngine(const std::string& ckpt_path, const bool int8_mode, const bool useCudaGraph);
     ErnieEngine() = delete;
     ErnieEngine(const ErnieEngine&) = delete;
     ErnieEngine& operator=(const ErnieEngine&) = delete;
 
     ~ErnieEngine();
 
-    void Run(std::unordered_map<std::string, Tensor>* output_tensors, const std::unordered_map<std::string, Tensor>* input_tensors);
-    cudaStream_t GetStream();
+    void run(const int* h_word_ids_,
+             const int* h_pos_ids_,
+             const int* h_sent_ids_,
+             const int* h_seq_len_,
+             const int* h_multi_ids_,
+             const int request_batch_size,
+             const int request_seq_len);
+    void copyToCpu(float* h_attn_out, const int request_batch_size);
+    cudaStream_t getStream()
+    {
+        return stream_;
+    }
+    size_t getMaxBatch() const
+    {
+        return m_.max_batch_size;
+    }
+    size_t getMaxSeqLen() const
+    {
+        return m_.max_seq_len;
+    }
 };
