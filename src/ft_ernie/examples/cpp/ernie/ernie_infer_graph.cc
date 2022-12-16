@@ -1,5 +1,5 @@
-#include "src/fastertransformer/models/ernie/ErnieEncoder.h"
-#include "src/fastertransformer/models/ernie/ErnieEncoderWeight.h"
+#include "src/fastertransformer/models/ernie/Ernie.h"
+#include "src/fastertransformer/models/ernie/ErnieWeight.h"
 #include "ErnieGemm.h"
 #include "src/fastertransformer/utils/Tensor.h"
 #include "src/fastertransformer/utils/logger.h"
@@ -378,7 +378,7 @@ int ernieInference(ErnieStruct ernie_struct, const std::string& ckpt_path, std::
         cublas_wrapper.setFP32GemmConfig();
     }
 
-    ErnieEncoderWeight<T> ernie_weights(ernie_struct.head_num,
+    ErnieWeight<T> ernie_weights(ernie_struct.head_num,
                                         ernie_struct.size_per_head,
                                         ernie_struct.d_model,
                                         ernie_struct.inter_size,
@@ -391,7 +391,7 @@ int ernieInference(ErnieStruct ernie_struct, const std::string& ckpt_path, std::
         ernie_struct.size_per_head, getSMVersion(), ernie_struct.is_remove_padding, ernie_struct.max_seq_len, true);
     ernie_weights.loadModel(ckpt_path);
 
-    ErnieEncoder<T> ernie = ErnieEncoder<T>(ernie_struct.max_batch_size,
+    Ernie<T> ernie = Ernie<T>(ernie_struct.max_batch_size,
                                             ernie_struct.max_seq_len,
                                             ernie_struct.head_num,
                                             ernie_struct.size_per_head,

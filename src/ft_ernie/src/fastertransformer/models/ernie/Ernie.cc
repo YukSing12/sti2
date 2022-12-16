@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "src/fastertransformer/models/ernie/ErnieEncoder.h"
+#include "src/fastertransformer/models/ernie/Ernie.h"
 #include "src/fastertransformer/kernels/add_residual_kernels.h"
 #include "src/fastertransformer/kernels/decoding_kernels.h"
 #include "src/fastertransformer/kernels/ernie_kernels.h"
@@ -26,7 +26,7 @@
 namespace fastertransformer {
 
 template<typename T>
-void ErnieEncoder<T>::initialize()
+void Ernie<T>::initialize()
 {   
     cudaStreamCreate(&stream_fea_);
     cublasCreate(&cublas_handle_fea_);
@@ -156,7 +156,7 @@ void ErnieEncoder<T>::initialize()
 }
 
 template<typename T>
-ErnieEncoder<T>::ErnieEncoder(size_t                              max_batch_size,
+Ernie<T>::Ernie(size_t                              max_batch_size,
                         size_t                              max_seq_len,
                         size_t                              head_num,
                         size_t                              size_per_head,
@@ -207,7 +207,7 @@ ErnieEncoder<T>::ErnieEncoder(size_t                              max_batch_size
 }
 
 template<typename T>
-ErnieEncoder<T>::ErnieEncoder(ErnieEncoder<T> const& ernie_encoder):
+Ernie<T>::Ernie(Ernie<T> const& ernie_encoder):
     BaseLayer(ernie_encoder),
     max_batch_size_(ernie_encoder.max_batch_size_),
     max_seq_len_(ernie_encoder.max_seq_len_),
@@ -235,7 +235,7 @@ ErnieEncoder<T>::ErnieEncoder(ErnieEncoder<T> const& ernie_encoder):
 }
 
 template<typename T>
-ErnieEncoder<T>::~ErnieEncoder()
+Ernie<T>::~Ernie()
 {
     FT_LOG_DEBUG(__PRETTY_FUNCTION__);
     for (auto& it : cuda_graph_pool_)
@@ -253,7 +253,7 @@ ErnieEncoder<T>::~ErnieEncoder()
     freeBuffer();
 }
 template<typename T>
-void ErnieEncoder<T>::setStream(cudaStream_t stream)
+void Ernie<T>::setStream(cudaStream_t stream)
 {
     
     for(size_t i=0;i<num_layer_;i++)
@@ -265,7 +265,7 @@ void ErnieEncoder<T>::setStream(cudaStream_t stream)
 }
 
 template<typename T>
-void ErnieEncoder<T>::allocateBuffer()
+void Ernie<T>::allocateBuffer()
 {
     if (is_allocate_buffer_ == false) {
         allocateBuffer(max_batch_size_,max_seq_len_);
@@ -274,7 +274,7 @@ void ErnieEncoder<T>::allocateBuffer()
 }
 
 template<typename T>
-void ErnieEncoder<T>::allocateBuffer(size_t batch_size, size_t seq_len)
+void Ernie<T>::allocateBuffer(size_t batch_size, size_t seq_len)
 {
     FT_LOG_DEBUG(__PRETTY_FUNCTION__);
     token_num_      = (size_t*)allocator_->reMalloc(token_num_, sizeof(size_t) * 1, false);
@@ -319,7 +319,7 @@ void ErnieEncoder<T>::allocateBuffer(size_t batch_size, size_t seq_len)
 }
 
 template<typename T>
-void ErnieEncoder<T>::freeBuffer()
+void Ernie<T>::freeBuffer()
 {
     if (is_allocate_buffer_) {
         if(is_host_ptr_)
@@ -361,7 +361,7 @@ void ErnieEncoder<T>::freeBuffer()
 }
 
 template<typename T>
-bool ErnieEncoder<T>::isValidLayerParallelId(uint l)
+bool Ernie<T>::isValidLayerParallelId(uint l)
 {
     int local_num_layer = (int)(ceil(num_layer_ * 1.0f / pipeline_para_.world_size_));
     return l < num_layer_ && (l >= local_num_layer * pipeline_para_.rank_)
@@ -369,34 +369,34 @@ bool ErnieEncoder<T>::isValidLayerParallelId(uint l)
 }
 
 template<typename T>
-bool ErnieEncoder<T>::isFirstLayerParallelId(uint l)
+bool Ernie<T>::isFirstLayerParallelId(uint l)
 {
     int local_num_layer = (int)(ceil(num_layer_ * 1.0f / pipeline_para_.world_size_));
     return l < num_layer_ && (l == local_num_layer * pipeline_para_.rank_);
 }
 
 template<typename T>
-bool ErnieEncoder<T>::isLastLayerParallelId(uint l)
+bool Ernie<T>::isLastLayerParallelId(uint l)
 {
     int local_num_layer = (int)(ceil(num_layer_ * 1.0f / pipeline_para_.world_size_));
     return l < num_layer_ && (l == local_num_layer * (pipeline_para_.rank_ + 1) - 1);
 }
 
 template<typename T>
-int ErnieEncoder<T>::getFirstLayerParallelId()
+int Ernie<T>::getFirstLayerParallelId()
 {
     int local_num_layer = (int)(ceil(num_layer_ * 1.0f / pipeline_para_.world_size_));
     return local_num_layer * pipeline_para_.rank_;
 }
 template<typename T>
-void ErnieEncoder<T>::copyToCpu(float* h_attn_out_, const int request_batch_size)
+void Ernie<T>::copyToCpu(float* h_attn_out_, const int request_batch_size)
 {
     cudaAutoCpy(h_attn_out_, d_attn_out_, request_batch_size, stream_);
 }
 template<typename T>
-void ErnieEncoder<T>::forward(std::vector<Tensor>*       output_tensors,
+void Ernie<T>::forward(std::vector<Tensor>*       output_tensors,
                            const std::vector<Tensor>* input_tensors,
-                           const ErnieEncoderWeight<T>*  ernie_encoder_weights)
+                           const ErnieWeight<T>*  ernie_encoder_weights)
 {
     // input_tensors:
     //      word_ids [batch, seqlen]
@@ -417,9 +417,9 @@ void ErnieEncoder<T>::forward(std::vector<Tensor>*       output_tensors,
 }
 
 template<typename T>
-void ErnieEncoder<T>::forward(std::unordered_map<std::string, Tensor>*       output_tensors,
+void Ernie<T>::forward(std::unordered_map<std::string, Tensor>*       output_tensors,
                            const std::unordered_map<std::string, Tensor>*    input_tensors,
-                           const ErnieEncoderWeight<T>*                      ernie_encoder_weights)
+                           const ErnieWeight<T>*                      ernie_encoder_weights)
 {
     // input_tensors:
     //      word_ids [batch, seqlen]
@@ -848,14 +848,14 @@ void ErnieEncoder<T>::forward(std::unordered_map<std::string, Tensor>*       out
 
 }
 template<typename T>
-void ErnieEncoder<T>::forward(const int* h_word_ids_,
+void Ernie<T>::forward(const int* h_word_ids_,
                               const int* h_pos_ids_,
                               const int* h_sent_ids_,
                               const int* h_seq_len_,
                               const int* h_multi_ids_,
                               const int request_batch_size,
                               const int request_seq_len,
-                              const ErnieEncoderWeight<T>* ernie_encoder_weights)
+                              const ErnieWeight<T>* ernie_encoder_weights)
 {
     // input_tensors:
     //      word_ids [batch, seqlen]
@@ -1267,10 +1267,10 @@ void ErnieEncoder<T>::forward(const int* h_word_ids_,
     }
 }
 
-template class ErnieEncoder<float>;
-template class ErnieEncoder<half>;
+template class Ernie<float>;
+template class Ernie<half>;
 #ifdef ENABLE_BF16
-template class ErnieEncoder<__nv_bfloat16>;
+template class Ernie<__nv_bfloat16>;
 #endif
 
 }  // namespace fastertransformer

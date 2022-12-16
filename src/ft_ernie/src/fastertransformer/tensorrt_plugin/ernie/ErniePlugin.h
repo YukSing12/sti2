@@ -15,8 +15,8 @@
  */
 
 #include "ErniePluginGemm.h"
-#include "src/fastertransformer/models/ernie/ErnieEncoder.h"
-#include "src/fastertransformer/models/ernie/ErnieEncoderWeight.h"
+#include "src/fastertransformer/models/ernie/Ernie.h"
+#include "src/fastertransformer/models/ernie/ErnieWeight.h"
 #include "src/fastertransformer/utils/Tensor.h"
 #include "src/fastertransformer/utils/logger.h"
 
@@ -115,12 +115,12 @@ private:
 #endif
     cublasAlgoMap*                      pCublasAlgoMap_             = nullptr;
     std::mutex*                         pCublasWrapperMutex_        = nullptr;
-    ErnieEncoderWeight<half>*           pErnieEncoderWeightHalf_    = nullptr;
-    ErnieEncoderWeight<float>*          pErnieEncoderWeightFloat_   = nullptr;
+    ErnieWeight<half>*           pErnieWeightHalf_    = nullptr;
+    ErnieWeight<float>*          pErnieWeightFloat_   = nullptr;
     Allocator<AllocatorType::CUDA>*     pAllocator_                 = nullptr;
     cublasMMWrapper*                    pCublasWrapper_             = nullptr;
-    ErnieEncoder<half>*                 pErnieEncoderHalf_          = nullptr;
-    ErnieEncoder<float>*                pErnieEncoderFloat_         = nullptr;
+    Ernie<half>*                 pErnieHalf_          = nullptr;
+    Ernie<float>*                pErnieFloat_         = nullptr;
     struct {
         // constructor parameter
         size_t max_batch_size = 10;

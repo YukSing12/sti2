@@ -25,17 +25,17 @@
 namespace fastertransformer {
 
 template<typename T>
-struct ErnieEncoderLayerWeight {
+struct ErnieLayerWeight {
 
-    ErnieEncoderLayerWeight() = default;
-    ErnieEncoderLayerWeight(const size_t layer_id,
+    ErnieLayerWeight() = default;
+    ErnieLayerWeight(const size_t layer_id,
                             const size_t head_num,
                             const size_t size_per_head,
                             const size_t d_model,
                             const size_t inter_size);
-    ~ErnieEncoderLayerWeight();
-    ErnieEncoderLayerWeight(const ErnieEncoderLayerWeight& other);
-    ErnieEncoderLayerWeight& operator=(const ErnieEncoderLayerWeight& other);
+    ~ErnieLayerWeight();
+    ErnieLayerWeight(const ErnieLayerWeight& other);
+    ErnieLayerWeight& operator=(const ErnieLayerWeight& other);
 
     AttentionWeight<T> attention_weights;
     LayerNormWeight<T> attn_layernorm_weights;

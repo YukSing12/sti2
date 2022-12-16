@@ -30,7 +30,7 @@ ErnieEngine::ErnieEngine(const CublasDataType data_type, const std::string& ckpt
     if (data_type_ == HALF_DATATYPE) {
         FT_LOG_INFO("FP16");
         cublas_wrapper_->setFP16GemmConfig();
-        ernie_weights_half_ = new ErnieEncoderWeight<half>(m_.head_num,
+        ernie_weights_half_ = new ErnieWeight<half>(m_.head_num,
                                                           m_.size_per_head,
                                                           m_.d_model,
                                                           m_.inter_size,
@@ -43,7 +43,7 @@ ErnieEngine::ErnieEngine(const CublasDataType data_type, const std::string& ckpt
             getAttentionType<half>(m_.size_per_head, getSMVersion(), m_.is_remove_padding, m_.max_seq_len, true);
         ernie_weights_half_->loadModel(ckpt_path);
 
-        ernie_half_ = new ErnieEncoder<half>(m_.max_batch_size,
+        ernie_half_ = new Ernie<half>(m_.max_batch_size,
                                             m_.max_seq_len,
                                             m_.head_num,
                                             m_.size_per_head,
@@ -71,7 +71,7 @@ ErnieEngine::ErnieEngine(const CublasDataType data_type, const std::string& ckpt
     else if (data_type_ == BFLOAT16_DATATYPE) {
         FT_LOG_INFO("BF16");
         cublas_wrapper_->setBF16GemmConfig();
-        ernie_weights_bfloat_ = new ErnieEncoderWeight<__nv_bfloat16>(m_.head_num,
+        ernie_weights_bfloat_ = new ErnieWeight<__nv_bfloat16>(m_.head_num,
                                                                      m_.size_per_head,
                                                                      m_.d_model,
                                                                      m_.inter_size,
@@ -84,7 +84,7 @@ ErnieEngine::ErnieEngine(const CublasDataType data_type, const std::string& ckpt
             m_.size_per_head, getSMVersion(), m_.is_remove_padding, m_.max_seq_len, true);
         ernie_weights_bfloat_->loadModel(ckpt_path);
 
-        ernie_bfloat_ = new ErnieEncoder<__nv_bfloat16>(m_.max_batch_size,
+        ernie_bfloat_ = new Ernie<__nv_bfloat16>(m_.max_batch_size,
                                                        m_.max_seq_len,
                                                        m_.head_num,
                                                        m_.size_per_head,
@@ -112,7 +112,7 @@ ErnieEngine::ErnieEngine(const CublasDataType data_type, const std::string& ckpt
     else if (data_type_ == FLOAT_DATATYPE) {
         FT_LOG_INFO("FP32");
         cublas_wrapper_->setFP32GemmConfig();
-        ernie_weights_float_ = new ErnieEncoderWeight<float>(m_.head_num,
+        ernie_weights_float_ = new ErnieWeight<float>(m_.head_num,
                                                             m_.size_per_head,
                                                             m_.d_model,
                                                             m_.inter_size,
@@ -125,7 +125,7 @@ ErnieEngine::ErnieEngine(const CublasDataType data_type, const std::string& ckpt
             getAttentionType<float>(m_.size_per_head, getSMVersion(), m_.is_remove_padding, m_.max_seq_len, true);
         ernie_weights_float_->loadModel(ckpt_path);
 
-        ernie_float_ = new ErnieEncoder<float>(m_.max_batch_size,
+        ernie_float_ = new Ernie<float>(m_.max_batch_size,
                                               m_.max_seq_len,
                                               m_.head_num,
                                               m_.size_per_head,

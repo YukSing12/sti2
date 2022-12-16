@@ -279,7 +279,7 @@ add_library(transformer-static STATIC
   # $<TARGET_OBJECTS:DecoderCrossAttentionLayer>
   # $<TARGET_OBJECTS:DecoderSelfAttentionLayer>
   # $<TARGET_OBJECTS:DynamicDecodeLayer>
-  $<TARGET_OBJECTS:ErnieEncoder>
+  $<TARGET_OBJECTS:Ernie>
   $<TARGET_OBJECTS:FfnLayer>
   $<TARGET_OBJECTS:FusedAttentionLayer>
   # $<TARGET_OBJECTS:GptContextAttentionLayer>
@@ -371,7 +371,7 @@ add_library(transformer-shared SHARED
   # $<TARGET_OBJECTS:DecoderCrossAttentionLayer>
   # $<TARGET_OBJECTS:DecoderSelfAttentionLayer>
   # $<TARGET_OBJECTS:DynamicDecodeLayer>
-  $<TARGET_OBJECTS:ErnieEncoder>
+  $<TARGET_OBJECTS:Ernie>
   $<TARGET_OBJECTS:FfnLayer>
   $<TARGET_OBJECTS:FusedAttentionLayer>
   # $<TARGET_OBJECTS:GptContextAttentionLayer>

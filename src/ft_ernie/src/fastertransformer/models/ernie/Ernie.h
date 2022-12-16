@@ -28,7 +28,7 @@
 #include "src/fastertransformer/layers/TensorParallelSiluFfnLayer.h"
 #include "src/fastertransformer/layers/attention_layers/FusedAttentionLayer.h"
 #include "src/fastertransformer/layers/attention_layers/TensorParallelUnfusedAttentionLayer.h"
-#include "src/fastertransformer/models/ernie/ErnieEncoderWeight.h"
+#include "src/fastertransformer/models/ernie/ErnieWeight.h"
 #include "src/fastertransformer/utils/custom_ar_comm.h"
 #include "src/fastertransformer/models/ernie/CudaGraph.h"
 
@@ -36,7 +36,7 @@
 namespace fastertransformer {
 
 template<typename T>
-class ErnieEncoder: public BaseLayer {
+class Ernie: public BaseLayer {
 private:
     // buffer handling
     size_t max_batch_size_ = 0;
@@ -131,7 +131,7 @@ protected:
     T* normed_attn_out_buf_ = nullptr;
 
 public:
-    ErnieEncoder(size_t                              max_batch_size,
+    Ernie(size_t                              max_batch_size,
                 size_t                              max_seq_len,
                 size_t                              head_num,
                 size_t                              size_per_head,
@@ -156,16 +156,16 @@ public:
                 std::shared_ptr<AbstractCustomComm> custom_all_reduce_comm   = nullptr,
                 int                                 enable_custom_all_reduce = 0);
 
-    ErnieEncoder(ErnieEncoder<T> const& ernie_layer);
+    Ernie(Ernie<T> const& ernie_layer);
 
-    ~ErnieEncoder();
+    ~Ernie();
     void forward(std::vector<Tensor>*       output_tensors,
                  const std::vector<Tensor>* input_tensors,
-                 const ErnieEncoderWeight<T>*  ernie_weights);
+                 const ErnieWeight<T>*  ernie_weights);
 
     void forward(std::unordered_map<std::string, Tensor>*       output_tensors,
                  const std::unordered_map<std::string, Tensor>* input_tensors,
-                 const ErnieEncoderWeight<T>*                    ernie_weights);
+                 const ErnieWeight<T>*                    ernie_weights);
                  
     void forward(const int* h_word_ids_,
                 const int* h_pos_ids_,
@@ -174,7 +174,7 @@ public:
                 const int* h_multi_ids_,
                 const int request_batch_size,
                 const int request_seq_len,
-                const ErnieEncoderWeight<T>* ernie_encoder_weights);
+                const ErnieWeight<T>* ernie_encoder_weights);
     void copyToCpu(float* h_attn_out_, const int request_batch_size);
     inline size_t getDModel()
     {

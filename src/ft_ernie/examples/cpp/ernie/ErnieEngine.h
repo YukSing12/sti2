@@ -1,6 +1,6 @@
 #pragma once
-#include "src/fastertransformer/models/ernie/ErnieEncoder.h"
-#include "src/fastertransformer/models/ernie/ErnieEncoderWeight.h"
+#include "src/fastertransformer/models/ernie/Ernie.h"
+#include "src/fastertransformer/models/ernie/ErnieWeight.h"
 #include "src/fastertransformer/utils/Tensor.h"
 #include "src/fastertransformer/utils/cuda_utils.h"
 #include <NvInfer.h>
@@ -29,13 +29,13 @@ private:
     cublasMMWrapper* cublas_wrapper_ = nullptr;
     CublasDataType data_type_;
 
-    ErnieEncoderWeight<half>* ernie_weights_half_ = nullptr;
-    ErnieEncoderWeight<float>* ernie_weights_float_ = nullptr;
-    ErnieEncoderWeight<__nv_bfloat16>* ernie_weights_bfloat_ = nullptr;
+    ErnieWeight<half>* ernie_weights_half_ = nullptr;
+    ErnieWeight<float>* ernie_weights_float_ = nullptr;
+    ErnieWeight<__nv_bfloat16>* ernie_weights_bfloat_ = nullptr;
 
-    ErnieEncoder<half>* ernie_half_ = nullptr;
-    ErnieEncoder<float>* ernie_float_ = nullptr;
-    ErnieEncoder<__nv_bfloat16>* ernie_bfloat_ = nullptr;
+    Ernie<half>* ernie_half_ = nullptr;
+    Ernie<float>* ernie_float_ = nullptr;
+    Ernie<__nv_bfloat16>* ernie_bfloat_ = nullptr;
     struct {
         // constructor parameter
         size_t max_batch_size = 10;
