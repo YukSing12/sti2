@@ -6,7 +6,7 @@ template<typename T>
 ErnieEngine<T>::ErnieEngine(const std::string& ckpt_path, const bool int8_mode, const bool useCudaGraph):
     int8_mode_(int8_mode), useCudaGraph_(useCudaGraph)
 {
-    m_.sm =getSMVersion();
+    m_.sm = getSMVersion();
     cudaStreamCreate(&stream_);
     cublasCreate(&cublas_handle_);
     cublasLtCreate(&cublaslt_handle_);
@@ -14,10 +14,17 @@ ErnieEngine<T>::ErnieEngine(const std::string& ckpt_path, const bool int8_mode, 
     CHECK_CUSPARSE(cusparseLtInit(&cusparselt_handle_));
 #endif
     cublasSetStream(cublas_handle_, stream_);
-    std::string gemmFileName = std::string("gemm_config.in").substr(0, 11) + std::string("-SM") + std::to_string(m_.sm)
-                               + std::string("-FP") + std::to_string(std::is_same<T, half>::value ? 16 : 32)
-                               + std::string("-BS") + std::to_string(m_.max_batch_size) + std::string("-SL")
-                               + std::to_string(m_.max_seq_len) + std::string("-BM") + std::to_string(m_.beam_width)
+    std::string init_name;
+    if (int8_mode_) {
+        init_name = std::string("gemmInt8_config");
+    }
+    else {
+        init_name = std::string("gemm_config");
+    }
+    std::string gemmFileName = init_name + std::string("-SM") + std::to_string(m_.sm) + std::string("-FP")
+                               + std::to_string(std::is_same<T, half>::value ? 16 : 32) + std::string("-BS")
+                               + std::to_string(m_.max_batch_size) + std::string("-SL") + std::to_string(m_.max_seq_len)
+                               + std::string("-BM") + std::to_string(m_.beam_width) + std::string("")
                                + std::string(".in");
     std::ifstream infile(gemmFileName);
     if (infile.good()) {
@@ -124,8 +131,7 @@ ErnieEngine<T>::ErnieEngine(const std::string& ckpt_path, const bool int8_mode, 
                                             m_.num_layer);
 
         ernie_weights_->loadModel(ckpt_path);
-        m_.attention_type =
-            getAttentionType<T>(m_.size_per_head, m_.sm, m_.is_remove_padding, m_.max_seq_len, true);
+        m_.attention_type = getAttentionType<T>(m_.size_per_head, m_.sm, m_.is_remove_padding, m_.max_seq_len, true);
     }
     else {
         ernie_int8_ = new ErnieINT8<T>(m_.max_batch_size,
@@ -211,12 +217,12 @@ void ErnieEngine<T>::run(const int* h_word_ids_,
 }
 template<typename T>
 void ErnieEngine<T>::runInt8(const int* h_word_ids_,
-                              const int* h_pos_ids_,
-                              const int* h_sent_ids_,
-                              const int* h_seq_len_,
-                              const int* h_multi_ids_,
-                              const int request_batch_size,
-                              const int request_seq_len)
+                             const int* h_pos_ids_,
+                             const int* h_sent_ids_,
+                             const int* h_seq_len_,
+                             const int* h_multi_ids_,
+                             const int request_batch_size,
+                             const int request_seq_len)
 {
     ernie_int8_->forward(h_word_ids_,
                          h_pos_ids_,

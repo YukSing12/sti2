@@ -280,6 +280,5 @@ void ErnieINT8Weight<T>::resizeLayer(const int num_layer)
 
 template struct ErnieINT8Weight<float>;
 template struct ErnieINT8Weight<half>;
-#endif
 
 }  // namespace fastertransformer
