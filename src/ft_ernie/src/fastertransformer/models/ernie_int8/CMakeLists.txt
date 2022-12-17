@@ -26,9 +26,9 @@ FusedAttentionLayerINT8
 FfnLayerINT8
 layernorm_int8_kernels 
 add_residual_kernels 
-decoding_kernels
-ernie_kernels
-quantization_int8_kernels
-dequantize_kernels
+decoding_kernels 
+quantization_int8_kernels 
+dequantize_kernels 
+ernie_kernels 
 nccl_utils 
 tensor)

@@ -243,7 +243,7 @@ int main(int argc, char** argv)
     if (data_type == FLOAT_DATATYPE) {
         printf("[INFO] Input data type is FP32.\n");
         if (int8_mode) {
-            throw std::runtime_error(std::string("[FT][ERROR] INT8 mode is not supported.\n "));
+            ernieInference<float>(argv[2], sample_vec, int8_mode, useCudaGraph);
         }
         else {
             ernieInference<float>(argv[2], sample_vec, int8_mode, useCudaGraph);
@@ -252,7 +252,7 @@ int main(int argc, char** argv)
     else if (data_type == HALF_DATATYPE) {
         printf("[INFO] Input data type is FP16.\n");
         if (int8_mode) {
-            throw std::runtime_error(std::string("[FT][ERROR] INT8 mode is not supported.\n "));
+            ernieInference<half>(argv[2], sample_vec, int8_mode, useCudaGraph);
         }
         else {
             ernieInference<half>(argv[2], sample_vec, int8_mode, useCudaGraph);
