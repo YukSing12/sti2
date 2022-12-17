@@ -24,7 +24,7 @@ add_library(FusedAttentionLayerINT8 STATIC FusedAttentionLayerINT8.cu)
 set_property(TARGET FusedAttentionLayerINT8 PROPERTY POSITION_INDEPENDENT_CODE  ON)
 set_property(TARGET FusedAttentionLayerINT8 PROPERTY CUDA_RESOLVE_DEVICE_SYMBOLS  ON)
 target_link_libraries(FusedAttentionLayerINT8 PUBLIC -lcublasLt -lcublas -lcudart nvtx_utils cublasMMWrapper
-                        cublasINT8MMWrapper trt_fused_multi_head_attention)
+                        cublasINT8MMWrapper trt_fused_multi_head_attention layout_transformer_int8_kernels)
 
 # add_library(WindowAttentionINT8 STATIC WindowAttentionINT8.cu)
 # set_property(TARGET WindowAttentionINT8 PROPERTY POSITION_INDEPENDENT_CODE  ON)

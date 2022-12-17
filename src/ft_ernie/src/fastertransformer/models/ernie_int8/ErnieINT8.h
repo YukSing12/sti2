@@ -27,9 +27,6 @@
 #include "src/fastertransformer/kernels/layernorm_int8_kernels.h"
 #include "src/fastertransformer/kernels/quantization_int8_kernels.h"
 #include "src/fastertransformer/layers/FfnLayerINT8.h"
-#include "src/fastertransformer/layers/TensorParallelGeluFfnLayer.h"
-#include "src/fastertransformer/layers/TensorParallelReluFfnLayer.h"
-#include "src/fastertransformer/layers/TensorParallelSiluFfnLayer.h"
 #include "src/fastertransformer/layers/attention_layers_int8/FusedAttentionLayerINT8.h"
 #include "src/fastertransformer/layers/attention_layers_int8/UnfusedAttentionLayerINT8.h"
 #include "src/fastertransformer/models/ernie/CudaGraph.h"
@@ -101,15 +98,8 @@ private:
     void allocateBuffer(size_t batch_size, size_t seq_len);
     void freeBuffer() override;
     void initialize();
-    bool isValidLayerParallelId(uint l);
-    bool isFirstLayerParallelId(uint l);
-    bool isLastLayerParallelId(uint l);
-    int getFirstLayerParallelId();
-    const ActivationType activation_type_;
-    const LayerNormType layernorm_type_;
 
-    const NcclParam tensor_para_;
-    const NcclParam pipeline_para_;
+    const LayerNormType layernorm_type_;
 
     std::shared_ptr<AbstractCustomComm> custom_all_reduce_comm_;
     int enable_custom_all_reduce_;
@@ -152,15 +142,12 @@ public:
               float q_scaling,
               int int8_mode,
               cudaStream_t stream,
-              cublasMMWrapper* cublas_wrapper,
+              cublasINT8MMWrapper* cublas_wrapper,
               IAllocator* allocator,
               bool is_free_buffer_after_forward,
               AttentionType attention_type,
               bool sparse,
-              ActivationType activation_type,
               LayerNormType layernorm_type,
-              NcclParam tensor_para,
-              NcclParam pipeline_para,
               std::shared_ptr<AbstractCustomComm> custom_all_reduce_comm = nullptr,
               int enable_custom_all_reduce = 0);
 

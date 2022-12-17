@@ -89,57 +89,16 @@ void ErnieINT8<T>::initialize()
         throw std::runtime_error(std::string("[FT][ERROR] Invalid attention type \n"));
     }
 
-    bool use_gated_activation = activation_type_ == ActivationType::GeGLU || activation_type_ == ActivationType::ReGLU
-                                || activation_type_ == ActivationType::SiGLU;
-    if (activation_type_ == ActivationType::Gelu || activation_type_ == ActivationType::GeGLU) {
-        // ffn_layer_ = new GeluFfnLayerINT8<T>(max_batch_size_,
-        //                                                max_seq_len_,
-        //                                                1,
-        //                                                d_model_,
-        //                                                inter_size_,
-        //                                                tensor_para_,
-        //                                                stream_,
-        //                                                cublas_wrapper_,
-        //                                                allocator_,
-        //                                                true,
-        //                                                is_free_buffer_after_forward_,
-        //                                                sparse_,
-        //                                                0,
-        //                                                use_gated_activation,  // don't use GeGLU
-        //                                                custom_all_reduce_comm_,
-        //                                                enable_custom_all_reduce_);
-        throw std::runtime_error(std::string("[FT][ERROR] INT8 not support Gelu \n"));
-    }
-    else if (activation_type_ == ActivationType::Relu || activation_type_ == ActivationType::ReGLU) {
-        ffn_layer_ = new ReluFfnLayerINT8<T>(max_batch_size_,
-                                             max_seq_len_,
-                                             1,
-                                             d_model_,
-                                             inter_size_,
-                                             int8_mode_,
-                                             stream_,
-                                             cublas_wrapper_,
-                                             allocator_,
-                                             is_free_buffer_after_forward_);
-    }
-    else if (activation_type_ == ActivationType::Silu || activation_type_ == ActivationType::SiGLU) {
-        // ffn_layer_ = new SiluFfnLayerINT8<T>(max_batch_size_,
-        //                                                max_seq_len_,
-        //                                                1,
-        //                                                d_model_,
-        //                                                inter_size_,
-        //                                                tensor_para_,
-        //                                                stream_,
-        //                                                cublas_wrapper_,
-        //                                                allocator_,
-        //                                                true,
-        //                                                is_free_buffer_after_forward_,
-        //                                                sparse_,
-        //                                                use_gated_activation,
-        //                                                custom_all_reduce_comm_,
-        //                                                enable_custom_all_reduce_);
-        throw std::runtime_error(std::string("[FT][ERROR] INT8 not support SiLU \n"));
-    }
+    ffn_layer_ = new ReluFfnLayerINT8<T>(max_batch_size_,
+                                         max_seq_len_,
+                                         1,
+                                         d_model_,
+                                         inter_size_,
+                                         int8_mode_,
+                                         stream_,
+                                         cublas_wrapper_,
+                                         allocator_,
+                                         is_free_buffer_after_forward_);
 }
 
 template<typename T>
@@ -157,15 +116,12 @@ ErnieINT8<T>::ErnieINT8(size_t max_batch_size,
                         float q_scaling,
                         int int8_mode,
                         cudaStream_t stream,
-                        cublasMMWrapper* cublas_wrapper,
+                        cublasINT8MMWrapper* cublas_wrapper,
                         IAllocator* allocator,
                         bool is_free_buffer_after_forward,
                         AttentionType attention_type,
                         bool sparse,
-                        ActivationType activation_type,
                         LayerNormType layernorm_type,
-                        NcclParam tensor_para,
-                        NcclParam pipeline_para,
                         std::shared_ptr<AbstractCustomComm> custom_all_reduce_comm,
                         int enable_custom_all_reduce):
     BaseLayer(stream, cublas_wrapper, allocator, is_free_buffer_after_forward),
@@ -185,10 +141,7 @@ ErnieINT8<T>::ErnieINT8(size_t max_batch_size,
     int8_mode_(int8_mode),
     attention_type_(attention_type),
     sparse_(sparse),
-    activation_type_(activation_type),
     layernorm_type_(layernorm_type),
-    tensor_para_(tensor_para),
-    pipeline_para_(pipeline_para),
     custom_all_reduce_comm_(custom_all_reduce_comm),
     enable_custom_all_reduce_(enable_custom_all_reduce)
 {
@@ -214,10 +167,7 @@ ErnieINT8<T>::ErnieINT8(ErnieINT8<T> const& ernie_encoder):
     int8_mode_(ernie_encoder.int8_mode_),
     attention_type_(ernie_encoder.attention_type_),
     sparse_(ernie_encoder.sparse_),
-    activation_type_(ernie_encoder.activation_type_),
     layernorm_type_(ernie_encoder.layernorm_type_),
-    tensor_para_(ernie_encoder.tensor_para_),
-    pipeline_para_(ernie_encoder.pipeline_para_),
     custom_all_reduce_comm_(ernie_encoder.custom_all_reduce_comm_),
     enable_custom_all_reduce_(ernie_encoder.enable_custom_all_reduce_)
 {
@@ -244,8 +194,6 @@ ErnieINT8<T>::~ErnieINT8()
 template<typename T>
 void ErnieINT8<T>::setStream(cudaStream_t stream)
 {
-    // attention_layer_->setStream(stream);
-    // ffn_layer_->setStream(stream);
 
     attention_layer_->setStream(stream);
     ffn_layer_->setStream(stream);
@@ -258,42 +206,6 @@ void ErnieINT8<T>::allocateBuffer()
 {
     if (is_allocate_buffer_ == false) {
         allocateBuffer(max_batch_size_, max_seq_len_);
-
-        // token_num_ = (size_t*)allocator_->reMalloc(token_num_, sizeof(size_t) * 1, false);
-        // padding_offset_ =
-        //     (int*)allocator_->reMalloc(padding_offset_, sizeof(int) * max_batch_size_ * max_seq_len_, false);
-        // trt_mha_padding_offset_ =
-        //     (int*)allocator_->reMalloc(trt_mha_padding_offset_, sizeof(int) * (2 * max_batch_size_ + 1), false);
-
-        // attention_mask_ =
-        //     (T*)allocator_->reMalloc(attention_mask_, sizeof(T) * max_batch_size_ * max_seq_len_ * max_seq_len_,
-        //     false);
-        // relative_attention_bias_ = (T*)allocator_->reMalloc(
-        //     relative_attention_bias_, sizeof(T) * head_num_ * max_seq_len_ * max_seq_len_, false);
-
-        // ernie_encoder_emb_buf_ =
-        //     (T*)allocator_->reMalloc(ernie_encoder_emb_buf_, sizeof(T) * max_batch_size_ * max_seq_len_ * d_model_,
-        //     false);
-        // ernie_encoder_in_buffer_ = (T*)allocator_->reMalloc(
-        //     ernie_encoder_in_buffer_, sizeof(T) * max_batch_size_ * max_seq_len_ * d_model_, false);
-        // attn_out_buf_ =
-        //     (int32_t*)allocator_->reMalloc(attn_out_buf_, sizeof(T) * max_batch_size_ * max_seq_len_ * d_model_,
-        //     false);
-        // ernie_encoder_out_buffer_ = (T*)allocator_->reMalloc(
-        //     ernie_encoder_out_buffer_, sizeof(int32_t) * max_batch_size_ * max_seq_len_ * d_model_, false);
-        // int8_buf_ = reinterpret_cast<int8_t*>(
-        //     allocator_->reMalloc(int8_buf_, sizeof(int8_t) * max_batch_size_ * max_seq_len_ * d_model_, false));
-
-        // if (layernorm_type_ == LayerNormType::post_layernorm) {
-        //     normed_from_tensor_  = nullptr;
-        //     normed_attn_out_buf_ = nullptr;
-        // }
-        // else {
-        //     normed_from_tensor_ = (T*)allocator_->reMalloc(
-        //         normed_from_tensor_, sizeof(T) * max_batch_size_ * max_seq_len_ * d_model_, false);
-        //     normed_attn_out_buf_ = (T*)allocator_->reMalloc(
-        //         normed_attn_out_buf_, sizeof(T) * max_batch_size_ * max_seq_len_ * d_model_, false);
-        // }
         is_allocate_buffer_ = true;
     }
 }
@@ -384,34 +296,6 @@ void ErnieINT8<T>::freeBuffer()
     }
 }
 
-template<typename T>
-bool ErnieINT8<T>::isValidLayerParallelId(uint l)
-{
-    int local_num_layer = (int)(ceil(num_layer_ * 1.0f / pipeline_para_.world_size_));
-    return l < num_layer_ && (l >= local_num_layer * pipeline_para_.rank_)
-           && (l < local_num_layer * (pipeline_para_.rank_ + 1));
-}
-
-template<typename T>
-bool ErnieINT8<T>::isFirstLayerParallelId(uint l)
-{
-    int local_num_layer = (int)(ceil(num_layer_ * 1.0f / pipeline_para_.world_size_));
-    return l < num_layer_ && (l == local_num_layer * pipeline_para_.rank_);
-}
-
-template<typename T>
-bool ErnieINT8<T>::isLastLayerParallelId(uint l)
-{
-    int local_num_layer = (int)(ceil(num_layer_ * 1.0f / pipeline_para_.world_size_));
-    return l < num_layer_ && (l == local_num_layer * (pipeline_para_.rank_ + 1) - 1);
-}
-
-template<typename T>
-int ErnieINT8<T>::getFirstLayerParallelId()
-{
-    int local_num_layer = (int)(ceil(num_layer_ * 1.0f / pipeline_para_.world_size_));
-    return local_num_layer * pipeline_para_.rank_;
-}
 template<typename T>
 void ErnieINT8<T>::copyToCpu(float* h_attn_out_, const int request_batch_size_)
 {
@@ -504,26 +388,11 @@ void ErnieINT8<T>::forward(std::unordered_map<std::string, Tensor>* output_tenso
     // const bool use_inputs_embeds_buffer = false;
     if (!launched_) {
         if (attention_type_ == AttentionType::UNFUSED_MHA || attention_type_ == AttentionType::FUSED_MHA) {
-            // prevent undefined behavior of the padding parts
-            // cudaMemset(output_tensors->at("attn_out").getPtr<T>(),
-            //         0,
-            //         sizeof(T) * request_batch_size_ * 1);
             invokeGetPaddingOffsetErnie(
                 token_num_, padding_offset_, d_seq_len_, request_batch_size_, request_seq_len_, stream_);
         }
     }
 
-    // parallal num = 1
-    // local batch size = request batch size
-    // const size_t request_batch_size_ = getLocalBatchSize(request_batch_size_, request_seq_len_,
-    // pipeline_para_.world_size_); const size_t iteration_num    = request_batch_size_ / request_batch_size_;
-
-    // for (uint ite = 0; ite < iteration_num; ite++) {
-    //     size_t id_offset      = ite * request_batch_size_;
-    //     size_t d_model_offset = id_offset * request_seq_len_ * d_model_;
-
-    //     const int* d_seq_len_ = input_tensors->at("seq_len").getPtr<int>() + id_offset;
-    // preprocess (build embedding and layernorm)
     invokeEmbeddingLookupConcat(ernie_encoder_emb_buf_,
                                 head_num_ * size_per_head_,
                                 request_batch_size_,
@@ -560,14 +429,6 @@ void ErnieINT8<T>::forward(std::unordered_map<std::string, Tensor>* output_tenso
 
             sync_check_cuda_error();
             cudaMemcpyAsync(&h_token_num_, token_num_, sizeof(size_t), cudaMemcpyDeviceToHost, stream_);
-
-            // invokeGetPaddingOffset(&h_token_num_,
-            //                        token_num_,
-            //                        padding_offset_,
-            //                        d_seq_len_,
-            //                        request_batch_size_,
-            //                        request_seq_len_,
-            //                        stream_);
             sync_check_cuda_error();
             invokeRemovePadding(
                 ernie_encoder_in_buffer_, ernie_encoder_emb_buf_, padding_offset_, h_token_num_, d_model_, stream_);
@@ -586,27 +447,18 @@ void ErnieINT8<T>::forward(std::unordered_map<std::string, Tensor>* output_tenso
             h_token_num_ = request_batch_size_ * request_seq_len_;
 
             sync_check_cuda_error();
-            // h_token_num_               = request_batch_size_ * request_seq_len_;
             ernie_encoder_input_ptr = ernie_encoder_emb_buf_;
             ernie_encoder_output_ptr = ernie_layer_out_buffer_;
             padding_offset_tensor_ptr = new Tensor(MEMORY_GPU, TYPE_INT32, std::vector<size_t>{0}, nullptr);
             break;
         }
         case AttentionType::FUSED_MHA: {
-            // invokeGetPaddingOffset(&h_token_num_,
-            //                        token_num_,
-            //                        padding_offset_,
-            //                        d_seq_len_,
-            //                        request_batch_size_,
-            //                        request_seq_len_,
-            //                        stream_);
             cudaMemcpyAsync(&h_token_num_, token_num_, sizeof(size_t), cudaMemcpyDeviceToHost, stream_);
 
-            if (pipeline_para_.rank_ == 0) {
-                invokeRemovePadding(
-                    ernie_encoder_in_buffer_, ernie_encoder_emb_buf_, padding_offset_, h_token_num_, d_model_, stream_);
-                sync_check_cuda_error();
-            }
+            invokeRemovePadding(
+                ernie_encoder_in_buffer_, ernie_encoder_emb_buf_, padding_offset_, h_token_num_, d_model_, stream_);
+            sync_check_cuda_error();
+
             sync_check_cuda_error();
             ernie_encoder_input_ptr = ernie_encoder_in_buffer_;
             ernie_encoder_output_ptr = ernie_encoder_out_buffer_;
@@ -803,40 +655,30 @@ void ErnieINT8<T>::forward(std::unordered_map<std::string, Tensor>* output_tenso
     }
     // exit(0);
 
-    if (pipeline_para_.rank_ == pipeline_para_.world_size_ - 1) {
-        // post process (rebuild padding)
-        switch (attention_type_) {
-            case AttentionType::UNFUSED_MHA: {
-                if (pipeline_para_.rank_ == pipeline_para_.world_size_ - 1) {
-                    invokeRebuildPadding(ernie_layer_out_buffer_,
-                                         ernie_encoder_out_buffer_,
-                                         padding_offset_,
-                                         h_token_num_,
-                                         d_model_,
-                                         stream_);
-                }
-                break;
-            }
-            case AttentionType::UNFUSED_PADDED_MHA: {
-                break;
-            }
-            case AttentionType::FUSED_MHA: {
-                if (pipeline_para_.rank_ == pipeline_para_.world_size_ - 1) {
-                    invokeRebuildPadding(ernie_layer_out_buffer_,
-                                         ernie_encoder_out_buffer_,
-                                         padding_offset_,
-                                         h_token_num_,
-                                         d_model_,
-                                         stream_);
-                }
-                break;
-            }
-            case AttentionType::FUSED_PADDED_MHA: {
-                break;
-            }
-            default: {
-                throw std::runtime_error(std::string("[FT][ERROR] Invalid attention type \n"));
-            }
+    // post process (rebuild padding)
+    switch (attention_type_) {
+        case AttentionType::UNFUSED_MHA: {
+
+            invokeRebuildPadding(
+                ernie_layer_out_buffer_, ernie_encoder_out_buffer_, padding_offset_, h_token_num_, d_model_, stream_);
+
+            break;
+        }
+        case AttentionType::UNFUSED_PADDED_MHA: {
+            break;
+        }
+        case AttentionType::FUSED_MHA: {
+
+            invokeRebuildPadding(
+                ernie_layer_out_buffer_, ernie_encoder_out_buffer_, padding_offset_, h_token_num_, d_model_, stream_);
+
+            break;
+        }
+        case AttentionType::FUSED_PADDED_MHA: {
+            break;
+        }
+        default: {
+            throw std::runtime_error(std::string("[FT][ERROR] Invalid attention type \n"));
         }
     }
 
@@ -1039,11 +881,11 @@ void ErnieINT8<T>::forward(const int* h_word_ids_,
         }
         case AttentionType::FUSED_MHA: {
             cudaMemcpyAsync(&h_token_num_, token_num_, sizeof(size_t), cudaMemcpyDeviceToHost, stream_);
-            if (pipeline_para_.rank_ == 0) {
-                invokeRemovePadding(
-                    ernie_encoder_in_buffer_, ernie_encoder_emb_buf_, padding_offset_, h_token_num_, d_model_, stream_);
-                sync_check_cuda_error();
-            }
+
+            invokeRemovePadding(
+                ernie_encoder_in_buffer_, ernie_encoder_emb_buf_, padding_offset_, h_token_num_, d_model_, stream_);
+            sync_check_cuda_error();
+
             sync_check_cuda_error();
             ernie_encoder_input_ptr = ernie_encoder_in_buffer_;
             ernie_encoder_output_ptr = ernie_encoder_out_buffer_;
@@ -1221,40 +1063,28 @@ void ErnieINT8<T>::forward(const int* h_word_ids_,
     }
     // exit(0);
 
-    if (pipeline_para_.rank_ == pipeline_para_.world_size_ - 1) {
-        // post process (rebuild padding)
-        switch (attention_type_) {
-            case AttentionType::UNFUSED_MHA: {
-                if (pipeline_para_.rank_ == pipeline_para_.world_size_ - 1) {
-                    invokeRebuildPadding(ernie_layer_out_buffer_,
-                                         ernie_encoder_out_buffer_,
-                                         padding_offset_,
-                                         h_token_num_,
-                                         d_model_,
-                                         stream_);
-                }
-                break;
-            }
-            case AttentionType::UNFUSED_PADDED_MHA: {
-                break;
-            }
-            case AttentionType::FUSED_MHA: {
-                if (pipeline_para_.rank_ == pipeline_para_.world_size_ - 1) {
-                    invokeRebuildPadding(ernie_layer_out_buffer_,
-                                         ernie_encoder_out_buffer_,
-                                         padding_offset_,
-                                         h_token_num_,
-                                         d_model_,
-                                         stream_);
-                }
-                break;
-            }
-            case AttentionType::FUSED_PADDED_MHA: {
-                break;
-            }
-            default: {
-                throw std::runtime_error(std::string("[FT][ERROR] Invalid attention type \n"));
-            }
+    // post process (rebuild padding)
+    switch (attention_type_) {
+        case AttentionType::UNFUSED_MHA: {
+            invokeRebuildPadding(
+                ernie_layer_out_buffer_, ernie_encoder_out_buffer_, padding_offset_, h_token_num_, d_model_, stream_);
+
+            break;
+        }
+        case AttentionType::UNFUSED_PADDED_MHA: {
+            break;
+        }
+        case AttentionType::FUSED_MHA: {
+            invokeRebuildPadding(
+                ernie_layer_out_buffer_, ernie_encoder_out_buffer_, padding_offset_, h_token_num_, d_model_, stream_);
+
+            break;
+        }
+        case AttentionType::FUSED_PADDED_MHA: {
+            break;
+        }
+        default: {
+            throw std::runtime_error(std::string("[FT][ERROR] Invalid attention type \n"));
         }
     }
 
@@ -1344,8 +1174,4 @@ void ErnieINT8<T>::forward(const int* h_word_ids_,
 
 template class ErnieINT8<float>;
 template class ErnieINT8<half>;
-#ifdef ENABLE_BF16
-template class ErnieINT8<__nv_bfloat16>;
-#endif
-
 }  // namespace fastertransformer

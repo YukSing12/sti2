@@ -280,8 +280,11 @@ add_library(transformer-static STATIC
   # $<TARGET_OBJECTS:DecoderSelfAttentionLayer>
   # $<TARGET_OBJECTS:DynamicDecodeLayer>
   $<TARGET_OBJECTS:Ernie>
+  $<TARGET_OBJECTS:ErnieINT8>
   $<TARGET_OBJECTS:FfnLayer>
+  $<TARGET_OBJECTS:FfnLayerINT8>
   $<TARGET_OBJECTS:FusedAttentionLayer>
+  $<TARGET_OBJECTS:FusedAttentionLayerINT8>
   # $<TARGET_OBJECTS:GptContextAttentionLayer>
   # $<TARGET_OBJECTS:GptJ>
   # $<TARGET_OBJECTS:GptJContextDecoder>
@@ -319,6 +322,7 @@ add_library(transformer-static STATIC
   # $<TARGET_OBJECTS:TopPSamplingLayer>
   # $<TARGET_OBJECTS:TransformerTritonBackend>
   $<TARGET_OBJECTS:UnfusedAttentionLayer>
+  $<TARGET_OBJECTS:UnfusedAttentionLayerINT8>
   $<TARGET_OBJECTS:activation_int8_kernels>
   $<TARGET_OBJECTS:activation_kernels>
   $<TARGET_OBJECTS:add_bias_transpose_kernels>
@@ -347,6 +351,7 @@ add_library(transformer-static STATIC
   $<TARGET_OBJECTS:nccl_utils>
   # $<TARGET_OBJECTS:online_softmax_beamsearch_kernels>
   $<TARGET_OBJECTS:quantization_int8_kernels>
+  $<TARGET_OBJECTS:dequantize_kernels>
   # $<TARGET_OBJECTS:sampling_penalty_kernels>
   # $<TARGET_OBJECTS:sampling_topk_kernels>
   # $<TARGET_OBJECTS:sampling_topp_kernels>
@@ -372,8 +377,11 @@ add_library(transformer-shared SHARED
   # $<TARGET_OBJECTS:DecoderSelfAttentionLayer>
   # $<TARGET_OBJECTS:DynamicDecodeLayer>
   $<TARGET_OBJECTS:Ernie>
+  $<TARGET_OBJECTS:ErnieINT8>
   $<TARGET_OBJECTS:FfnLayer>
+  $<TARGET_OBJECTS:FfnLayerINT8>
   $<TARGET_OBJECTS:FusedAttentionLayer>
+  $<TARGET_OBJECTS:FusedAttentionLayerINT8>
   # $<TARGET_OBJECTS:GptContextAttentionLayer>
   # $<TARGET_OBJECTS:GptJ>
   # $<TARGET_OBJECTS:GptJContextDecoder>
@@ -411,6 +419,7 @@ add_library(transformer-shared SHARED
   # $<TARGET_OBJECTS:TopPSamplingLayer>
   # $<TARGET_OBJECTS:TransformerTritonBackend>
   $<TARGET_OBJECTS:UnfusedAttentionLayer>
+  $<TARGET_OBJECTS:UnfusedAttentionLayerINT8>
   $<TARGET_OBJECTS:activation_int8_kernels>
   $<TARGET_OBJECTS:activation_kernels>
   $<TARGET_OBJECTS:add_bias_transpose_kernels>
@@ -439,6 +448,7 @@ add_library(transformer-shared SHARED
   $<TARGET_OBJECTS:nccl_utils>
   # $<TARGET_OBJECTS:online_softmax_beamsearch_kernels>
   $<TARGET_OBJECTS:quantization_int8_kernels>
+  $<TARGET_OBJECTS:dequantize_kernels>
   # $<TARGET_OBJECTS:sampling_penalty_kernels>
   # $<TARGET_OBJECTS:sampling_topk_kernels>
   # $<TARGET_OBJECTS:sampling_topp_kernels>

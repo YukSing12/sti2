@@ -71,7 +71,7 @@ ErnieEngine<T>::ErnieEngine(const std::string& ckpt_path, const bool int8_mode, 
 #else
     if (int8_mode_) {
         cublas_wrapper_int8_ = new cublasINT8MMWrapper(
-            cublas_handle_,cublaslt_handle_, stream_, cublas_algo_map_, cublas_wrapper_mutex_, use_ORDER_COL32_2R_4R4);
+            cublas_handle_, cublaslt_handle_, stream_, cublas_algo_map_, cublas_wrapper_mutex_, use_ORDER_COL32_2R_4R4);
     }
     else {
         cublas_wrapper_ = new cublasMMWrapper(
@@ -139,16 +139,12 @@ ErnieEngine<T>::ErnieEngine(const std::string& ckpt_path, const bool int8_mode, 
                                        m_.q_scaling,
                                        int8_mode_,
                                        stream_,  // stream_ placeholder
-                                       cublas_wrapper_,
+                                       cublas_wrapper_int8_,
                                        allocator_,
                                        m_.is_free_buffer_after_forward,
                                        m_.attention_type,
                                        m_.is_sparse,
-                                       m_.activation_type,
-                                       m_.layernorm_type,
-                                       NcclParam(0, 1),  // tensor_para
-                                       NcclParam(0, 1)   // pipeline_para
-        );
+                                       m_.layernorm_type);
         ernie_int8_->setUseGraph(useCudaGraph_);
         ernie_int8_->setHostMode(true);
         ernie_weights_int8_ = new ErnieINT8Weight<T>(m_.head_num,

@@ -1,13 +1,14 @@
 #pragma once
 #include "ErnieGemm.h"
+#include "src/fastertransformer/layers/attention_layers_int8/AttentionINT8Weight.h"
 #include "src/fastertransformer/models/ernie/Ernie.h"
 #include "src/fastertransformer/models/ernie/ErnieWeight.h"
 #include "src/fastertransformer/models/ernie_int8/ErnieINT8.h"
 #include "src/fastertransformer/models/ernie_int8/ErnieINT8Weight.h"
 #include "src/fastertransformer/utils/Tensor.h"
-#include "src/fastertransformer/utils/cuda_utils.h"
-#include "src/fastertransformer/utils/cublasMMWrapper.h"
 #include "src/fastertransformer/utils/cublasINT8MMWrapper.h"
+#include "src/fastertransformer/utils/cublasMMWrapper.h"
+#include "src/fastertransformer/utils/cuda_utils.h"
 #include <cstdio>
 #include <cstring>
 #include <cublasLt.h>
@@ -39,7 +40,7 @@ private:
 
     ErnieINT8Weight<T>* ernie_weights_int8_ = nullptr;
     ErnieINT8<T>* ernie_int8_ = nullptr;
-    
+
     bool int8_mode_ = false;
     bool useCudaGraph_ = false;
     struct {

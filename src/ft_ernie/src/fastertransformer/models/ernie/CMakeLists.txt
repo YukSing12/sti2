@@ -17,7 +17,7 @@ cmake_minimum_required(VERSION 3.8)
 add_library(Ernie STATIC Ernie.cc ErnieWeight.cc ErnieLayerWeight.cc)
 set_property(TARGET Ernie PROPERTY POSITION_INDEPENDENT_CODE  ON)
 set_property(TARGET Ernie PROPERTY CUDA_RESOLVE_DEVICE_SYMBOLS  ON)
-target_link_libraries(Ernie PUBLIC -lcudart 
+target_link_libraries(Ernie PUBLIC -lcudart -lcublas
 bert_preprocess_kernels 
 cublasMMWrapper 
 TensorParallelUnfusedAttentionLayer 
