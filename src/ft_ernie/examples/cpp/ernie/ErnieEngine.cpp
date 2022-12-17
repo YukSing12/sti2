@@ -49,64 +49,120 @@ ErnieEngine<T>::ErnieEngine(const std::string& ckpt_path, const bool int8_mode, 
     allocator_ = new Allocator<AllocatorType::CUDA>(getDevice());
     cublas_wrapper_mutex_ = new std::mutex();
 
+    bool use_ORDER_COL32_2R_4R4 = false;
 #ifdef SPARSITY_ENABLED
-    cublas_wrapper_ = new cublasMMWrapper(cublas_handle_,
-                                          cublaslt_handle_,
-                                          cusparselt_handle_,
-                                          stream_,
-                                          cublas_algo_map_,
-                                          cublas_wrapper_mutex_,
-                                          allocator_);
-#else
-    cublas_wrapper_ = new cublasMMWrapper(
-        cublas_handle_, cublaslt_handle_, stream_, cublas_algo_map_, cublas_wrapper_mutex_, allocator_);
-#endif
-
-    if (std::is_same<T, half>::value) {
-        cublas_wrapper_->setFP16GemmConfig();
+    if (int8_mode_) {
+        cublas_wrapper_int8_ = cublasINT8MMWrapper(cublaslt_handle_,
+                                                   cusparselt_handle_,
+                                                   stream_,
+                                                   cublas_algo_map_,
+                                                   cublas_wrapper_mutex_,
+                                                   use_ORDER_COL32_2R_4R4);
     }
     else {
-        cublas_wrapper_->setFP32GemmConfig();
+        cublas_wrapper_ = new cublasMMWrapper(cublas_handle_,
+                                              cublaslt_handle_,
+                                              cusparselt_handle_,
+                                              stream_,
+                                              cublas_algo_map_,
+                                              cublas_wrapper_mutex_,
+                                              allocator_);
+    }
+#else
+    if (int8_mode_) {
+        cublas_wrapper_int8_ = new cublasINT8MMWrapper(
+            cublas_handle_, stream_, cublas_algo_map_, cublas_wrapper_mutex_, use_ORDER_COL32_2R_4R4);
+    }
+    else {
+        cublas_wrapper_ = new cublasMMWrapper(
+            cublas_handle_, cublaslt_handle_, stream_, cublas_algo_map_, cublas_wrapper_mutex_, allocator_);
     }
 
-    ernie_weights_ = new ErnieWeight<T>(m_.head_num,
-                                        m_.size_per_head,
-                                        m_.d_model,
-                                        m_.inter_size,
-                                        m_.vocab_size,
-                                        m_.pos_size,
-                                        m_.sent_vocab_size,
-                                        m_.num_layer);
+#endif
+    if (!int8_mode_) {
+        if (std::is_same<T, half>::value) {
+            cublas_wrapper_->setFP16GemmConfig();
+        }
+        else {
+            cublas_wrapper_->setFP32GemmConfig();
+        }
+        ernie_ = new Ernie<T>(m_.max_batch_size,
+                              m_.max_seq_len,
+                              m_.head_num,
+                              m_.size_per_head,
+                              m_.inter_size,
+                              m_.d_model,
+                              m_.num_layer,
+                              m_.vocab_size,
+                              m_.pos_size,
+                              m_.sent_vocab_size,
+                              m_.sm,
+                              m_.q_scaling,
+                              stream_,  // stream_ placeholder
+                              cublas_wrapper_,
+                              allocator_,
+                              m_.is_free_buffer_after_forward,
+                              m_.attention_type,
+                              m_.is_sparse,
+                              m_.activation_type,
+                              m_.layernorm_type,
+                              NcclParam(0, 1),  // tensor_para
+                              NcclParam(0, 1)   // pipeline_para
+        );
+        ernie_->setUseGraph(useCudaGraph_);
+        ernie_->setHostMode(true);
+        ernie_weights_ = new ErnieWeight<T>(m_.head_num,
+                                            m_.size_per_head,
+                                            m_.d_model,
+                                            m_.inter_size,
+                                            m_.vocab_size,
+                                            m_.pos_size,
+                                            m_.sent_vocab_size,
+                                            m_.num_layer);
 
-    m_.attention_type =
-        getAttentionType<T>(m_.size_per_head, getSMVersion(), m_.is_remove_padding, m_.max_seq_len, true);
-    ernie_weights_->loadModel(ckpt_path);
+        ernie_weights_->loadModel(ckpt_path);
+        m_.attention_type =
+            getAttentionType<T>(m_.size_per_head, getSMVersion(), m_.is_remove_padding, m_.max_seq_len, true);
+    }
+    else {
+        ernie_int8_ = new ErnieINT8<T>(m_.max_batch_size,
+                                       m_.max_seq_len,
+                                       m_.head_num,
+                                       m_.size_per_head,
+                                       m_.inter_size,
+                                       m_.d_model,
+                                       m_.num_layer,
+                                       m_.vocab_size,
+                                       m_.pos_size,
+                                       m_.sent_vocab_size,
+                                       m_.sm,
+                                       m_.q_scaling,
+                                       stream_,  // stream_ placeholder
+                                       cublas_wrapper_,
+                                       allocator_,
+                                       m_.is_free_buffer_after_forward,
+                                       m_.attention_type,
+                                       m_.is_sparse,
+                                       m_.activation_type,
+                                       m_.layernorm_type,
+                                       NcclParam(0, 1),  // tensor_para
+                                       NcclParam(0, 1)   // pipeline_para
+        );
+        ernie_int8_->setUseGraph(useCudaGraph_);
+        ernie_int8_->setHostMode(true);
+        ernie_weights_int8_ = new ErnieWeightINT8<T>(m_.head_num,
+                                                     m_.size_per_head,
+                                                     m_.d_model,
+                                                     m_.inter_size,
+                                                     m_.vocab_size,
+                                                     m_.pos_size,
+                                                     m_.sent_vocab_size,
+                                                     m_.num_layer);
 
-    ernie_ = new Ernie<T>(m_.max_batch_size,
-                          m_.max_seq_len,
-                          m_.head_num,
-                          m_.size_per_head,
-                          m_.inter_size,
-                          m_.d_model,
-                          m_.num_layer,
-                          m_.vocab_size,
-                          m_.pos_size,
-                          m_.sent_vocab_size,
-                          m_.sm,
-                          m_.q_scaling,
-                          stream_,  // stream_ placeholder
-                          cublas_wrapper_,
-                          allocator_,
-                          m_.is_free_buffer_after_forward,
-                          m_.attention_type,
-                          m_.is_sparse,
-                          m_.activation_type,
-                          m_.layernorm_type,
-                          NcclParam(0, 1),  // tensor_para
-                          NcclParam(0, 1)   // pipeline_para
-    );
-    ernie_->setUseGraph(useCudaGraph_);
-    ernie_->setHostMode(true);
+        ernie_weights_int8_->loadModel(ckpt_path);
+        m_.attention_type =
+            getAttentionTypeINT8<T>(m_.size_per_head, getSMVersion(), m_.is_remove_padding, m_.max_seq_len, int8_mode_);
+    }
 }
 
 template<typename T>
@@ -136,7 +192,14 @@ void ErnieEngine<T>::run(const int* h_word_ids_,
                          const int request_batch_size,
                          const int request_seq_len)
 {
-    ernie_->forward(h_word_ids_, h_pos_ids_, h_sent_ids_, h_seq_len_, h_multi_ids_, request_batch_size, request_seq_len, ernie_weights_);
+    ernie_->forward(h_word_ids_,
+                    h_pos_ids_,
+                    h_sent_ids_,
+                    h_seq_len_,
+                    h_multi_ids_,
+                    request_batch_size,
+                    request_seq_len,
+                    ernie_weights_);
 }
 
 template<typename T>

@@ -28,11 +28,16 @@ private:
     Allocator<AllocatorType::CUDA>* allocator_ = nullptr;
     std::mutex* cublas_wrapper_mutex_ = nullptr;
     cublasMMWrapper* cublas_wrapper_ = nullptr;
+    cublasINT8MMWrapper cublas_wrapper_int8_ = nullptr;
 
     ErnieWeight<T>* ernie_weights_ = nullptr;
 
     Ernie<T>* ernie_ = nullptr;
 
+    ErnieINT8Weight<T>* ernie_weights_int8_ = nullptr;
+
+    ErnieINT8<T>* ernie_int8_ = nullptr;
+    
     bool int8_mode_ = false;
     bool useCudaGraph_ = false;
     struct {
