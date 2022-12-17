@@ -20,7 +20,7 @@
 namespace fastertransformer {
 
 template<typename T>
-ErnieINT8Weight<T>::ErnieWeight(const size_t                head_num,
+ErnieINT8Weight<T>::ErnieINT8Weight(const size_t                head_num,
                                           const size_t                size_per_head,
                                           const size_t                d_model,
                                           const size_t                inter_size,

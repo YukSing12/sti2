@@ -227,14 +227,77 @@ void ErnieINT8LayerWeight<T>::loadModel(std::string dir_path, FtCudaDataType mod
     FT_LOG_DEBUG("ErnieINT8LayerWeight " + std::string(__func__) + " start");
 
     FT_CHECK(is_maintain_buffer == true);
-    ErnieLayerWeight::loadModel(dir_path, model_file_type);
+    loadWeightFromBin<T>(weights_ptr[0],
+                         {weights_size[0]},
+                         dir_path + "encoder_layer_" + std::to_string(layer_id_) + "_multi_head_att_query_fc.w_0" + ".bin",
+                         model_file_type);
+    loadWeightFromBin<T>(weights_ptr[1],
+                         {weights_size[1]},
+                         dir_path + "encoder_layer_" + std::to_string(layer_id_) + "_multi_head_att_query_fc.b_0" + ".bin",
+                         model_file_type);
+    loadWeightFromBin<T>(weights_ptr[2],
+                         {weights_size[2]},
+                         dir_path + "encoder_layer_" + std::to_string(layer_id_) + "_multi_head_att_key_fc.w_0" + ".bin",
+                         model_file_type);
+    loadWeightFromBin<T>(weights_ptr[3],
+                         {weights_size[3]},
+                         dir_path + "encoder_layer_" + std::to_string(layer_id_) + "_multi_head_att_key_fc.b_0" + ".bin",
+                         model_file_type);
+    loadWeightFromBin<T>(weights_ptr[4],
+                         {weights_size[4]},
+                         dir_path + "encoder_layer_" + std::to_string(layer_id_) + "_multi_head_att_value_fc.w_0" + ".bin",
+                         model_file_type);
+    loadWeightFromBin<T>(weights_ptr[5],
+                         {weights_size[5]},
+                         dir_path + "encoder_layer_" + std::to_string(layer_id_) + "_multi_head_att_value_fc.b_0" + ".bin",
+                         model_file_type);
+    loadWeightFromBin<T>(weights_ptr[6],
+                         {weights_size[6]},
+                         dir_path + "encoder_layer_" + std::to_string(layer_id_) + "_multi_head_att_output_fc.w_0" + ".bin",
+                         model_file_type);
+    loadWeightFromBin<T>(weights_ptr[7],
+                         {weights_size[7]},
+                         dir_path + "encoder_layer_" + std::to_string(layer_id_) + "_multi_head_att_output_fc.b_0" + ".bin",
+                         model_file_type);
+    loadWeightFromBin<T>(weights_ptr[8],
+                         {weights_size[8]},
+                         dir_path + "encoder_layer_" + std::to_string(layer_id_) + "_post_att_layer_norm_scale" + ".bin",
+                         model_file_type);
+    loadWeightFromBin<T>(weights_ptr[9],
+                         {weights_size[9]},
+                         dir_path + "encoder_layer_" + std::to_string(layer_id_) + "_post_att_layer_norm_bias" + ".bin",
+                         model_file_type);
+    loadWeightFromBin<T>(weights_ptr[10],
+                         {weights_size[10]},
+                         dir_path + "encoder_layer_" + std::to_string(layer_id_) + "_ffn_fc_0.w_0" + ".bin",
+                         model_file_type);
+    loadWeightFromBin<T>(weights_ptr[11],
+                         {weights_size[11]},
+                         dir_path + "encoder_layer_" + std::to_string(layer_id_) + "_ffn_fc_0.b_0" + ".bin",
+                         model_file_type);
+    loadWeightFromBin<T>(weights_ptr[12],
+                         {weights_size[12]},
+                         dir_path + "encoder_layer_" + std::to_string(layer_id_) + "_ffn_fc_1.w_0" + ".bin",
+                         model_file_type);
+    loadWeightFromBin<T>(weights_ptr[13],
+                         {weights_size[13]},
+                         dir_path + "encoder_layer_" + std::to_string(layer_id_) + "_ffn_fc_1.b_0" + ".bin",
+                         model_file_type);
+    loadWeightFromBin<T>(weights_ptr[14],
+                         {weights_size[14]},
+                         dir_path + "encoder_layer_" + std::to_string(layer_id_) + "_post_ffn_layer_norm_scale" + ".bin",
+                         model_file_type);
+    loadWeightFromBin<T>(weights_ptr[15],
+                         {weights_size[15]},
+                         dir_path + "encoder_layer_" + std::to_string(layer_id_) + "_post_ffn_layer_norm_bias" + ".bin",
+                         model_file_type);
 
-    loadWeightFromBin<T>(scale_list_ptr[0],
+    loadWeightFromBin<float>(scale_list_ptr[0],
                          {scale_list_.size_},
                          dir_path + "encoder_layer_" + std::to_string(layer_id_) + "_scale_list" + ".bin",
                          model_file_type);
-                         
-    loadWeightFromBin<T>(scale_list_ptr[1],
+
+    loadWeightFromBin<float>(scale_list_ptr[1],
                          {scale_list_.size_},
                          dir_path + "encoder_layer_" + std::to_string(layer_id_) + "_scale_list" + ".bin",
                          model_file_type);

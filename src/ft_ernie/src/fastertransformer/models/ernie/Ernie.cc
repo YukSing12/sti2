@@ -297,6 +297,14 @@ void Ernie<T>::allocateBuffer(size_t batch_size, size_t seq_len)
         (T*)allocator_->reMalloc(ernie_layer_out_buffer_, sizeof(T) * batch_size * seq_len * d_model_, false);
     ernie_slice_out_buffer_ =
         (T*)allocator_->reMalloc(ernie_slice_out_buffer_, sizeof(T) * batch_size * 1 * d_model_, false);
+    post_emb_out_buffer_ =
+        (T*)allocator_->reMalloc(post_emb_out_buffer_, sizeof(T) * batch_size * d_model_, false);
+    fea_emb_fc_out_buffer_ =
+        (T*)allocator_->reMalloc(fea_emb_fc_out_buffer_, sizeof(T) * batch_size * d_model_, false);
+    cls_out_buffer_ =
+        (T*)allocator_->reMalloc(cls_out_buffer_, sizeof(T) * batch_size * 1, false);
+    cls_out_aside_buffer_ =
+        (T*)allocator_->reMalloc(cls_out_aside_buffer_, sizeof(T) * batch_size * 1, false);
 
     if (layernorm_type_ == LayerNormType::post_layernorm) {
         normed_from_tensor_  = nullptr;
@@ -335,6 +343,10 @@ void Ernie<T>::freeBuffer()
         allocator_->free((void**)(&ernie_encoder_out_buffer_));
         allocator_->free((void**)(&ernie_layer_out_buffer_));
         allocator_->free((void**)(&ernie_slice_out_buffer_));
+        allocator_->free((void**)(&post_emb_out_buffer_));
+        allocator_->free((void**)(&fea_emb_fc_out_buffer_));
+        allocator_->free((void**)(&cls_out_buffer_));
+        allocator_->free((void**)(&cls_out_aside_buffer_));
 
         if (layernorm_type_ == LayerNormType::post_layernorm) {
             normed_from_tensor_  = nullptr;
@@ -804,7 +816,7 @@ void Ernie<T>::forward(std::unordered_map<std::string, Tensor>*       output_ten
                               n,
                               ernie_layer_out_buffer_,
                               k,
-                              output_tensors->at("attn_out").getPtr<T>(),
+                              cls_out_buffer_,
                               n);
     }
 
@@ -1079,10 +1091,10 @@ void Ernie<T>::forward(const int* h_word_ids_,
 
     // MatMul(fea_emb_fc)
     {
-        int m = request_batch_size;
+        int m = request_batch_size_;
         int n = d_model_;
         int k = 160;
-        cublas_wrapper_->Gemm(CUBLAS_OP_N,
+        cublas_wrapper_fea_->Gemm(CUBLAS_OP_N,
                               CUBLAS_OP_N,
                               n,
                               m,
@@ -1093,15 +1105,15 @@ void Ernie<T>::forward(const int* h_word_ids_,
                               k,
                               fea_emb_fc_out_buffer_,
                               n);
-        invokeAddBiasRelu(fea_emb_fc_out_buffer_, ernie_encoder_weights->fea_emb_fc.bias, m, n, stream_);
+        invokeAddBiasRelu(fea_emb_fc_out_buffer_, ernie_encoder_weights->fea_emb_fc.bias, m, n, stream_fea_);
     }
     
     // MatMul(fea_emb_fc2)
     {
-        int m = request_batch_size;
+        int m = request_batch_size_;
         int n = 384;
         int k = d_model_;
-        cublas_wrapper_->Gemm(CUBLAS_OP_N,
+        cublas_wrapper_fea_->Gemm(CUBLAS_OP_N,
                               CUBLAS_OP_N,
                               n,
                               m,
@@ -1112,15 +1124,15 @@ void Ernie<T>::forward(const int* h_word_ids_,
                               k,
                               post_emb_out_buffer_,
                               n);
-        invokeAddBiasRelu(post_emb_out_buffer_, ernie_encoder_weights->fea_emb_fc2.bias, m, n, stream_);
+        invokeAddBiasRelu(post_emb_out_buffer_, ernie_encoder_weights->fea_emb_fc2.bias, m, n, stream_fea_);
     }
 
     // MatMul(cls_out_aside)
     {
-        int m = request_batch_size;
+        int m = request_batch_size_;
         int n = 1;
         int k = 384;
-        cublas_wrapper_->Gemm(CUBLAS_OP_N,
+        cublas_wrapper_fea_->Gemm(CUBLAS_OP_N,
                               CUBLAS_OP_N,
                               n,
                               m,
@@ -1132,13 +1144,119 @@ void Ernie<T>::forward(const int* h_word_ids_,
                               cls_out_aside_buffer_,
                               n);
     }
+    // exit(0);
+
+    if (pipeline_para_.rank_ == pipeline_para_.world_size_ - 1) {
+        // post process (rebuild padding)
+        switch (attention_type_) {
+            case AttentionType::UNFUSED_MHA: {
+                if (pipeline_para_.rank_ == pipeline_para_.world_size_ - 1) {
+                    invokeRebuildPadding(ernie_layer_out_buffer_,
+                                            ernie_encoder_out_buffer_,
+                                            padding_offset_,
+                                            h_token_num_,
+                                            d_model_,
+                                            stream_);
+                }
+                break;
+            }
+            case AttentionType::UNFUSED_PADDED_MHA: {
+                break;
+            }
+            case AttentionType::FUSED_MHA: {
+                if (pipeline_para_.rank_ == pipeline_para_.world_size_ - 1) {
+                    invokeRebuildPadding(ernie_layer_out_buffer_,
+                                            ernie_encoder_out_buffer_,
+                                            padding_offset_,
+                                            h_token_num_,
+                                            d_model_,
+                                            stream_);
+                }
+                break;
+            }
+            case AttentionType::FUSED_PADDED_MHA: {
+                break;
+            }
+            default: {
+                throw std::runtime_error(std::string("[FT][ERROR] Invalid attention type \n"));
+            }
+        }
+    }
+
+    delete padding_offset_tensor_ptr;
+    // todo postprocess
+    std::string cur_graph_key_post = CudaGraph::AppendShape2Key({POSTGRAPH_IDX,request_batch_size_,request_seq_len_});  
+    CudaGraph* cur_graph_ptr_post = nullptr;
+
+    if (is_enqueue_init_ && false) {
+        FT_CHECK(is_free_buffer_after_forward_ == false);
+        if (cuda_graph_pool_.find(cur_graph_key_post) == cuda_graph_pool_.end()) {
+            cur_graph_ptr_post = new CudaGraph();
+            cur_graph_ptr_post->beginCapture(stream_);
+        }
+        else {
+            cur_graph_ptr_post = cuda_graph_pool_[cur_graph_key_post];
+            cur_graph_ptr_post->launch(stream_);
+            return;
+        }
+    }
+    invokeSlice(ernie_slice_out_buffer_, ernie_layer_out_buffer_, request_batch_size_, request_seq_len_, d_model_, stream_);
+    // MatMul(pooled_fc_matmul)
+    {
+        int m = request_batch_size_;
+        int n = d_model_;
+        int k = d_model_;
+        cublas_wrapper_->Gemm(CUBLAS_OP_N,
+                              CUBLAS_OP_N,
+                              n,
+                              m,
+                              k,
+                              ernie_encoder_weights->pooled_fc.kernel,
+                              n,
+                              ernie_slice_out_buffer_,
+                              k,
+                              ernie_layer_out_buffer_,
+                              n);
+        // Add(pooled_fc_add + tanh)
+        invokeAddBiasTanh(ernie_layer_out_buffer_, ernie_encoder_weights->pooled_fc.bias, m, n, stream_);
+    }
+    
+
+    // MatMul(cls_out_matmul)
+    {
+        int m = request_batch_size_;
+        int n = 1;
+        int k = d_model_;
+        cublas_wrapper_->Gemm(CUBLAS_OP_N,
+                              CUBLAS_OP_N,
+                              n,
+                              m,
+                              k,
+                              ernie_encoder_weights->cls_out.kernel,
+                              n,
+                              ernie_layer_out_buffer_,
+                              k,
+                              cls_out_buffer_,
+                              n);
+    }
+
     invokeAddTwoAddBiasSigmoid(cls_out_buffer_,
                                cls_out_aside_buffer_,
                                ernie_encoder_weights->cls_out.bias,
                                ernie_encoder_weights->cls_out_aside.bias,
-                               output_tensors->at("attn_out").getPtr<T>(),
-                               request_batch_size,
+                               d_attn_out_,
+                               request_batch_size_,
                                stream_);
+
+    if (is_enqueue_init_ && false) {
+        if (cuda_graph_pool_.find(cur_graph_key_post) == cuda_graph_pool_.end()) {
+            cur_graph_ptr_post->endCapture(stream_);
+            cuda_graph_pool_[cur_graph_key_post] = cur_graph_ptr_post;
+            // NOTE(yuqingding): If we don't rerun the stream, the result will be wrong.  Graph capture will destroy the
+            // result???
+            cur_graph_ptr_post->launch(stream_);
+        }
+    }
 
     if (is_free_buffer_after_forward_ == true) {
         freeBuffer();

@@ -21,12 +21,12 @@
 #include "src/fastertransformer/layers/attention_layers_int8/AttentionINT8Weight.h"
 #include "src/fastertransformer/utils/cublasMMWrapper.h"
 #include "src/fastertransformer/utils/memory_utils.h"
-#include "src/fastertransformer/models/ernie/ErnieLayerWeight.h"
+// #include "src/fastertransformer/models/ernie/ErnieLayerWeight.h"
 
 namespace fastertransformer {
 
 template<typename T>
-struct ErnieINT8LayerWeight: ErnieLayerWeight<T>{
+struct ErnieINT8LayerWeight {
 
     ErnieINT8LayerWeight() = default;
     ErnieINT8LayerWeight(const size_t layer_id,
