@@ -136,7 +136,6 @@ ErnieINT8LayerWeight<T>::ErnieINT8LayerWeight(const ErnieINT8LayerWeight& other)
     scale_list_.size_ = other.scale_list_.size_;
     scale_list_.p3_offset_ = other.scale_list_.p3_offset_;
     scale_list_.p4_offset_ = other.scale_list_.p4_offset_;
-    deviceMalloc(&scale_list_ptr[0], scale_list_.size_);
     cudaD2Dcpy(scale_list_ptr[0], other.scale_list_ptr[0], scale_list_.size_);
     scale_list_ptr[1] = (float*)malloc(sizeof(float) * scale_list_.size_);
     memcpy(scale_list_ptr[1], other.scale_list_ptr[1], sizeof(float) * scale_list_.size_);
@@ -213,6 +212,7 @@ void ErnieINT8LayerWeight<T>::mallocWeights()
     for (int i = 0; i < real_weights_num_; i++) {
         deviceMalloc(&weights_ptr[i], weights_size[i]);
     }
+    deviceMalloc(&scale_list_ptr[0], scale_list_.size_);   
     is_maintain_buffer = true;
     FT_LOG_DEBUG("ErnieINT8LayerWeight " + std::string(__func__) + " end");
 }
@@ -298,11 +298,13 @@ void ErnieINT8LayerWeight<T>::loadModel(std::string dir_path, FtCudaDataType mod
                          dir_path + "encoder_layer_" + std::to_string(layer_id_) + "_post_ffn_layer_norm_bias" + ".bin",
                          model_file_type);
 
+    // FIXME: loadWeightFromBin<T>
     loadWeightFromBin<float>(scale_list_ptr[0],
                              {scale_list_.size_},
                              dir_path + "encoder_layer_" + std::to_string(layer_id_) + "_scale_list" + ".bin",
                              model_file_type);
-
+    // FIXME: loadWeightFromBin() will load weights from host memory to device memory.
+    //          However, scale_list_ptr[1] is a host pointer
     loadWeightFromBin<float>(scale_list_ptr[1],
                              {scale_list_.size_},
                              dir_path + "encoder_layer_" + std::to_string(layer_id_) + "_scale_list" + ".bin",
@@ -313,7 +315,7 @@ void ErnieINT8LayerWeight<T>::loadModel(std::string dir_path, FtCudaDataType mod
 
 template struct ErnieINT8LayerWeight<float>;
 template struct ErnieINT8LayerWeight<half>;
-#ifdef ENABLE_BF16
+#ifdef ENABLE_BF16 // FIXME: INT8 mode dose not support bf16
 template struct ErnieINT8LayerWeight<__nv_bfloat16>;
 #endif
 

@@ -317,8 +317,8 @@ void ErnieINT8<T>::forward(std::vector<Tensor>* output_tensors,
     std::unordered_map<std::string, Tensor> input_tensors_map{{"word_ids", input_tensors->at(0)},
                                                               {"pos_ids", input_tensors->at(1)},
                                                               {"sent_ids", input_tensors->at(2)},
-                                                              {"seq_len", input_tensors->at(3)}};
-
+                                                              {"seq_len", input_tensors->at(3)},
+                                                              {"multi_ids", input_tensors->at(4)}};
     std::unordered_map<std::string, Tensor> output_tensors_map{{"attn_out", output_tensors->at(0)}};
     forward(&output_tensors_map, &input_tensors_map, ernie_int8_weights);
 }
