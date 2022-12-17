@@ -38,7 +38,7 @@ ErnieINT8Weight<T>::ErnieINT8Weight(const size_t head_num,
     sent_vocab_size_(sent_vocab_size),
     num_layer_(num_layer),
     position_embedding_type(pe_type),
-    real_weights_num_(5)
+    real_weights_num_(23)
 {
     FT_LOG_DEBUG("ErnieINT8Weight " + std::string(__func__) + " start");
     FT_LOG_DEBUG("ErnieINT8Weight num_layer_ = " + std::to_string(num_layer_));
