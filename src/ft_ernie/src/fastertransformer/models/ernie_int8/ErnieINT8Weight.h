@@ -17,15 +17,17 @@
 #pragma once
 
 #include "src/fastertransformer/kernels/gen_relative_pos_bias.h"
-#include "src/fastertransformer/models/ernie_int8/ErnieINT8EncoderLayerWeight.h"
+#include "src/fastertransformer/models/ernie_int8/ErnieINT8LayerWeight.h"
+#include "src/fastertransformer/models/ernie/ErnieWeight.h"
+
 
 namespace fastertransformer {
 
 template<typename T>
-struct ErnieINT8EncoderWeight {
+struct ErnieINT8Weight: ErnieWeight<T>{
 
-    ErnieINT8EncoderWeight() = default;
-    ErnieINT8EncoderWeight(const size_t                head_num,
+    ErnieINT8Weight() = default;
+    ErnieINT8Weight(const size_t                head_num,
                        const size_t                size_per_head,
                        const size_t                d_model,
                        const size_t                inter_size,
@@ -34,11 +36,11 @@ struct ErnieINT8EncoderWeight {
                        const size_t                sent_vocab_size,
                        const size_t                num_layer,
                        const PositionEmbeddingType pe_type                   = PositionEmbeddingType::relative);
-    ~ErnieINT8EncoderWeight();
-    ErnieINT8EncoderWeight(const ErnieINT8EncoderWeight& other);
-    ErnieINT8EncoderWeight& operator=(const ErnieINT8EncoderWeight& other);
+    ~ErnieINT8Weight();
+    ErnieINT8Weight(const ErnieINT8Weight& other);
+    ErnieINT8Weight& operator=(const ErnieINT8Weight& other);
 
-    std::vector<ErnieINT8EncoderLayerWeight<T>*> ernie_encoder_layer_weights;
+    std::vector<ErnieINT8LayerWeight<T>*> ernie_encoder_layer_weights;
     LayerNormWeight<T>                    pre_transformer_layernorm_weights;
     T*                                    word_embedding_table                    = nullptr;
     T*                                    pos_embedding_table                     = nullptr;

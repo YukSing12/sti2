@@ -68,7 +68,7 @@ ErniePlugin::ErniePlugin(const std::string& name,
         if (m_.useFP16) {
             m_.attention_type =
                 getAttentionType<half>(m_.size_per_head, getSMVersion(), m_.is_remove_padding, m_.max_seq_len, false);
-            pErnieEncoderWeightHalf_ = new ErnieEncoderWeight<half>(m_.head_num,
+            pErnieWeightHalf_ = new ErnieWeight<half>(m_.head_num,
                                                               m_.size_per_head,
                                                               m_.d_model,
                                                               m_.inter_size,
@@ -77,12 +77,12 @@ ErniePlugin::ErniePlugin(const std::string& name,
                                                               m_.sent_vocab_size,
                                                               m_.num_layer
             );
-            pErnieEncoderWeightHalf_->loadModel(std::string(m_.ckpt_path));
+            pErnieWeightHalf_->loadModel(std::string(m_.ckpt_path));
         }
         else {
             m_.attention_type =
                 getAttentionType<float>(m_.size_per_head, getSMVersion(), m_.is_remove_padding, m_.max_seq_len);
-            pErnieEncoderWeightFloat_ = new ErnieEncoderWeight<float>(m_.head_num,
+            pErnieWeightFloat_ = new ErnieWeight<float>(m_.head_num,
                                                                 m_.size_per_head,
                                                                 m_.d_model,
                                                                 m_.inter_size,
@@ -91,7 +91,7 @@ ErniePlugin::ErniePlugin(const std::string& name,
                                                                 m_.sent_vocab_size,
                                                                 m_.num_layer
             );
-            pErnieEncoderWeightFloat_->loadModel(std::string(m_.ckpt_path));
+            pErnieWeightFloat_->loadModel(std::string(m_.ckpt_path));
         }
     }
     // Gemm file selection
@@ -135,7 +135,7 @@ ErniePlugin::ErniePlugin(const std::string& name,
     pCublasWrapperMutex_ = new std::mutex();
     pAllocator_          = new Allocator<AllocatorType::CUDA>(getDevice());
 
-    // cublas wrapper and ErnieEncoder
+    // cublas wrapper and Ernie
 #ifdef SPARSITY_ENABLED
     pCublasWrapper_ = new cublasMMWrapper(
         cublasHandle_, cublasltHandle_, cusparseltHandle_, 0, pCublasAlgoMap_, pCublasWrapperMutex_, pAllocator_);
@@ -148,7 +148,7 @@ ErniePlugin::ErniePlugin(const std::string& name,
     if (m_.useFP16) {
         pCublasWrapper_->setFP16GemmConfig();
 
-        pErnieEncoderHalf_ = new ErnieEncoder<half>(m_.max_batch_size,
+        pErnieHalf_ = new Ernie<half>(m_.max_batch_size,
                                                     m_.max_seq_len,
                                                     m_.head_num,
                                                     m_.size_per_head,
@@ -175,7 +175,7 @@ ErniePlugin::ErniePlugin(const std::string& name,
     else {
         pCublasWrapper_->setFP32GemmConfig();
 
-        pErnieEncoderFloat_ = new ErnieEncoder<float>(m_.max_batch_size,
+        pErnieFloat_ = new Ernie<float>(m_.max_batch_size,
                                                       m_.max_seq_len,
                                                       m_.head_num,
                                                       m_.size_per_head,
@@ -220,7 +220,7 @@ ErniePlugin::ErniePlugin(const std::string& name, const void* buffer, size_t len
         if (m_.useFP16) {
             m_.attention_type =
                 getAttentionType<half>(m_.size_per_head, getSMVersion(), m_.is_remove_padding, m_.max_seq_len, false);
-            pErnieEncoderWeightHalf_ = new ErnieEncoderWeight<half>(m_.head_num,
+            pErnieWeightHalf_ = new ErnieWeight<half>(m_.head_num,
                                                               m_.size_per_head,
                                                               m_.d_model,
                                                               m_.inter_size,
@@ -229,12 +229,12 @@ ErniePlugin::ErniePlugin(const std::string& name, const void* buffer, size_t len
                                                               m_.sent_vocab_size,
                                                               m_.num_layer
             );
-            pErnieEncoderWeightHalf_->loadModel(std::string(m_.ckpt_path));
+            pErnieWeightHalf_->loadModel(std::string(m_.ckpt_path));
         }
         else {
             m_.attention_type =
                 getAttentionType<float>(m_.size_per_head, getSMVersion(), m_.is_remove_padding, m_.max_seq_len);
-            pErnieEncoderWeightFloat_ = new ErnieEncoderWeight<float>(m_.head_num,
+            pErnieWeightFloat_ = new ErnieWeight<float>(m_.head_num,
                                                                 m_.size_per_head,
                                                                 m_.d_model,
                                                                 m_.inter_size,
@@ -243,7 +243,7 @@ ErniePlugin::ErniePlugin(const std::string& name, const void* buffer, size_t len
                                                                 m_.sent_vocab_size,
                                                                 m_.num_layer
             );
-            pErnieEncoderWeightFloat_->loadModel(std::string(m_.ckpt_path));
+            pErnieWeightFloat_->loadModel(std::string(m_.ckpt_path));
         }
     }
     // Gemm file selection, in constructor, we use max_batch_szie and seq_len as
@@ -288,7 +288,7 @@ ErniePlugin::ErniePlugin(const std::string& name, const void* buffer, size_t len
     pCublasWrapperMutex_ = new std::mutex();
     pAllocator_          = new Allocator<AllocatorType::CUDA>(getDevice());
 
-    // cublas wrapper and ErnieEncoder
+    // cublas wrapper and Ernie
 #ifdef SPARSITY_ENABLED
     pCublasWrapper_ = new cublasMMWrapper(
         cublasHandle_, cublasltHandle_, cusparseltHandle_, 0, pCublasAlgoMap_, pCublasWrapperMutex_, pAllocator_);
@@ -301,7 +301,7 @@ ErniePlugin::ErniePlugin(const std::string& name, const void* buffer, size_t len
     if (m_.useFP16) {
         pCublasWrapper_->setFP16GemmConfig();
 
-        pErnieEncoderHalf_ = new ErnieEncoder<half>(m_.max_batch_size,
+        pErnieHalf_ = new Ernie<half>(m_.max_batch_size,
                                               m_.max_seq_len,
                                               m_.head_num,
                                               m_.size_per_head,
@@ -328,7 +328,7 @@ ErniePlugin::ErniePlugin(const std::string& name, const void* buffer, size_t len
     else {
         pCublasWrapper_->setFP32GemmConfig();
 
-        pErnieEncoderFloat_ = new ErnieEncoder<float>(m_.max_batch_size,
+        pErnieFloat_ = new Ernie<float>(m_.max_batch_size,
                                                 m_.max_seq_len,
                                                 m_.head_num,
                                                 m_.size_per_head,
@@ -358,17 +358,17 @@ ErniePlugin::ErniePlugin(const std::string& name, const void* buffer, size_t len
 ErniePlugin::~ErniePlugin()
 {
     WHERE_AM_I();
-    if (is_own_weight && pErnieEncoderWeightHalf_ != nullptr) {
-        delete pErnieEncoderWeightHalf_;
+    if (is_own_weight && pErnieWeightHalf_ != nullptr) {
+        delete pErnieWeightHalf_;
     }
-    if (is_own_weight && pErnieEncoderWeightFloat_ != nullptr) {
-        delete pErnieEncoderWeightFloat_;
+    if (is_own_weight && pErnieWeightFloat_ != nullptr) {
+        delete pErnieWeightFloat_;
     }
-    if (pErnieEncoderHalf_ != nullptr) {
-        delete pErnieEncoderHalf_;
+    if (pErnieHalf_ != nullptr) {
+        delete pErnieHalf_;
     }
-    if (pErnieEncoderFloat_ != nullptr) {
-        delete pErnieEncoderFloat_;
+    if (pErnieFloat_ != nullptr) {
+        delete pErnieFloat_;
     }
     delete pCublasAlgoMap_;
     delete pCublasWrapperMutex_;
@@ -407,8 +407,8 @@ IPluginV2DynamicExt* ErniePlugin::clone() const noexcept
         std::string(m_.ckpt_path), 
         false);
     p->setPluginNamespace(namespace_.c_str());
-    p->pErnieEncoderWeightHalf_  = this->pErnieEncoderWeightHalf_;
-    p->pErnieEncoderWeightFloat_ = this->pErnieEncoderWeightFloat_;
+    p->pErnieWeightHalf_  = this->pErnieWeightHalf_;
+    p->pErnieWeightFloat_ = this->pErnieWeightFloat_;
     return p;
 }
 
@@ -421,7 +421,7 @@ int ErniePlugin::getNbOutputs() const noexcept
 DataType ErniePlugin::getOutputDataType(int index, const DataType* inputTypes, int nbInputs) const noexcept
 {
     WHERE_AM_I();
-    return m_.useFP16 ? DataType::kHALF : DataType::kFLOAT;
+    return DataType::kFLOAT;
 }
 
 bool ErniePlugin::supportsFormatCombination(int                     pos,
@@ -441,7 +441,7 @@ bool ErniePlugin::supportsFormatCombination(int                     pos,
             res = (inOut[pos].type == DataType::kINT32) && (inOut[pos].format == TensorFormat::kLINEAR);
             break;
         case 5:
-            res = (inOut[pos].type == (m_.useFP16 ? DataType::kHALF : DataType::kFLOAT))
+            res = (inOut[pos].type == DataType::kFLOAT)
                   && (inOut[pos].format == TensorFormat::kLINEAR);
             break;
         default:  // should NOT be here!
@@ -590,25 +590,21 @@ int ErniePlugin::enqueue(const PluginTensorDesc* inputDesc,
         {"sent_ids", Tensor{MEMORY_GPU, TYPE_INT32, std::vector<size_t>{m_.batch_size, m_.seq_len}, (int*)inputs[2]}},
         {"seq_len", Tensor{MEMORY_GPU, TYPE_INT32, std::vector<size_t>{m_.batch_size, 1}, (int*)inputs[3]}},
         {"multi_ids", Tensor{MEMORY_GPU, TYPE_INT32, std::vector<size_t>{m_.batch_size, 8}, (int*)inputs[4]}}};
-    if (m_.useFP16) {
-        std::unordered_map<std::string, Tensor> outputTensor{
-            {"attn_out",
-             Tensor{MEMORY_GPU,
-                    TYPE_FP16,
-                    std::vector<size_t>{m_.batch_size, 1},
-                    (half*)outputs[0]}}};
-        pErnieEncoderHalf_->setStream(stream);
-        pErnieEncoderHalf_->forward(&outputTensor, &inputTensor, pErnieEncoderWeightHalf_);
-    }
-    else {
+
         std::unordered_map<std::string, Tensor> outputTensor{
             {"attn_out",
              Tensor{MEMORY_GPU,
                     TYPE_FP32,
                     std::vector<size_t>{m_.batch_size, 1},
                     (float*)outputs[0]}}};
-        pErnieEncoderFloat_->setStream(stream);
-        pErnieEncoderFloat_->forward(&outputTensor, &inputTensor, pErnieEncoderWeightFloat_);
+    if (m_.useFP16) {
+        pErnieHalf_->setStream(stream);
+        pErnieHalf_->forward(&outputTensor, &inputTensor, pErnieWeightHalf_);
+    }
+    else {
+        
+        pErnieFloat_->setStream(stream);
+        pErnieFloat_->forward(&outputTensor, &inputTensor, pErnieWeightFloat_);
     }
     return 0;
 }

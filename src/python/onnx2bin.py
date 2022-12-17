@@ -1,29 +1,45 @@
-import os
-import sys
 import argparse
+import sys
+import os
+import onnx
+import onnx_graphsurgeon as gs
 import numpy as np
 import configparser
 
+
 def get_args():
-    parser = argparse.ArgumentParser(
-        'Extract Weights of Ernie', add_help=False)
-    parser.add_argument('--npy', required=True, type=str,
-                        help='Path of npy file to load')
+    parser = argparse.ArgumentParser('Export Weights of Ernie', add_help=False)
+    parser.add_argument('--onnx', required=True, type=str, help='Path of onnx file to load')
     parser.add_argument('--bin', default='./model/bin',
                         type=str, help='Path of bin')
     parser.add_argument('--fp16', action='store_true', default=False,
                         help='Enable FP16 mode or not, default is FP32')
-
     args = parser.parse_args()
     return args
 
+def dump_weights(nodes):
+    rst = dict()
+    for node in nodes:
+        for inp_variable in node.inputs :
+            if "helper" in inp_variable.name:
+                continue
+            if hasattr(inp_variable, "values"):
+                print("Export {}".format(inp_variable.name))
+                rst[inp_variable.name] = inp_variable.values
+    return rst
 
 if __name__ == "__main__":
     args = get_args()
     os.system("mkdir -p " + args.bin)
-
-    conf = configparser.ConfigParser()
     
+    graph = gs.import_onnx(onnx.load(args.onnx))
+    print("Nodes:{}".format(len(graph.nodes)))
+    graph.fold_constants().cleanup()
+    print("Nodes:{}".format(len(graph.nodes)))
+    nodes = graph.nodes
+    weights=dump_weights(nodes)
+    
+    conf = configparser.ConfigParser()
     conf.add_section("ernie")
     with open(os.path.join(args.bin, "config.ini"), 'w') as fid:
         if args.fp16:
@@ -36,13 +52,11 @@ if __name__ == "__main__":
             npDataType = np.float32
         conf.write(fid)
     
-    ews = np.load(args.npy, allow_pickle='TRUE')
-    ews = ews.item()
-
-    for name in ews:
+    
+    for name,value in weights.items():
         saved_path = os.path.join(args.bin, name+".bin")
-        cur = ews[name]
-        print(name, cur.shape)
-        cur.astype(npDataType).tofile(saved_path)
-
+        print(name, value.shape)
+        value.astype(npDataType).tofile(saved_path)
     print("Succeed extracting weights of Ernie!")
+
+

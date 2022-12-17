@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 
-#include "src/fastertransformer/models/ernie_int8/ErnieINT8EncoderLayerWeight.h"
+#include "src/fastertransformer/models/ernie_int8/ErnieINT8LayerWeight.h"
 #include "src/fastertransformer/utils/logger.h"
 #include "src/fastertransformer/utils/memory_utils.h"
 
 namespace fastertransformer {
 
 template<typename T>
-ErnieINT8EncoderLayerWeight<T>::ErnieINT8EncoderLayerWeight(const size_t layer_id,
+ErnieINT8LayerWeight<T>::ErnieINT8LayerWeight(const size_t layer_id,
                                                     const size_t head_num,
                                                     const size_t size_per_head,
                                                     const size_t d_model,
@@ -33,17 +33,17 @@ ErnieINT8EncoderLayerWeight<T>::ErnieINT8EncoderLayerWeight(const size_t layer_i
     inter_size_(inter_size)
 {
     real_weights_num_ = 16;
-    FT_LOG_DEBUG("ErnieINT8EncoderLayerWeight " + std::string(__func__) + " start");
+    FT_LOG_DEBUG("ErnieINT8LayerWeight " + std::string(__func__) + " start");
     initialize();
     mallocWeights();
     setWeightPtr();
-    FT_LOG_DEBUG("ErnieINT8EncoderLayerWeight " + std::string(__func__) + " end");
+    FT_LOG_DEBUG("ErnieINT8LayerWeight " + std::string(__func__) + " end");
 }
 
 template<typename T>
-void ErnieINT8EncoderLayerWeight<T>::initialize()
+void ErnieINT8LayerWeight<T>::initialize()
 {
-    FT_LOG_DEBUG("ErnieINT8EncoderLayerWeight " + std::string(__func__) + " start");
+    FT_LOG_DEBUG("ErnieINT8LayerWeight " + std::string(__func__) + " start");
     weights_size[0] = d_model_ * d_model_;
     weights_size[1] = d_model_;
     weights_size[2] = d_model_ * d_model_;
@@ -71,13 +71,13 @@ void ErnieINT8EncoderLayerWeight<T>::initialize()
     deviceMalloc(&scale_list_ptr[0], scale_list_.size_);
     scale_list_ptr[1] = (float*)malloc(sizeof(float) * scale_list_.size_);
 
-    FT_LOG_DEBUG("ErnieINT8EncoderLayerWeight " + std::string(__func__) + " end");
+    FT_LOG_DEBUG("ErnieINT8LayerWeight " + std::string(__func__) + " end");
 }
 
 template<typename T>
-ErnieINT8EncoderLayerWeight<T>::~ErnieINT8EncoderLayerWeight()
+ErnieINT8LayerWeight<T>::~ErnieINT8LayerWeight()
 {
-    FT_LOG_DEBUG("ErnieINT8EncoderLayerWeight " + std::string(__func__) + " start");
+    FT_LOG_DEBUG("ErnieINT8LayerWeight " + std::string(__func__) + " start");
     if (is_maintain_buffer == true) {
         for (int i = 0; i < real_weights_num_; i++) {
             deviceFree(weights_ptr[i]);
@@ -118,11 +118,11 @@ ErnieINT8EncoderLayerWeight<T>::~ErnieINT8EncoderLayerWeight()
         ffn_weights.output_weight.sp_kernel                 = nullptr;
         is_maintain_sp_buffer                               = false;
     }
-    FT_LOG_DEBUG("ErnieINT8EncoderLayerWeight " + std::string(__func__) + " end");
+    FT_LOG_DEBUG("ErnieINT8LayerWeight " + std::string(__func__) + " end");
 }
 
 template<typename T>
-ErnieINT8EncoderLayerWeight<T>::ErnieINT8EncoderLayerWeight(const ErnieINT8EncoderLayerWeight& other):
+ErnieINT8LayerWeight<T>::ErnieINT8LayerWeight(const ErnieINT8LayerWeight& other):
     layer_id_(other.layer_id_),
     head_num_(other.head_num_),
     size_per_head_(other.size_per_head_),
@@ -130,7 +130,7 @@ ErnieINT8EncoderLayerWeight<T>::ErnieINT8EncoderLayerWeight(const ErnieINT8Encod
     inter_size_(other.inter_size_),
     real_weights_num_(other.real_weights_num_)
 {
-    FT_LOG_DEBUG("ErnieINT8EncoderLayerWeight " + std::string(__func__) + " start");
+    FT_LOG_DEBUG("ErnieINT8LayerWeight " + std::string(__func__) + " start");
     initialize();
     mallocWeights();
     for (int i = 0; i < real_weights_num_; i++) {
@@ -146,13 +146,13 @@ ErnieINT8EncoderLayerWeight<T>::ErnieINT8EncoderLayerWeight(const ErnieINT8Encod
     memcpy(scale_list_ptr[1], other.scale_list_ptr[1], sizeof(float) * scale_list_.size_);
 
     setWeightPtr();
-    FT_LOG_DEBUG("ErnieINT8EncoderLayerWeight " + std::string(__func__) + " end");
+    FT_LOG_DEBUG("ErnieINT8LayerWeight " + std::string(__func__) + " end");
 }
 
 template<typename T>
-ErnieINT8EncoderLayerWeight<T>& ErnieINT8EncoderLayerWeight<T>::operator=(const ErnieINT8EncoderLayerWeight<T>& other)
+ErnieINT8LayerWeight<T>& ErnieINT8LayerWeight<T>::operator=(const ErnieINT8LayerWeight<T>& other)
 {
-    FT_LOG_DEBUG("ErnieINT8EncoderLayerWeight " + std::string(__func__) + " start");
+    FT_LOG_DEBUG("ErnieINT8LayerWeight " + std::string(__func__) + " start");
     
     layer_id_         = other.layer_id_;
     head_num_         = other.head_num_;
@@ -175,15 +175,15 @@ ErnieINT8EncoderLayerWeight<T>& ErnieINT8EncoderLayerWeight<T>::operator=(const 
     memcpy(scale_list_ptr[1], other.scale_list_ptr[1], sizeof(float) * scale_list_.size_);
 
     setWeightPtr();
-    FT_LOG_DEBUG("ErnieINT8EncoderLayerWeight " + std::string(__func__) + " end");
+    FT_LOG_DEBUG("ErnieINT8LayerWeight " + std::string(__func__) + " end");
 
     return *this;
 }
 
 template<typename T>
-void ErnieINT8EncoderLayerWeight<T>::setWeightPtr()
+void ErnieINT8LayerWeight<T>::setWeightPtr()
 {
-    FT_LOG_DEBUG("ErnieINT8EncoderLayerWeight " + std::string(__func__) + " start");
+    FT_LOG_DEBUG("ErnieINT8LayerWeight " + std::string(__func__) + " start");
     attention_weights.query_weight.kernel            = weights_ptr[0];
     attention_weights.query_weight.bias              = weights_ptr[1];
     attention_weights.key_weight.kernel              = weights_ptr[2];
@@ -207,99 +207,45 @@ void ErnieINT8EncoderLayerWeight<T>::setWeightPtr()
     ffn_weights.scale_list_ptr       = &scale_list_;
 
     is_maintain_buffer = true;
-    FT_LOG_DEBUG("ErnieINT8EncoderLayerWeight " + std::string(__func__) + " end");
+    FT_LOG_DEBUG("ErnieINT8LayerWeight " + std::string(__func__) + " end");
 }
 
 template<typename T>
-void ErnieINT8EncoderLayerWeight<T>::mallocWeights()
+void ErnieINT8LayerWeight<T>::mallocWeights()
 {
-    FT_LOG_DEBUG("ErnieINT8EncoderLayerWeight " + std::string(__func__) + " start");
+    FT_LOG_DEBUG("ErnieINT8LayerWeight " + std::string(__func__) + " start");
     for (int i = 0; i < real_weights_num_; i++) {
         deviceMalloc(&weights_ptr[i], weights_size[i]);
     }
     is_maintain_buffer = true;
-    FT_LOG_DEBUG("ErnieINT8EncoderLayerWeight " + std::string(__func__) + " end");
+    FT_LOG_DEBUG("ErnieINT8LayerWeight " + std::string(__func__) + " end");
 }
 
 template<typename T>
-void ErnieINT8EncoderLayerWeight<T>::loadModel(std::string dir_path, FtCudaDataType model_file_type)
+void ErnieINT8LayerWeight<T>::loadModel(std::string dir_path, FtCudaDataType model_file_type)
 {
-    FT_LOG_DEBUG("ErnieINT8EncoderLayerWeight " + std::string(__func__) + " start");
+    FT_LOG_DEBUG("ErnieINT8LayerWeight " + std::string(__func__) + " start");
 
     FT_CHECK(is_maintain_buffer == true);
+    ErnieLayerWeight::loadModel(dir_path, model_file_type);
 
-    loadWeightFromBin<T>(weights_ptr[0],
-                         {weights_size[0]},
-                         dir_path + "encoder_layer_" + std::to_string(layer_id_) + "_multi_head_att_query_fc.w_0" + ".bin",
+    loadWeightFromBin<T>(scale_list_ptr[0],
+                         {scale_list_.size_},
+                         dir_path + "encoder_layer_" + std::to_string(layer_id_) + "_scale_list" + ".bin",
                          model_file_type);
-    loadWeightFromBin<T>(weights_ptr[1],
-                         {weights_size[1]},
-                         dir_path + "encoder_layer_" + std::to_string(layer_id_) + "_multi_head_att_query_fc.b_0" + ".bin",
+                         
+    loadWeightFromBin<T>(scale_list_ptr[1],
+                         {scale_list_.size_},
+                         dir_path + "encoder_layer_" + std::to_string(layer_id_) + "_scale_list" + ".bin",
                          model_file_type);
-    loadWeightFromBin<T>(weights_ptr[2],
-                         {weights_size[2]},
-                         dir_path + "encoder_layer_" + std::to_string(layer_id_) + "_multi_head_att_key_fc.w_0" + ".bin",
-                         model_file_type);
-    loadWeightFromBin<T>(weights_ptr[3],
-                         {weights_size[3]},
-                         dir_path + "encoder_layer_" + std::to_string(layer_id_) + "_multi_head_att_key_fc.b_0" + ".bin",
-                         model_file_type);
-    loadWeightFromBin<T>(weights_ptr[4],
-                         {weights_size[4]},
-                         dir_path + "encoder_layer_" + std::to_string(layer_id_) + "_multi_head_att_value_fc.w_0" + ".bin",
-                         model_file_type);
-    loadWeightFromBin<T>(weights_ptr[5],
-                         {weights_size[5]},
-                         dir_path + "encoder_layer_" + std::to_string(layer_id_) + "_multi_head_att_value_fc.b_0" + ".bin",
-                         model_file_type);
-    loadWeightFromBin<T>(weights_ptr[6],
-                         {weights_size[6]},
-                         dir_path + "encoder_layer_" + std::to_string(layer_id_) + "_multi_head_att_output_fc.w_0" + ".bin",
-                         model_file_type);
-    loadWeightFromBin<T>(weights_ptr[7],
-                         {weights_size[7]},
-                         dir_path + "encoder_layer_" + std::to_string(layer_id_) + "_multi_head_att_output_fc.b_0" + ".bin",
-                         model_file_type);
-    loadWeightFromBin<T>(weights_ptr[8],
-                         {weights_size[8]},
-                         dir_path + "encoder_layer_" + std::to_string(layer_id_) + "_post_att_layer_norm_scale" + ".bin",
-                         model_file_type);
-    loadWeightFromBin<T>(weights_ptr[9],
-                         {weights_size[9]},
-                         dir_path + "encoder_layer_" + std::to_string(layer_id_) + "_post_att_layer_norm_bias" + ".bin",
-                         model_file_type);
-    loadWeightFromBin<T>(weights_ptr[10],
-                         {weights_size[10]},
-                         dir_path + "encoder_layer_" + std::to_string(layer_id_) + "_ffn_fc_0.w_0" + ".bin",
-                         model_file_type);
-    loadWeightFromBin<T>(weights_ptr[11],
-                         {weights_size[11]},
-                         dir_path + "encoder_layer_" + std::to_string(layer_id_) + "_ffn_fc_0.b_0" + ".bin",
-                         model_file_type);
-    loadWeightFromBin<T>(weights_ptr[12],
-                         {weights_size[12]},
-                         dir_path + "encoder_layer_" + std::to_string(layer_id_) + "_ffn_fc_1.w_0" + ".bin",
-                         model_file_type);
-    loadWeightFromBin<T>(weights_ptr[13],
-                         {weights_size[13]},
-                         dir_path + "encoder_layer_" + std::to_string(layer_id_) + "_ffn_fc_1.b_0" + ".bin",
-                         model_file_type);
-    loadWeightFromBin<T>(weights_ptr[14],
-                         {weights_size[14]},
-                         dir_path + "encoder_layer_" + std::to_string(layer_id_) + "_post_ffn_layer_norm_scale" + ".bin",
-                         model_file_type);
-    loadWeightFromBin<T>(weights_ptr[15],
-                         {weights_size[15]},
-                         dir_path + "encoder_layer_" + std::to_string(layer_id_) + "_post_ffn_layer_norm_bias" + ".bin",
-                         model_file_type);
-    
-    FT_LOG_DEBUG("ErnieINT8EncoderLayerWeight " + std::string(__func__) + " end");
+
+    FT_LOG_DEBUG("ErnieINT8LayerWeight " + std::string(__func__) + " end");
 }
 
-template struct ErnieINT8EncoderLayerWeight<float>;
-template struct ErnieINT8EncoderLayerWeight<half>;
+template struct ErnieINT8LayerWeight<float>;
+template struct ErnieINT8LayerWeight<half>;
 #ifdef ENABLE_BF16
-template struct ErnieINT8EncoderLayerWeight<__nv_bfloat16>;
+template struct ErnieINT8LayerWeight<__nv_bfloat16>;
 #endif
 
 }  // namespace fastertransformer

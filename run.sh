@@ -5,8 +5,8 @@ export LD_PRELOAD="$ROOT_DIR/so/tensorrt/lib/libnvinfer_builder_resource.so.8.5.
 
 if [ $1 = "data/perf.test.txt" ]; then
     rm  ./perf.res.txt
-    ./bin/multiprofile ./model/Ernie.plan ./data/perf.test.txt ./perf.res.txt ./so/plugins/
+    ./bin/ernie_infer 1 ./model/bin ./data/perf.test.txt ./perf.res.txt
 else
      rm  ./label.res.txt
-    ./bin/multiprofile ./model/Ernie.plan ./data/label.test.txt ./label.res.txt ./so/plugins/
+    ./bin/ernie_infer 1 ./model/bin ./data/label.test.txt ./label.res.txt
 fi

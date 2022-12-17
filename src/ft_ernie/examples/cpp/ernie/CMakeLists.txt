@@ -12,18 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# add_subdirectory(bert)
-# add_subdirectory(bert_int8)
-# add_subdirectory(decoding)
-# add_subdirectory(gpt)
-# add_subdirectory(xlnet)
-# add_subdirectory(swin)
-# add_subdirectory(swin_int8)
-# add_subdirectory(vit)
-# add_subdirectory(vit_int8)
 
-# add_subdirectory(gptj)
-# add_subdirectory(gptneox)
-# add_subdirectory(multi_gpu_gpt)
-
-add_subdirectory(ernie)
+add_executable(ernie_infer_graph ernie_infer_graph.cc  ErnieGemm.cc)
+add_executable(ernie_infer ernie_infer.cc ErnieGemm.cc)
+if (SPARSITY_SUPPORT)
+target_link_libraries(ernie_infer PUBLIC -lcublas -lcublasLt -lcudart -lcusparse -lcusparseLt Ernie encoder_gemm_func encoder_igemm_func)
+else()
+target_link_libraries(ernie_infer_graph PUBLIC -lcublas -lcublasLt -lcudart Ernie encoder_gemm_func encoder_igemm_func)
+target_link_libraries(ernie_infer PUBLIC -lcublas -lcublasLt -lcudart Ernie encoder_gemm_func encoder_igemm_func)
+endif()

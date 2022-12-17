@@ -17,31 +17,30 @@
 #pragma once
 
 #include "src/fastertransformer/kernels/layernorm_kernels.h"
-#include "src/fastertransformer/layers/FfnINT8Weight.h"
-#include "src/fastertransformer/layers/attention_layers_int8/AttentionINT8Weight.h"
+#include "src/fastertransformer/layers/FfnWeight.h"
+#include "src/fastertransformer/layers/attention_layers/AttentionWeight.h"
 #include "src/fastertransformer/utils/cublasMMWrapper.h"
 #include "src/fastertransformer/utils/memory_utils.h"
 
 namespace fastertransformer {
 
 template<typename T>
-struct ErnieINT8EncoderLayerWeight {
+struct ErnieLayerWeight {
 
-    ErnieINT8EncoderLayerWeight() = default;
-    ErnieINT8EncoderLayerWeight(const size_t layer_id,
+    ErnieLayerWeight() = default;
+    ErnieLayerWeight(const size_t layer_id,
                             const size_t head_num,
                             const size_t size_per_head,
                             const size_t d_model,
                             const size_t inter_size);
-    ~ErnieINT8EncoderLayerWeight();
-    ErnieINT8EncoderLayerWeight(const ErnieINT8EncoderLayerWeight& other);
-    ErnieINT8EncoderLayerWeight& operator=(const ErnieINT8EncoderLayerWeight& other);
+    ~ErnieLayerWeight();
+    ErnieLayerWeight(const ErnieLayerWeight& other);
+    ErnieLayerWeight& operator=(const ErnieLayerWeight& other);
 
-    AttentionINT8Weight<T> attention_weights;
+    AttentionWeight<T> attention_weights;
     LayerNormWeight<T> attn_layernorm_weights;
-    FfnINT8Weight<T>       ffn_weights;
+    FfnWeight<T>       ffn_weights;
     LayerNormWeight<T> ffn_layernorm_weights;
-    ScaleList              scale_list_;
 
     void loadModel(std::string dir_path, FtCudaDataType model_file_type);
 
@@ -64,7 +63,7 @@ private:
     const static int weights_num_ = 16;
     T*               weights_ptr[weights_num_];
     size_t           weights_size[weights_num_];
-    float* scale_list_ptr[2];
+
     T*   sp_weights_ptr[6];
     bool is_maintain_sp_buffer = false;
 };

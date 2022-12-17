@@ -20,22 +20,26 @@
 #include <vector>
 
 #include "src/fastertransformer/kernels/bert_preprocess_kernels.h"
-#include "src/fastertransformer/kernels/activation_kernels.h"
 #include "src/fastertransformer/kernels/gpt_kernels.h"
-#include "src/fastertransformer/kernels/layernorm_kernels.h"
+#include "src/fastertransformer/kernels/layernorm_int8_kernels.h"
 #include "src/fastertransformer/layers/TensorParallelGeluFfnLayer.h"
 #include "src/fastertransformer/layers/TensorParallelReluFfnLayer.h"
 #include "src/fastertransformer/layers/TensorParallelSiluFfnLayer.h"
-#include "src/fastertransformer/layers/attention_layers/FusedAttentionLayer.h"
-#include "src/fastertransformer/layers/attention_layers/TensorParallelUnfusedAttentionLayer.h"
-#include "src/fastertransformer/models/ernie/ErnieEncoderWeight.h"
+#include "src/fastertransformer/layers/FfnLayerINT8.h"
+#include "src/fastertransformer/layers/attention_layers_int8/FusedAttentionLayerINT8.h"
+#include "src/fastertransformer/layers/attention_layers_int8/UnfusedAttentionLayerINT8.h"
+#include "src/fastertransformer/models/ernie_int8/ErnieINT8Weight.h"
+#include "src/fastertransformer/models/ernie_int8/ErnieINT8LayerWeight.h"
 #include "src/fastertransformer/utils/custom_ar_comm.h"
-#include "src/fastertransformer/models/ernie/FTCudaGraph.h"
+#include "src/fastertransformer/kernels/quantization_int8_kernels.h"
+#include "src/fastertransformer/kernels/add_residual_kernels.h"
+#include "src/fastertransformer/kernels/decoding_kernels.h"
+#include "src/fastertransformer/kernels/ernie_kernels.h"
 
 namespace fastertransformer {
 
 template<typename T>
-class ErnieEncoder: public BaseLayer {
+class ErnieINT8Encoder: public BaseLayer {
 private:
     // buffer handling
     size_t max_batch_size_ = 0;
@@ -51,24 +55,17 @@ private:
     const size_t           word_size_;
     const size_t           pos_size_;
     const size_t           sent_size_;
-    size_t  h_token_num;
     int                    sm_;
     constexpr static float layernorm_eps_ = 1e-6f;
     float                  q_scaling_;
     AttentionType          attention_type_;
+    int                    int8_mode_;
     bool                   sparse_;
 
-    std::vector<BaseAttentionLayer<T>*> attention_layer_;
-    std::vector<FfnLayer<T>*>           ffn_layer_;
+    BaseAttentionLayer<T>* attention_layer_;
+    FfnLayerINT8<T>*           ffn_layer_;
 
     bool is_allocate_buffer_ = false;
-
-    // for pos_emb cache and cuda graph
-    bool is_enqueue_init_ = false;
-
-    // for cuda graph
-    bool use_cuda_graph_ = true;
-    std::unordered_map<std::string, FTCudaGraph*> cuda_graph_pool_;
 
     void allocateBuffer() override;
     void allocateBuffer(size_t batch_size, size_t seq_len);
@@ -90,28 +87,23 @@ private:
 
 protected:
     // model params
-    size_t* token_num_                  = nullptr;
-    // size_t* h_token_num              = nullptr;  
-    int*    padding_offset_             = nullptr;
-    int*    trt_mha_padding_offset_     = nullptr;
-    T*      attention_mask_             = nullptr;
-    T*      relative_attention_bias_    = nullptr;
+    size_t* token_num_               = nullptr;
+    int*    padding_offset_          = nullptr;
+    int*    trt_mha_padding_offset_  = nullptr;
+    T*      attention_mask_          = nullptr;
+    T*      relative_attention_bias_ = nullptr;
     T*      ernie_encoder_emb_buf_      = nullptr;
     T*      ernie_encoder_in_buffer_    = nullptr;
-    T*      attn_out_buf_               = nullptr;
+    int32_t*     attn_out_buf_            = nullptr;
+    int8_t*      int8_buf_            = nullptr;
+    
     T*      ernie_encoder_out_buffer_   = nullptr;
-    T*      ernie_layer_out_buffer_     = nullptr;
-    T*      ernie_slice_out_buffer_     = nullptr;
-    T*      post_emb_out_buffer_        = nullptr;
-    T*      fea_emb_fc_out_buffer_      = nullptr;
-    T*      cls_out_buffer_      = nullptr;
-    T*      cls_out_aside_buffer_      = nullptr;
 
     T* normed_from_tensor_  = nullptr;
     T* normed_attn_out_buf_ = nullptr;
 
 public:
-    ErnieEncoder(size_t                              max_batch_size,
+    ErnieINT8Encoder(size_t                              max_batch_size,
                 size_t                              max_seq_len,
                 size_t                              head_num,
                 size_t                              size_per_head,
@@ -123,6 +115,7 @@ public:
                 size_t                              sent_size,
                 int                                 sm,
                 float                               q_scaling,
+                int                                 int8_mode,
                 cudaStream_t                        stream,
                 cublasMMWrapper*                    cublas_wrapper,
                 IAllocator*                         allocator,
@@ -136,16 +129,17 @@ public:
                 std::shared_ptr<AbstractCustomComm> custom_all_reduce_comm   = nullptr,
                 int                                 enable_custom_all_reduce = 0);
 
-    ErnieEncoder(ErnieEncoder<T> const& ernie_layer);
+    ErnieINT8Encoder(ErnieINT8Encoder<T> const& ernie_layer);
 
-    ~ErnieEncoder();
+    ~ErnieINT8Encoder();
+
     void forward(std::vector<Tensor>*       output_tensors,
                  const std::vector<Tensor>* input_tensors,
-                 const ErnieEncoderWeight<T>*  ernie_weights);
+                 const ErnieINT8EncoderWeight<T>*  ernie_weights);
 
     void forward(std::unordered_map<std::string, Tensor>*       output_tensors,
                  const std::unordered_map<std::string, Tensor>* input_tensors,
-                 const ErnieEncoderWeight<T>*                      ernie_weights);
+                 const ErnieINT8EncoderWeight<T>*                      ernie_weights);
 
     inline size_t getDModel()
     {
