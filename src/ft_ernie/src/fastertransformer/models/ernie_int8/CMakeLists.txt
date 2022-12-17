@@ -29,7 +29,6 @@ TensorParallelGeluFfnLayer
 TensorParallelSiluFfnLayer 
 layernorm_int8_kernels 
 add_residual_kernels 
-gpt_kernels 
 decoding_kernels
 ernie_kernels
 quantization_int8_kernels

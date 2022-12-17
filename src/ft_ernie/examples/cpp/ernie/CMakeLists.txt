@@ -15,5 +15,5 @@
 
 add_executable(ernie_infer ernie_infer.cc ErnieGemm.cc ErnieEngine.cpp)
 
-target_link_libraries(ernie_infer PUBLIC -lcublas -lcublasLt -lcudart Ernie encoder_gemm_func encoder_igemm_func)
+target_link_libraries(ernie_infer PUBLIC -lcublas -lcublasLt -lcudart Ernie ErnieINT8 AttentionINT8Weight encoder_gemm_func encoder_igemm_func)
 

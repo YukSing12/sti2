@@ -71,7 +71,7 @@ ErnieEngine<T>::ErnieEngine(const std::string& ckpt_path, const bool int8_mode, 
 #else
     if (int8_mode_) {
         cublas_wrapper_int8_ = new cublasINT8MMWrapper(
-            cublas_handle_, stream_, cublas_algo_map_, cublas_wrapper_mutex_, use_ORDER_COL32_2R_4R4);
+            cublas_handle_,cublaslt_handle_, stream_, cublas_algo_map_, cublas_wrapper_mutex_, use_ORDER_COL32_2R_4R4);
     }
     else {
         cublas_wrapper_ = new cublasMMWrapper(
@@ -137,6 +137,7 @@ ErnieEngine<T>::ErnieEngine(const std::string& ckpt_path, const bool int8_mode, 
                                        m_.sent_vocab_size,
                                        m_.sm,
                                        m_.q_scaling,
+                                       int8_mode_,
                                        stream_,  // stream_ placeholder
                                        cublas_wrapper_,
                                        allocator_,
@@ -150,7 +151,7 @@ ErnieEngine<T>::ErnieEngine(const std::string& ckpt_path, const bool int8_mode, 
         );
         ernie_int8_->setUseGraph(useCudaGraph_);
         ernie_int8_->setHostMode(true);
-        ernie_weights_int8_ = new ErnieWeightINT8<T>(m_.head_num,
+        ernie_weights_int8_ = new ErnieINT8Weight<T>(m_.head_num,
                                                      m_.size_per_head,
                                                      m_.d_model,
                                                      m_.inter_size,
@@ -171,9 +172,16 @@ ErnieEngine<T>::~ErnieEngine()
     if (ernie_weights_ != nullptr) {
         delete ernie_weights_;
     }
-    if (ernie_ != nullptr) {
-        delete ernie_;
+    if (ernie_weights_ != nullptr) {
+        delete ernie_weights_;
     }
+    if (ernie_weights_int8_ != nullptr) {
+        delete ernie_weights_int8_;
+    }
+    if (ernie_int8_ != nullptr) {
+        delete ernie_int8_;
+    }
+
 #ifdef SPARSITY_ENABLED
     cusparseLtDestroy(&cusparselt_handle_);
 #endif
@@ -181,6 +189,7 @@ ErnieEngine<T>::~ErnieEngine()
     delete cublas_wrapper_;
     delete cublas_wrapper_mutex_;
     delete allocator_;
+    delete cublas_wrapper_int8_;
 }
 
 template<typename T>

@@ -23,7 +23,9 @@
 namespace fastertransformer {
 
 template<typename T>
-struct ErnieINT8Weight {
+struct 
+
+ErnieINT8Weight {
 
     ErnieINT8Weight() = default;
     ErnieINT8Weight(const size_t head_num,

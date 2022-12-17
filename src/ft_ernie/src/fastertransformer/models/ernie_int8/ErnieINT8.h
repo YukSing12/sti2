@@ -24,7 +24,6 @@
 #include "src/fastertransformer/kernels/bert_preprocess_kernels.h"
 #include "src/fastertransformer/kernels/decoding_kernels.h"
 #include "src/fastertransformer/kernels/ernie_kernels.h"
-#include "src/fastertransformer/kernels/gpt_kernels.h"
 #include "src/fastertransformer/kernels/layernorm_int8_kernels.h"
 #include "src/fastertransformer/kernels/quantization_int8_kernels.h"
 #include "src/fastertransformer/layers/FfnLayerINT8.h"
