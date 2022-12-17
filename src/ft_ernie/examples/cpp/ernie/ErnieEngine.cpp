@@ -6,10 +6,7 @@ template<typename T>
 ErnieEngine<T>::ErnieEngine(const std::string& ckpt_path, const bool int8_mode, const bool useCudaGraph):
     int8_mode_(int8_mode), useCudaGraph_(useCudaGraph)
 {
-    struct cudaDeviceProp prop;
-    cudaGetDeviceProperties(&prop, 0);
-    m_.sm = prop.major * 10 + prop.minor;
-
+    m_.sm =getSMVersion();
     cudaStreamCreate(&stream_);
     cublasCreate(&cublas_handle_);
     cublasLtCreate(&cublaslt_handle_);
@@ -48,8 +45,14 @@ ErnieEngine<T>::ErnieEngine(const std::string& ckpt_path, const bool int8_mode, 
     cublas_algo_map_ = new cublasAlgoMap(gemmFileName, "");
     allocator_ = new Allocator<AllocatorType::CUDA>(getDevice());
     cublas_wrapper_mutex_ = new std::mutex();
-
     bool use_ORDER_COL32_2R_4R4 = false;
+
+#if (CUDART_VERSION >= 11000)
+    if (m_.sm >= 80) {
+        use_ORDER_COL32_2R_4R4 = true;
+    }
+#endif
+
 #ifdef SPARSITY_ENABLED
     if (int8_mode_) {
         cublas_wrapper_int8_ = cublasINT8MMWrapper(cublaslt_handle_,
@@ -122,7 +125,7 @@ ErnieEngine<T>::ErnieEngine(const std::string& ckpt_path, const bool int8_mode, 
 
         ernie_weights_->loadModel(ckpt_path);
         m_.attention_type =
-            getAttentionType<T>(m_.size_per_head, getSMVersion(), m_.is_remove_padding, m_.max_seq_len, true);
+            getAttentionType<T>(m_.size_per_head, m_.sm, m_.is_remove_padding, m_.max_seq_len, true);
     }
     else {
         ernie_int8_ = new ErnieINT8<T>(m_.max_batch_size,
@@ -158,7 +161,7 @@ ErnieEngine<T>::ErnieEngine(const std::string& ckpt_path, const bool int8_mode, 
 
         ernie_weights_int8_->loadModel(ckpt_path);
         m_.attention_type =
-            getAttentionTypeINT8<T>(m_.size_per_head, getSMVersion(), m_.is_remove_padding, m_.max_seq_len, int8_mode_);
+            getAttentionTypeINT8<T>(m_.size_per_head, m_.sm, m_.is_remove_padding, m_.max_seq_len, int8_mode_);
     }
 }
 
@@ -206,11 +209,35 @@ void ErnieEngine<T>::run(const int* h_word_ids_,
                     request_seq_len,
                     ernie_weights_);
 }
+template<typename T>
+void ErnieEngine<T>::runInt8(const int* h_word_ids_,
+                              const int* h_pos_ids_,
+                              const int* h_sent_ids_,
+                              const int* h_seq_len_,
+                              const int* h_multi_ids_,
+                              const int request_batch_size,
+                              const int request_seq_len)
+{
+    ernie_int8_->forward(h_word_ids_,
+                         h_pos_ids_,
+                         h_sent_ids_,
+                         h_seq_len_,
+                         h_multi_ids_,
+                         request_batch_size,
+                         request_seq_len,
+                         ernie_weights_int8_);
+}
 
 template<typename T>
 void ErnieEngine<T>::copyToCpu(float* h_attn_out, const int request_batch_size)
 {
     ernie_->copyToCpu(h_attn_out, request_batch_size);
+}
+
+template<typename T>
+void ErnieEngine<T>::copyToCpuInt8(float* h_attn_out, const int request_batch_size)
+{
+    ernie_int8_->copyToCpu(h_attn_out, request_batch_size);
 }
 
 template class ErnieEngine<float>;

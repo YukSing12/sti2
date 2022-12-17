@@ -86,6 +86,16 @@ public:
              const int request_batch_size,
              const int request_seq_len);
     void copyToCpu(float* h_attn_out, const int request_batch_size);
+
+    void runInt8(const int* h_word_ids_,
+             const int* h_pos_ids_,
+             const int* h_sent_ids_,
+             const int* h_seq_len_,
+             const int* h_multi_ids_,
+             const int request_batch_size,
+             const int request_seq_len);
+    void copyToCpuInt8(float* h_attn_out, const int request_batch_size);
+
     cudaStream_t getStream()
     {
         return stream_;
