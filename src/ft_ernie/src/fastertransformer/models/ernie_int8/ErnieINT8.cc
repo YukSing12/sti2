@@ -16,8 +16,10 @@
 
 #include "src/fastertransformer/models/ernie_int8/ErnieINT8.h"
 #include "src/fastertransformer/utils/nvtx_utils.h"
+
 #define POSTGRAPH_IDX 4
 #define PREGRAPH_IDX 3
+
 namespace fastertransformer {
 
 template<typename T>

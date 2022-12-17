@@ -20,45 +20,44 @@
 #include "src/fastertransformer/models/ernie_int8/ErnieINT8LayerWeight.h"
 // #include "src/fastertransformer/models/ernie/ErnieWeight.h"
 
-
 namespace fastertransformer {
 
 template<typename T>
 struct ErnieINT8Weight {
 
     ErnieINT8Weight() = default;
-    ErnieINT8Weight(const size_t                head_num,
-                       const size_t                size_per_head,
-                       const size_t                d_model,
-                       const size_t                inter_size,
-                       const size_t                vocab_size,
-                       const size_t                pos_size,
-                       const size_t                sent_vocab_size,
-                       const size_t                num_layer,
-                       const PositionEmbeddingType pe_type                   = PositionEmbeddingType::relative);
+    ErnieINT8Weight(const size_t head_num,
+                    const size_t size_per_head,
+                    const size_t d_model,
+                    const size_t inter_size,
+                    const size_t vocab_size,
+                    const size_t pos_size,
+                    const size_t sent_vocab_size,
+                    const size_t num_layer,
+                    const PositionEmbeddingType pe_type = PositionEmbeddingType::relative);
     ~ErnieINT8Weight();
     ErnieINT8Weight(const ErnieINT8Weight& other);
     ErnieINT8Weight& operator=(const ErnieINT8Weight& other);
 
     std::vector<ErnieINT8LayerWeight<T>*> ernie_encoder_layer_weights;
-    LayerNormWeight<T>                    pre_transformer_layernorm_weights;
-    T*                                    word_embedding_table                    = nullptr;
-    T*                                    pos_embedding_table                     = nullptr;
-    T*                                    sent_embedding_table                    = nullptr;
-    T*                                    multi_field_1                           = nullptr;
-    T*                                    multi_field_3                           = nullptr;
-    T*                                    multi_field_6                           = nullptr;
-    T*                                    multi_field_0                           = nullptr;
-    T*                                    multi_field_5                           = nullptr;
-    T*                                    multi_field_7                           = nullptr;
-    T*                                    multi_field_4                           = nullptr;
-    T*                                    multi_field_2                           = nullptr;
-    DenseWeight<T>                        pooled_fc;
-    DenseWeight<T>                        fea_emb_fc;
-    DenseWeight<T>                        fea_emb_fc2;
-    DenseWeight<T>                        cls_out;
-    DenseWeight<T>                        cls_out_aside;
-    PositionEmbeddingType                 position_embedding_type                 = PositionEmbeddingType::relative;
+    LayerNormWeight<T> pre_transformer_layernorm_weights;
+    T* word_embedding_table = nullptr;
+    T* pos_embedding_table = nullptr;
+    T* sent_embedding_table = nullptr;
+    T* multi_field_1 = nullptr;
+    T* multi_field_3 = nullptr;
+    T* multi_field_6 = nullptr;
+    T* multi_field_0 = nullptr;
+    T* multi_field_5 = nullptr;
+    T* multi_field_7 = nullptr;
+    T* multi_field_4 = nullptr;
+    T* multi_field_2 = nullptr;
+    DenseWeight<T> pooled_fc;
+    DenseWeight<T> fea_emb_fc;
+    DenseWeight<T> fea_emb_fc2;
+    DenseWeight<T> cls_out;
+    DenseWeight<T> cls_out_aside;
+    PositionEmbeddingType position_embedding_type = PositionEmbeddingType::relative;
 
     void loadModel(std::string dir_path);
     void resizeLayer(const int num_layer);
@@ -84,8 +83,8 @@ private:
     int real_weights_num_;
 
     const static int weights_num_ = 5;
-    T*               weights_ptr[weights_num_];
-    size_t           weights_size[weights_num_];
+    T* weights_ptr[weights_num_];
+    size_t weights_size[weights_num_];
 };
 
 }  // namespace fastertransformer

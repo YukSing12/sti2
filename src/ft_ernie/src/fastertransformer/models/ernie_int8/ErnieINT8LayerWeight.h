@@ -30,19 +30,19 @@ struct ErnieINT8LayerWeight {
 
     ErnieINT8LayerWeight() = default;
     ErnieINT8LayerWeight(const size_t layer_id,
-                            const size_t head_num,
-                            const size_t size_per_head,
-                            const size_t d_model,
-                            const size_t inter_size);
+                         const size_t head_num,
+                         const size_t size_per_head,
+                         const size_t d_model,
+                         const size_t inter_size);
     ~ErnieINT8LayerWeight();
     ErnieINT8LayerWeight(const ErnieINT8LayerWeight& other);
     ErnieINT8LayerWeight& operator=(const ErnieINT8LayerWeight& other);
 
     AttentionINT8Weight<T> attention_weights;
     LayerNormWeight<T> attn_layernorm_weights;
-    FfnINT8Weight<T>       ffn_weights;
+    FfnINT8Weight<T> ffn_weights;
     LayerNormWeight<T> ffn_layernorm_weights;
-    ScaleList              scale_list_;
+    ScaleList scale_list_;
 
     void loadModel(std::string dir_path, FtCudaDataType model_file_type);
 
@@ -63,10 +63,10 @@ private:
 
     // Assume bias added, and gated activation used
     const static int weights_num_ = 16;
-    T*               weights_ptr[weights_num_];
-    size_t           weights_size[weights_num_];
+    T* weights_ptr[weights_num_];
+    size_t weights_size[weights_num_];
     float* scale_list_ptr[2];
-    T*   sp_weights_ptr[6];
+    T* sp_weights_ptr[6];
     bool is_maintain_sp_buffer = false;
 };
 
