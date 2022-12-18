@@ -25,7 +25,7 @@ namespace fastertransformer {
 template<typename T>
 void ErnieINT8<T>::initialize()
 {
-    cudaStreamCreate(&stream_fea_);
+    // cudaStreamCreate(&stream_);
     cublasCreate(&cublas_handle_fea_);
     cublasLtCreate(&cublaslt_handle_fea_);
     allocator_fea_ = new Allocator<AllocatorType::CUDA>(getDevice());
@@ -40,7 +40,7 @@ void ErnieINT8<T>::initialize()
 
     cublas_wrapper_fea_ = new cublasMMWrapper(cublas_handle_fea_,
                                               cublaslt_handle_fea_,
-                                              stream_fea_,
+                                              stream_,
                                               cublas_algo_map_fea_,
                                               cublas_wrapper_mutex_fea_,
                                               allocator_fea_);
@@ -600,7 +600,7 @@ void ErnieINT8<T>::forward(std::unordered_map<std::string, Tensor>* output_tenso
                         ernie_int8_weights->multi_field_2,
                         post_emb_out_buffer_,
                         request_batch_size_,
-                        stream_fea_);
+                        stream_);
 
     // MatMul(fea_emb_fc)
     {
@@ -618,7 +618,7 @@ void ErnieINT8<T>::forward(std::unordered_map<std::string, Tensor>* output_tenso
                                   k,
                                   fea_emb_fc_out_buffer_,
                                   n);
-        invokeAddBiasRelu(fea_emb_fc_out_buffer_, ernie_int8_weights->fea_emb_fc.bias, m, n, stream_fea_);
+        invokeAddBiasRelu(fea_emb_fc_out_buffer_, ernie_int8_weights->fea_emb_fc.bias, m, n, stream_);
     }
 
     // MatMul(fea_emb_fc2)
@@ -637,7 +637,7 @@ void ErnieINT8<T>::forward(std::unordered_map<std::string, Tensor>* output_tenso
                                   k,
                                   post_emb_out_buffer_,
                                   n);
-        invokeAddBiasRelu(post_emb_out_buffer_, ernie_int8_weights->fea_emb_fc2.bias, m, n, stream_fea_);
+        invokeAddBiasRelu(post_emb_out_buffer_, ernie_int8_weights->fea_emb_fc2.bias, m, n, stream_);
     }
 
     // MatMul(cls_out_aside)
@@ -674,7 +674,7 @@ void ErnieINT8<T>::forward(std::unordered_map<std::string, Tensor>* output_tenso
         case AttentionType::FUSED_MHA: {
 
             invokeRebuildPadding(
-                ernie_layer_out_buffer_, ernie_encoder_out_buffer_, padding_offset_, h_token_num_, d_model_, stream_fea_);
+                ernie_layer_out_buffer_, ernie_encoder_out_buffer_, padding_offset_, h_token_num_, d_model_, stream_);
 
             break;
         }
@@ -695,16 +695,16 @@ void ErnieINT8<T>::forward(std::unordered_map<std::string, Tensor>* output_tenso
         FT_CHECK(is_free_buffer_after_forward_ == false);
         if (cuda_graph_pool_.find(cur_graph_key_post) == cuda_graph_pool_.end()) {
             cur_graph_ptr_post = new CudaGraph();
-            cur_graph_ptr_post->beginCapture(stream_fea_);
+            cur_graph_ptr_post->beginCapture(stream_);
         }
         else {
             cur_graph_ptr_post = cuda_graph_pool_[cur_graph_key_post];
-            cur_graph_ptr_post->launch(stream_fea_);
+            cur_graph_ptr_post->launch(stream_);
             return;
         }
     }
     invokeSlice(
-        ernie_slice_out_buffer_, ernie_layer_out_buffer_, request_batch_size_, request_seq_len_, d_model_, stream_fea_);
+        ernie_slice_out_buffer_, ernie_layer_out_buffer_, request_batch_size_, request_seq_len_, d_model_, stream_);
     // MatMul(pooled_fc_matmul)
     {
         int m = request_batch_size_;
@@ -722,7 +722,7 @@ void ErnieINT8<T>::forward(std::unordered_map<std::string, Tensor>* output_tenso
                               ernie_layer_out_buffer_,
                               n);
         // Add(pooled_fc_add + tanh)
-        invokeAddBiasTanh(ernie_layer_out_buffer_, ernie_int8_weights->pooled_fc.bias, m, n, stream_fea_);
+        invokeAddBiasTanh(ernie_layer_out_buffer_, ernie_int8_weights->pooled_fc.bias, m, n, stream_);
     }
 
     // MatMul(cls_out_matmul)
@@ -749,15 +749,15 @@ void ErnieINT8<T>::forward(std::unordered_map<std::string, Tensor>* output_tenso
                                ernie_int8_weights->cls_out_aside.bias,
                                output_tensors->at("attn_out").getPtr<float>(),
                                request_batch_size_,
-                               stream_fea_);
+                               stream_);
 
     if (is_enqueue_init_ && false) {
         if (cuda_graph_pool_.find(cur_graph_key_post) == cuda_graph_pool_.end()) {
-            cur_graph_ptr_post->endCapture(stream_fea_);
+            cur_graph_ptr_post->endCapture(stream_);
             cuda_graph_pool_[cur_graph_key_post] = cur_graph_ptr_post;
             // NOTE(yuqingding): If we don't rerun the stream, the result will be wrong.  Graph capture will destroy the
             // result???
-            cur_graph_ptr_post->launch(stream_fea_);
+            cur_graph_ptr_post->launch(stream_);
         }
     }
 
@@ -1009,7 +1009,7 @@ void ErnieINT8<T>::forward(const int* h_word_ids_,
                         ernie_int8_weights->multi_field_2,
                         post_emb_out_buffer_,
                         request_batch_size_,
-                        stream_fea_);
+                        stream_);
 
     // MatMul(fea_emb_fc)
     {
@@ -1027,7 +1027,7 @@ void ErnieINT8<T>::forward(const int* h_word_ids_,
                                   k,
                                   fea_emb_fc_out_buffer_,
                                   n);
-        invokeAddBiasRelu(fea_emb_fc_out_buffer_, ernie_int8_weights->fea_emb_fc.bias, m, n, stream_fea_);
+        invokeAddBiasRelu(fea_emb_fc_out_buffer_, ernie_int8_weights->fea_emb_fc.bias, m, n, stream_);
     }
 
     // MatMul(fea_emb_fc2)
@@ -1046,7 +1046,7 @@ void ErnieINT8<T>::forward(const int* h_word_ids_,
                                   k,
                                   post_emb_out_buffer_,
                                   n);
-        invokeAddBiasRelu(post_emb_out_buffer_, ernie_int8_weights->fea_emb_fc2.bias, m, n, stream_fea_);
+        invokeAddBiasRelu(post_emb_out_buffer_, ernie_int8_weights->fea_emb_fc2.bias, m, n, stream_);
     }
 
     // MatMul(cls_out_aside)
@@ -1102,16 +1102,16 @@ void ErnieINT8<T>::forward(const int* h_word_ids_,
         FT_CHECK(is_free_buffer_after_forward_ == false);
         if (cuda_graph_pool_.find(cur_graph_key_post) == cuda_graph_pool_.end()) {
             cur_graph_ptr_post = new CudaGraph();
-            cur_graph_ptr_post->beginCapture(stream_fea_);
+            cur_graph_ptr_post->beginCapture(stream_);
         }
         else {
             cur_graph_ptr_post = cuda_graph_pool_[cur_graph_key_post];
-            cur_graph_ptr_post->launch(stream_fea_);
+            cur_graph_ptr_post->launch(stream_);
             return;
         }
     }
     invokeSlice(
-        ernie_slice_out_buffer_, ernie_layer_out_buffer_, request_batch_size_, request_seq_len_, d_model_, stream_fea_);
+        ernie_slice_out_buffer_, ernie_layer_out_buffer_, request_batch_size_, request_seq_len_, d_model_, stream_);
     // MatMul(pooled_fc_matmul)
     {
         int m = request_batch_size_;
@@ -1129,7 +1129,7 @@ void ErnieINT8<T>::forward(const int* h_word_ids_,
                               ernie_layer_out_buffer_,
                               n);
         // Add(pooled_fc_add + tanh)
-        invokeAddBiasTanh(ernie_layer_out_buffer_, ernie_int8_weights->pooled_fc.bias, m, n, stream_fea_);
+        invokeAddBiasTanh(ernie_layer_out_buffer_, ernie_int8_weights->pooled_fc.bias, m, n, stream_);
     }
 
     // MatMul(cls_out_matmul)
@@ -1156,15 +1156,15 @@ void ErnieINT8<T>::forward(const int* h_word_ids_,
                                ernie_int8_weights->cls_out_aside.bias,
                                d_attn_out_,
                                request_batch_size_,
-                               stream_fea_);
+                               stream_);
 
     if (is_enqueue_init_ && false) {
         if (cuda_graph_pool_.find(cur_graph_key_post) == cuda_graph_pool_.end()) {
-            cur_graph_ptr_post->endCapture(stream_fea_);
+            cur_graph_ptr_post->endCapture(stream_);
             cuda_graph_pool_[cur_graph_key_post] = cur_graph_ptr_post;
             // NOTE(yuqingding): If we don't rerun the stream, the result will be wrong.  Graph capture will destroy the
             // result???
-            cur_graph_ptr_post->launch(stream_fea_);
+            cur_graph_ptr_post->launch(stream_);
         }
     }
 
