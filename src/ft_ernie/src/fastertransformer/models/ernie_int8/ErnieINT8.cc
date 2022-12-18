@@ -99,6 +99,7 @@ void ErnieINT8<T>::initialize()
                                          cublas_wrapper_,
                                          allocator_,
                                          is_free_buffer_after_forward_);
+    allocateBuffer();
 }
 
 template<typename T>
@@ -116,7 +117,7 @@ ErnieINT8<T>::ErnieINT8(size_t max_batch_size,
                         float q_scaling,
                         int int8_mode,
                         cudaStream_t stream,
-                        cublasINT8MMWrapper* cublas_wrapper,
+                        cublasMMWrapper* cublas_wrapper,
                         IAllocator* allocator,
                         bool is_free_buffer_after_forward,
                         AttentionType attention_type,
@@ -204,6 +205,7 @@ void ErnieINT8<T>::setStream(cudaStream_t stream)
 template<typename T>
 void ErnieINT8<T>::allocateBuffer()
 {
+    FT_LOG_DEBUG(__PRETTY_FUNCTION__);
     if (is_allocate_buffer_ == false) {
         allocateBuffer(max_batch_size_, max_seq_len_);
         is_allocate_buffer_ = true;
@@ -214,6 +216,13 @@ template<typename T>
 void ErnieINT8<T>::allocateBuffer(size_t batch_size, size_t seq_len)
 {
     FT_LOG_DEBUG(__PRETTY_FUNCTION__);
+    d_word_ids_ = (int*)allocator_->reMalloc(d_word_ids_, sizeof(int) * batch_size * seq_len, false);
+    d_pos_ids_ = (int*)allocator_->reMalloc(d_pos_ids_, sizeof(int) * batch_size * seq_len, false);
+    d_sent_ids_ = (int*)allocator_->reMalloc(d_sent_ids_, sizeof(int) * batch_size * seq_len, false);
+    d_seq_len_ = (int*)allocator_->reMalloc(d_seq_len_, sizeof(int) * batch_size * 1, false);
+    d_multi_ids_ = (int*)allocator_->reMalloc(d_multi_ids_, sizeof(int) * batch_size * 8, false);
+    d_attn_out_ = (float*)allocator_->reMalloc(d_attn_out_, sizeof(float) * batch_size * 1, false);
+
     token_num_ = (size_t*)allocator_->reMalloc(token_num_, sizeof(size_t) * 1, false);
     padding_offset_ = (int*)allocator_->reMalloc(padding_offset_, sizeof(int) * batch_size * seq_len, false);
     trt_mha_padding_offset_ =
@@ -257,15 +266,14 @@ void ErnieINT8<T>::allocateBuffer(size_t batch_size, size_t seq_len)
 template<typename T>
 void ErnieINT8<T>::freeBuffer()
 {
+    FT_LOG_DEBUG(__PRETTY_FUNCTION__);
     if (is_allocate_buffer_) {
-        if (is_host_ptr_) {
-            allocator_->free((void**)(&d_word_ids_));
-            allocator_->free((void**)(&d_pos_ids_));
-            allocator_->free((void**)(&d_sent_ids_));
-            allocator_->free((void**)(&d_seq_len_));
-            allocator_->free((void**)(&d_multi_ids_));
-            allocator_->free((void**)(&d_attn_out_));
-        }
+        allocator_->free((void**)(&d_word_ids_));
+        allocator_->free((void**)(&d_pos_ids_));
+        allocator_->free((void**)(&d_sent_ids_));
+        allocator_->free((void**)(&d_seq_len_));
+        allocator_->free((void**)(&d_multi_ids_));
+        allocator_->free((void**)(&d_attn_out_));
         allocator_->free((void**)(&token_num_));
         allocator_->free((void**)(&padding_offset_));
         allocator_->free((void**)(&trt_mha_padding_offset_));
@@ -336,11 +344,11 @@ void ErnieINT8<T>::forward(std::unordered_map<std::string, Tensor>* output_tenso
     // output tensors:
     //      attn_out [batch, seqlen, d_model]
 
-    const ErnieINT8LayerWeight<T>* ernie_layer_int8_weight = (const ErnieINT8LayerWeight<T>*)ernie_int8_weights;
-    const ScaleList* scale_list = &(ernie_layer_int8_weight->scale_list_);
+    // FIXME: ErnieINT8Weight cast to ErnieINT8LayerWeight ?
+    // const ErnieINT8LayerWeight<T>* ernie_layer_int8_weight = (const ErnieINT8LayerWeight<T>*)ernie_int8_weights;
+    // const ScaleList* scale_list = &(ernie_layer_int8_weight->scale_list_);
 
     FT_LOG_DEBUG(__PRETTY_FUNCTION__);
-    FT_CHECK(is_host_ptr_ == false);
 
     FT_CHECK(input_tensors->at("word_ids").shape.size() == 2);
     request_batch_size_ = input_tensors->at("word_ids").shape[0];
@@ -360,11 +368,6 @@ void ErnieINT8<T>::forward(std::unordered_map<std::string, Tensor>* output_tenso
     FT_CHECK(request_batch_size_ == input_tensors->at("multi_ids").shape[0]);
     FT_CHECK(input_tensors->at("multi_ids").shape.size() == 2);
 
-    d_word_ids_ = input_tensors->at("word_ids").getPtr<int>();
-    d_pos_ids_ = input_tensors->at("pos_ids").getPtr<int>();
-    d_sent_ids_ = input_tensors->at("sent_ids").getPtr<int>();
-    d_seq_len_ = input_tensors->at("seq_len").getPtr<int>();
-    d_multi_ids_ = input_tensors->at("multi_ids").getPtr<int>();
     // allocateBuffer(request_batch_size_, request_seq_len_);
 
     // Ernie Structure Difference
@@ -389,7 +392,7 @@ void ErnieINT8<T>::forward(std::unordered_map<std::string, Tensor>* output_tenso
     if (!launched_) {
         if (attention_type_ == AttentionType::UNFUSED_MHA || attention_type_ == AttentionType::FUSED_MHA) {
             invokeGetPaddingOffsetErnie(
-                token_num_, padding_offset_, d_seq_len_, request_batch_size_, request_seq_len_, stream_);
+                token_num_, padding_offset_, input_tensors->at("seq_len").getPtr<int>(), request_batch_size_, request_seq_len_, stream_);
         }
     }
 
@@ -404,8 +407,8 @@ void ErnieINT8<T>::forward(std::unordered_map<std::string, Tensor>* output_tenso
                                 ernie_int8_weights->word_embedding_table,
                                 ernie_int8_weights->pos_embedding_table,
                                 d_sent_ids_,
-                                d_word_ids_,
-                                d_pos_ids_,
+                                input_tensors->at("word_ids").getPtr<int>(),
+                                input_tensors->at("pos_ids").getPtr<int>(),
                                 stream_);
 
     if (is_enqueue_init_ && use_cuda_graph_) {
@@ -425,7 +428,7 @@ void ErnieINT8<T>::forward(std::unordered_map<std::string, Tensor>* output_tenso
     switch (attention_type_) {
         case AttentionType::UNFUSED_MHA: {
             invokeBuildEncoderAttentionMask(
-                attention_mask_, d_seq_len_, request_batch_size_, request_seq_len_, stream_);
+                attention_mask_, input_tensors->at("seq_len").getPtr<int>(), request_batch_size_, request_seq_len_, stream_);
 
             sync_check_cuda_error();
             cudaMemcpyAsync(&h_token_num_, token_num_, sizeof(size_t), cudaMemcpyDeviceToHost, stream_);
@@ -442,7 +445,7 @@ void ErnieINT8<T>::forward(std::unordered_map<std::string, Tensor>* output_tenso
         }
         case AttentionType::UNFUSED_PADDED_MHA: {
             invokeBuildEncoderAttentionMask(
-                attention_mask_, d_seq_len_, request_batch_size_, request_seq_len_, stream_);
+                attention_mask_, input_tensors->at("seq_len").getPtr<int>(), request_batch_size_, request_seq_len_, stream_);
 
             h_token_num_ = request_batch_size_ * request_seq_len_;
 
@@ -463,7 +466,7 @@ void ErnieINT8<T>::forward(std::unordered_map<std::string, Tensor>* output_tenso
             ernie_encoder_input_ptr = ernie_encoder_in_buffer_;
             ernie_encoder_output_ptr = ernie_encoder_out_buffer_;
 
-            invokeGetTrtPaddingOffset(trt_mha_padding_offset_, d_seq_len_, request_batch_size_, stream_);
+            invokeGetTrtPaddingOffset(trt_mha_padding_offset_, input_tensors->at("seq_len").getPtr<int>(), request_batch_size_, stream_);
 
             padding_offset_tensor_ptr = new Tensor(
                 MEMORY_GPU, TYPE_INT32, std::vector<size_t>{request_batch_size_ + 1}, trt_mha_padding_offset_);
@@ -472,7 +475,7 @@ void ErnieINT8<T>::forward(std::unordered_map<std::string, Tensor>* output_tenso
         case AttentionType::FUSED_PADDED_MHA: {
             h_token_num_ = request_batch_size_ * request_seq_len_;
             invokeGetTrtPaddingOffset(
-                trt_mha_padding_offset_, d_seq_len_, request_batch_size_, request_seq_len_, stream_);
+                trt_mha_padding_offset_, input_tensors->at("seq_len").getPtr<int>(), request_batch_size_, request_seq_len_, stream_);
             padding_offset_tensor_ptr = new Tensor(
                 MEMORY_GPU, TYPE_INT32, std::vector<size_t>{request_batch_size_ * 2 + 1}, trt_mha_padding_offset_);
             ernie_encoder_input_ptr = ernie_encoder_emb_buf_;
@@ -516,8 +519,9 @@ void ErnieINT8<T>::forward(std::unordered_map<std::string, Tensor>* output_tenso
     for (uint i = 0; i < num_layer_; i++) {
         T* from_tensor = (i == 0 ? ernie_encoder_input_ptr : ernie_encoder_output_ptr);
         T* out_tensor = ernie_encoder_output_ptr;
+        ScaleList* scale_list = &(ernie_int8_weights->ernie_encoder_layer_weights[i]->scale_list_);
         invokeQuantization(int8_buf_, from_tensor, h_token_num_ * d_model_, &(scale_list->d_scale_list_[3]), stream_);
-
+    
         // attn
         {
             std::vector<Tensor> attn_input_tensors{
@@ -585,7 +589,7 @@ void ErnieINT8<T>::forward(std::unordered_map<std::string, Tensor>* output_tenso
 
     // exit(0);
     // postemb
-    invokePostEmbedding(d_multi_ids_,
+    invokePostEmbedding(input_tensors->at("multi_ids").getPtr<int>(),
                         ernie_int8_weights->multi_field_1,
                         ernie_int8_weights->multi_field_3,
                         ernie_int8_weights->multi_field_6,
@@ -670,7 +674,7 @@ void ErnieINT8<T>::forward(std::unordered_map<std::string, Tensor>* output_tenso
         case AttentionType::FUSED_MHA: {
 
             invokeRebuildPadding(
-                ernie_layer_out_buffer_, ernie_encoder_out_buffer_, padding_offset_, h_token_num_, d_model_, stream_);
+                ernie_layer_out_buffer_, ernie_encoder_out_buffer_, padding_offset_, h_token_num_, d_model_, stream_fea_);
 
             break;
         }
@@ -691,22 +695,22 @@ void ErnieINT8<T>::forward(std::unordered_map<std::string, Tensor>* output_tenso
         FT_CHECK(is_free_buffer_after_forward_ == false);
         if (cuda_graph_pool_.find(cur_graph_key_post) == cuda_graph_pool_.end()) {
             cur_graph_ptr_post = new CudaGraph();
-            cur_graph_ptr_post->beginCapture(stream_);
+            cur_graph_ptr_post->beginCapture(stream_fea_);
         }
         else {
             cur_graph_ptr_post = cuda_graph_pool_[cur_graph_key_post];
-            cur_graph_ptr_post->launch(stream_);
+            cur_graph_ptr_post->launch(stream_fea_);
             return;
         }
     }
     invokeSlice(
-        ernie_slice_out_buffer_, ernie_layer_out_buffer_, request_batch_size_, request_seq_len_, d_model_, stream_);
+        ernie_slice_out_buffer_, ernie_layer_out_buffer_, request_batch_size_, request_seq_len_, d_model_, stream_fea_);
     // MatMul(pooled_fc_matmul)
     {
         int m = request_batch_size_;
         int n = d_model_;
         int k = d_model_;
-        cublas_wrapper_->Gemm(CUBLAS_OP_N,
+        cublas_wrapper_fea_->Gemm(CUBLAS_OP_N,
                               CUBLAS_OP_N,
                               n,
                               m,
@@ -718,7 +722,7 @@ void ErnieINT8<T>::forward(std::unordered_map<std::string, Tensor>* output_tenso
                               ernie_layer_out_buffer_,
                               n);
         // Add(pooled_fc_add + tanh)
-        invokeAddBiasTanh(ernie_layer_out_buffer_, ernie_int8_weights->pooled_fc.bias, m, n, stream_);
+        invokeAddBiasTanh(ernie_layer_out_buffer_, ernie_int8_weights->pooled_fc.bias, m, n, stream_fea_);
     }
 
     // MatMul(cls_out_matmul)
@@ -726,7 +730,7 @@ void ErnieINT8<T>::forward(std::unordered_map<std::string, Tensor>* output_tenso
         int m = request_batch_size_;
         int n = 1;
         int k = d_model_;
-        cublas_wrapper_->Gemm(CUBLAS_OP_N,
+        cublas_wrapper_fea_->Gemm(CUBLAS_OP_N,
                               CUBLAS_OP_N,
                               n,
                               m,
@@ -745,15 +749,15 @@ void ErnieINT8<T>::forward(std::unordered_map<std::string, Tensor>* output_tenso
                                ernie_int8_weights->cls_out_aside.bias,
                                output_tensors->at("attn_out").getPtr<float>(),
                                request_batch_size_,
-                               stream_);
+                               stream_fea_);
 
     if (is_enqueue_init_ && false) {
         if (cuda_graph_pool_.find(cur_graph_key_post) == cuda_graph_pool_.end()) {
-            cur_graph_ptr_post->endCapture(stream_);
+            cur_graph_ptr_post->endCapture(stream_fea_);
             cuda_graph_pool_[cur_graph_key_post] = cur_graph_ptr_post;
             // NOTE(yuqingding): If we don't rerun the stream, the result will be wrong.  Graph capture will destroy the
             // result???
-            cur_graph_ptr_post->launch(stream_);
+            cur_graph_ptr_post->launch(stream_fea_);
         }
     }
 
@@ -783,11 +787,11 @@ void ErnieINT8<T>::forward(const int* h_word_ids_,
     //      multi_ids   [batch, 8]
     // output tensors:
     //      attn_out [batch, 1]
-    const ErnieINT8LayerWeight<T>* ernie_layer_int8_weight = (const ErnieINT8LayerWeight<T>*)ernie_int8_weights;
-    const ScaleList* scale_list = &(ernie_layer_int8_weight->scale_list_);
+    
+    // const ErnieINT8LayerWeight<T>* ernie_layer_int8_weight = (const ErnieINT8LayerWeight<T>*)ernie_int8_weights;
+    // const ScaleList* scale_list = &(ernie_layer_int8_weight->scale_list_);
 
     FT_LOG_DEBUG(__PRETTY_FUNCTION__);
-    FT_CHECK(is_host_ptr_ == true);
 
     request_batch_size_ = request_batch_size;
     request_seq_len_ = request_seq_len;
@@ -926,6 +930,7 @@ void ErnieINT8<T>::forward(const int* h_word_ids_,
     for (uint i = 0; i < num_layer_; i++) {
         T* from_tensor = (i == 0 ? ernie_encoder_input_ptr : ernie_encoder_output_ptr);
         T* out_tensor = ernie_encoder_output_ptr;
+        ScaleList* scale_list = &(ernie_int8_weights->ernie_encoder_layer_weights[i]->scale_list_);
         invokeQuantization(int8_buf_, from_tensor, h_token_num_ * d_model_, &(scale_list->d_scale_list_[3]), stream_);
 
         // attn
@@ -1097,22 +1102,22 @@ void ErnieINT8<T>::forward(const int* h_word_ids_,
         FT_CHECK(is_free_buffer_after_forward_ == false);
         if (cuda_graph_pool_.find(cur_graph_key_post) == cuda_graph_pool_.end()) {
             cur_graph_ptr_post = new CudaGraph();
-            cur_graph_ptr_post->beginCapture(stream_);
+            cur_graph_ptr_post->beginCapture(stream_fea_);
         }
         else {
             cur_graph_ptr_post = cuda_graph_pool_[cur_graph_key_post];
-            cur_graph_ptr_post->launch(stream_);
+            cur_graph_ptr_post->launch(stream_fea_);
             return;
         }
     }
     invokeSlice(
-        ernie_slice_out_buffer_, ernie_layer_out_buffer_, request_batch_size_, request_seq_len_, d_model_, stream_);
+        ernie_slice_out_buffer_, ernie_layer_out_buffer_, request_batch_size_, request_seq_len_, d_model_, stream_fea_);
     // MatMul(pooled_fc_matmul)
     {
         int m = request_batch_size_;
         int n = d_model_;
         int k = d_model_;
-        cublas_wrapper_->Gemm(CUBLAS_OP_N,
+        cublas_wrapper_fea_->Gemm(CUBLAS_OP_N,
                               CUBLAS_OP_N,
                               n,
                               m,
@@ -1124,7 +1129,7 @@ void ErnieINT8<T>::forward(const int* h_word_ids_,
                               ernie_layer_out_buffer_,
                               n);
         // Add(pooled_fc_add + tanh)
-        invokeAddBiasTanh(ernie_layer_out_buffer_, ernie_int8_weights->pooled_fc.bias, m, n, stream_);
+        invokeAddBiasTanh(ernie_layer_out_buffer_, ernie_int8_weights->pooled_fc.bias, m, n, stream_fea_);
     }
 
     // MatMul(cls_out_matmul)
@@ -1132,7 +1137,7 @@ void ErnieINT8<T>::forward(const int* h_word_ids_,
         int m = request_batch_size_;
         int n = 1;
         int k = d_model_;
-        cublas_wrapper_->Gemm(CUBLAS_OP_N,
+        cublas_wrapper_fea_->Gemm(CUBLAS_OP_N,
                               CUBLAS_OP_N,
                               n,
                               m,
@@ -1151,15 +1156,15 @@ void ErnieINT8<T>::forward(const int* h_word_ids_,
                                ernie_int8_weights->cls_out_aside.bias,
                                d_attn_out_,
                                request_batch_size_,
-                               stream_);
+                               stream_fea_);
 
     if (is_enqueue_init_ && false) {
         if (cuda_graph_pool_.find(cur_graph_key_post) == cuda_graph_pool_.end()) {
-            cur_graph_ptr_post->endCapture(stream_);
+            cur_graph_ptr_post->endCapture(stream_fea_);
             cuda_graph_pool_[cur_graph_key_post] = cur_graph_ptr_post;
             // NOTE(yuqingding): If we don't rerun the stream, the result will be wrong.  Graph capture will destroy the
             // result???
-            cur_graph_ptr_post->launch(stream_);
+            cur_graph_ptr_post->launch(stream_fea_);
         }
     }
 

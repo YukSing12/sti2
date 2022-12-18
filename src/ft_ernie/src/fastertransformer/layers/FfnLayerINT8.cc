@@ -31,7 +31,7 @@ void FfnLayerINT8<T>::forward(std::vector<fastertransformer::Tensor>*       outp
     cublasINT8MMWrapper* cublas_wrapper = (cublasINT8MMWrapper*)cublas_wrapper_;
 
     FT_CHECK(isValidTokenNum(input_tensors->at(0).shape[0]));
-    allocateBuffer();
+    // allocateBuffer();
 
     const int m = static_cast<int>(input_tensors->at(0).shape[0]);
 #ifdef SPARSITY_ENABLED
@@ -164,6 +164,7 @@ FfnLayerINT8<T>::FfnLayerINT8(size_t           max_batch_size,
     int8_mode_(int8_mode),
     sparse_(sparse)
 {
+    allocateBuffer();
 }
 
 template<typename T>
@@ -178,6 +179,7 @@ FfnLayerINT8<T>::FfnLayerINT8(FfnLayerINT8<T> const& ffn_layer):
     int8_mode_(ffn_layer.int8_mode_),
     sparse_(ffn_layer.sparse_)
 {
+    allocateBuffer();
 }
 
 template<typename T>

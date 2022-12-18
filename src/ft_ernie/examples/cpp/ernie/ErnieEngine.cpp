@@ -16,7 +16,7 @@ ErnieEngine<T>::ErnieEngine(const std::string& ckpt_path, const bool int8_mode, 
     cublasSetStream(cublas_handle_, stream_);
     std::string init_name;
     if (int8_mode_) {
-        init_name = std::string("gemmInt8_config");
+        init_name = std::string("igemm_config");
     }
     else {
         init_name = std::string("gemm_config");
@@ -32,8 +32,8 @@ ErnieEngine<T>::ErnieEngine(const std::string& ckpt_path, const bool int8_mode, 
     }
     else {
         printf("[Warning] Gemm file do not exist!\n");
-        for (size_t b = 1; b <= m_.max_batch_size; b++) {
-            for (size_t l = 16; l <= m_.max_seq_len; l++) {
+        for (size_t b = 10; b <= m_.max_batch_size; b++) {
+            for (size_t l = 128; l <= m_.max_seq_len; l++) {
                 int argv[8] = {
                     0,
                     (int)b,
@@ -155,7 +155,6 @@ ErnieEngine<T>::ErnieEngine(const std::string& ckpt_path, const bool int8_mode, 
                                        m_.is_sparse,
                                        m_.layernorm_type);
         ernie_int8_->setUseGraph(useCudaGraph_);
-        ernie_int8_->setHostMode(true);
         ernie_weights_int8_ = new ErnieINT8Weight<T>(m_.head_num,
                                                      m_.size_per_head,
                                                      m_.d_model,

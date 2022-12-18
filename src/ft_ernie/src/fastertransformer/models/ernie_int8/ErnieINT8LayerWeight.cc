@@ -61,7 +61,7 @@ void ErnieINT8LayerWeight<T>::initialize()
     weights_size[14] = d_model_;
     weights_size[15] = d_model_;
 
-    scale_list_.size_ = ACTIVATION_AMAX_NUM + 9 * d_model_ + INT8O_GEMM_NUM + TRT_AMAX_NUM + SCALE_RESERVE_NUM;
+    scale_list_.size_ = ACTIVATION_AMAX_NUM + 9 * d_model_ + INT8O_GEMM_NUM + TRT_AMAX_NUM;
     scale_list_.p3_offset_ = ACTIVATION_AMAX_NUM + 9 * d_model_;
     scale_list_.p4_offset_ = ACTIVATION_AMAX_NUM + 9 * d_model_ + INT8O_GEMM_NUM;
     deviceMalloc(&scale_list_ptr[0], scale_list_.size_);
@@ -298,17 +298,18 @@ void ErnieINT8LayerWeight<T>::loadModel(std::string dir_path, FtCudaDataType mod
                          dir_path + "encoder_layer_" + std::to_string(layer_id_) + "_post_ffn_layer_norm_bias" + ".bin",
                          model_file_type);
 
-    // FIXME: loadWeightFromBin<T>
-    loadWeightFromBin<float>(scale_list_ptr[0],
-                             {scale_list_.size_},
-                             dir_path + "encoder_layer_" + std::to_string(layer_id_) + "_scale_list" + ".bin",
-                             model_file_type);
+    loadWeightFromBin<float>(scale_list_ptr[0], {scale_list_.size_},
+                         dir_path + "encoder_layer_" +
+                             std::to_string(layer_id_) + "_scale_list" + ".bin",
+                         model_file_type);
     // FIXME: loadWeightFromBin() will load weights from host memory to device memory.
     //          However, scale_list_ptr[1] is a host pointer
-    loadWeightFromBin<float>(scale_list_ptr[1],
-                             {scale_list_.size_},
-                             dir_path + "encoder_layer_" + std::to_string(layer_id_) + "_scale_list" + ".bin",
-                             model_file_type);
+    
+    cudaAutoCpy(scale_list_ptr[1], scale_list_ptr[0], scale_list_.size_);
+    // loadWeightFromBin<float>(scale_list_ptr[1],
+    //                          {scale_list_.size_},
+    //                          dir_path + "encoder_layer_" + std::to_string(layer_id_) + "_scale_list" + ".bin",
+    //                          model_file_type);
 
     FT_LOG_DEBUG("ErnieINT8LayerWeight " + std::string(__func__) + " end");
 }

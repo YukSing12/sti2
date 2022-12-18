@@ -62,7 +62,6 @@ private:
     AttentionType attention_type_;
     int int8_mode_;
     bool sparse_;
-    bool is_host_ptr_ = false;
 
     // five inputs
     int* d_word_ids_;
@@ -142,7 +141,7 @@ public:
               float q_scaling,
               int int8_mode,
               cudaStream_t stream,
-              cublasINT8MMWrapper* cublas_wrapper,
+              cublasMMWrapper* cublas_wrapper,
               IAllocator* allocator,
               bool is_free_buffer_after_forward,
               AttentionType attention_type,
@@ -179,16 +178,6 @@ public:
     void setUseGraph(bool useGraph)
     {
         use_cuda_graph_ = useGraph;
-    }
-    void setHostMode(bool is_host_ptr)
-    {
-        is_host_ptr_ = is_host_ptr;
-        d_word_ids_ = (int*)allocator_->reMalloc(d_word_ids_, sizeof(int) * max_batch_size_ * max_seq_len_, false);
-        d_pos_ids_ = (int*)allocator_->reMalloc(d_pos_ids_, sizeof(int) * max_batch_size_ * max_seq_len_, false);
-        d_sent_ids_ = (int*)allocator_->reMalloc(d_sent_ids_, sizeof(int) * max_batch_size_ * max_seq_len_, false);
-        d_seq_len_ = (int*)allocator_->reMalloc(d_seq_len_, sizeof(int) * max_batch_size_ * 1, false);
-        d_multi_ids_ = (int*)allocator_->reMalloc(d_multi_ids_, sizeof(int) * max_batch_size_ * 8, false);
-        d_attn_out_ = (float*)allocator_->reMalloc(d_attn_out_, sizeof(float) * max_batch_size_ * 1, false);
     }
     void setStream(cudaStream_t stream) override;
 };
