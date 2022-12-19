@@ -3,7 +3,7 @@
 namespace fastertransformer {
 
 template<typename T>
-void DumpTxt(const char* file_name, T* src_data, size_t size, bool device,char split)
+void DumpData(const char* file_name, T* src_data, size_t size, bool device,char split)
 {
 
     std::ostringstream oss;
@@ -28,36 +28,36 @@ void DumpTxt(const char* file_name, T* src_data, size_t size, bool device,char s
 }
 
 template<typename T>
-void HostDumpTxt(const char* file_name, T* src_data, size_t size,char split)
+void DumpHostData(const char* file_name, T* src_data, size_t size,char split)
 {
-    DumpTxt(file_name,src_data,size,false,split);
+    DumpData(file_name,src_data,size,false,split);
 } 
 
 template<typename T>
-void DeviceDumpTxt(const char* file_name, T* src_data, size_t size,char split)
+void DumpDeviceData(const char* file_name, T* src_data, size_t size,char split)
 {
-    DumpTxt(file_name,src_data,size,true,split);
+    DumpData(file_name,src_data,size,true,split);
 } 
 
 
 
-template void DeviceDumpTxt(const char* file_name, float* src_data, size_t size,char split);
-template void DeviceDumpTxt(const char* file_name, half* src_data, size_t size,char split);
-template void DeviceDumpTxt(const char* file_name, int* src_data, size_t size,char split);
+template void DumpDeviceData(const char* file_name, float* src_data, size_t size,char split);
+template void DumpDeviceData(const char* file_name, half* src_data, size_t size,char split);
+template void DumpDeviceData(const char* file_name, int* src_data, size_t size,char split);
 
-template void HostDumpTxt(const char* file_name, float* src_data, size_t size,char split);
-template void HostDumpTxt(const char* file_name, half* src_data, size_t size,char split);
-template void HostDumpTxt(const char* file_name, int* src_data, size_t size,char split);
+template void DumpHostData(const char* file_name, float* src_data, size_t size,char split);
+template void DumpHostData(const char* file_name, half* src_data, size_t size,char split);
+template void DumpHostData(const char* file_name, int* src_data, size_t size,char split);
 
-template void DumpTxt(const char* file_name, float* src_data, size_t size, bool device,char split)
-template void DumpTxt(const char* file_name, half* src_data, size_t size, bool device,char split)
-template void DumpTxt(const char* file_name, int* src_data, size_t size, bool device,char split)
+template void DumpData(const char* file_name, float* src_data, size_t size, bool device,char split)
+template void DumpData(const char* file_name, half* src_data, size_t size, bool device,char split)
+template void DumpData(const char* file_name, int* src_data, size_t size, bool device,char split)
 
 
 #ifdef ENABLE_BF16
-template void DeviceDumpTxt(const char* file_name, __nv_bfloat16* src_data, size_t size,char split);
-template void HostDumpTxt(const char* file_name, __nv_bfloat16* src_data, size_t size,char split);
-template void DumpTxt(const char* file_name, __nv_bfloat16* src_data, size_t size, bool device,char split)
+template void DumpDeviceData(const char* file_name, __nv_bfloat16* src_data, size_t size,char split);
+template void DumpHostData(const char* file_name, __nv_bfloat16* src_data, size_t size,char split);
+template void DumpData(const char* file_name, __nv_bfloat16* src_data, size_t size, bool device,char split)
 #endif
 
 }  // namespace fastertransformer

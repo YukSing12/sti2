@@ -10,11 +10,11 @@
 namespace fastertransformer {
 
 template<typename T>
-void DumpTxt(const char* file_name, T* src_data, size_t size, bool device,char split);
+void DumpData(const char* file_name, T* src_data, size_t size, bool device,char split);
 
 template<typename T>
-void HostDumpTxt(const char* file_name, T* src_data, size_t size,char split);
+void DumpHostData(const char* file_name, T* src_data, size_t size,char split);
 
 template<typename T>
-void DeviceDumpTxt(const char* file_name, T* src_data, size_t size,char split);
+void DumpDeviceData(const char* file_name, T* src_data, size_t size,char split);
 }
