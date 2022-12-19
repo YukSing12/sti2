@@ -43,6 +43,18 @@ def dump_scales(nodes, nodes_dict):
             k_mm = nodes_dict["p2o.MatMul.{}".format(4 + layer_num * 16)]
             v_mm = nodes_dict["p2o.MatMul.{}".format(6 + layer_num * 16)]
 
+            q_mm_name = q_mm.inputs[1].inputs[0].inputs[0].name.replace("_0_0", "_0")
+            print("Export {}".format(q_mm_name))
+            rst[q_mm_name] = q_mm.inputs[1].inputs[0].inputs[0].values.astype(np.int8)
+
+            k_mm_name = k_mm.inputs[1].inputs[0].inputs[0].name.replace("_0_0", "_0")
+            print("Export {}".format(k_mm_name))
+            rst[k_mm_name] = k_mm.inputs[1].inputs[0].inputs[0].values.astype(np.int8)
+
+            v_mm_name = v_mm.inputs[1].inputs[0].inputs[0].name.replace("_0_0", "_0")
+            print("Export {}".format(v_mm_name))
+            rst[v_mm_name] = v_mm.inputs[1].inputs[0].inputs[0].values.astype(np.int8)
+
             q_bias = nodes_dict["p2o.Add.{}".format(10 + layer_num * 26)]
             k_bias = nodes_dict["p2o.Add.{}".format(12 + layer_num * 26)]
             v_bias = nodes_dict["p2o.Add.{}".format(14 + layer_num * 26)]
@@ -53,11 +65,21 @@ def dump_scales(nodes, nodes_dict):
 
             proj_mm = nodes_dict["p2o.MatMul.{}".format(12 + layer_num * 16)]
             proj_bias_norm = nodes_dict["p2o.Add.{}".format(24 + layer_num * 26)]
+            proj_mm_name = proj_mm.inputs[1].inputs[0].inputs[0].name.replace("_0_0", "_0")
+            print("Export {}".format(proj_mm_name))
+            rst[proj_mm_name] = proj_mm.inputs[1].inputs[0].inputs[0].values.astype(np.int8)
 
             fc1_mm = nodes_dict["p2o.MatMul.{}".format(14 + layer_num * 16)]
             fc1_bias = nodes_dict["p2o.Add.{}".format(26 + layer_num * 26)]
+            fc1_mm_name = fc1_mm.inputs[1].inputs[0].inputs[0].name.replace("_0_0", "_0")
+            print("Export {}".format(fc1_mm_name))
+            rst[fc1_mm_name] = fc1_mm.inputs[1].inputs[0].inputs[0].values.astype(np.int8)
+
             fc2_mm = nodes_dict["p2o.MatMul.{}".format(16 + layer_num * 16)]
             fc2_bias_norm = nodes_dict["p2o.Add.{}".format(34 + layer_num * 26)]
+            fc2_mm_name = fc2_mm.inputs[1].inputs[0].inputs[0].name.replace("_0_0", "_0")
+            print("Export {}".format(fc2_mm_name))
+            rst[fc2_mm_name] = fc2_mm.inputs[1].inputs[0].inputs[0].values.astype(np.int8)
 
             size = ACTIVATION_AMAX_NUM + 9 * HIDDEN_DIM + INT8O_GEMM_NUM + TRT_AMAX_NUM
             scale_list = np.zeros(size)
@@ -276,7 +298,7 @@ if __name__ == "__main__":
     for name,value in weights.items():
         saved_path = os.path.join(args.bin, name+".bin")
         print(name, value.shape)
-        value.astype(npDataType).tofile(saved_path)
+        value.astype(value.dtype).tofile(saved_path)
     print("Succeed extracting weights of Ernie!")
 
 
