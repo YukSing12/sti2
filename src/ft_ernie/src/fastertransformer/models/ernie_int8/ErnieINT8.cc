@@ -16,6 +16,7 @@
 
 #include "src/fastertransformer/models/ernie_int8/ErnieINT8.h"
 #include "src/fastertransformer/utils/nvtx_utils.h"
+#include "src/fastertransformer/utils/debug.h"
 
 #define POSTGRAPH_IDX 4
 #define PREGRAPH_IDX 3
@@ -57,48 +58,20 @@ void ErnieINT8<T>::initialize()
         cublas_wrapper_fea_->setFP32GemmConfig();
     }
 
-    if ((attention_type_ == AttentionType::FUSED_MHA || attention_type_ == AttentionType::FUSED_PADDED_MHA)
-        && std::is_same<T, half>::value == true && max_seq_len_ <= 384) {
-        attention_layer_ = new FusedAttentionLayerINT8<T>(max_batch_size_,
-                                                          max_seq_len_,
-                                                          head_num_,
-                                                          size_per_head_,
-                                                          sm_,
-                                                          int8_mode_,
-                                                          q_scaling_,  // adjust according to checkpoint structure
-                                                          stream_,
-                                                          cublas_wrapper_,
-                                                          allocator_,
-                                                          is_free_buffer_after_forward_,
-                                                          sparse_);
-    }
-    else if (attention_type_ == AttentionType::UNFUSED_MHA || attention_type_ == AttentionType::UNFUSED_PADDED_MHA) {
-        attention_layer_ = new UnfusedAttentionLayerINT8<T>(max_batch_size_,
-                                                            max_seq_len_,
-                                                            head_num_,
-                                                            size_per_head_,
-                                                            q_scaling_,  // adjust according to checkpoint structure
-                                                            int8_mode_,
-                                                            stream_,
-                                                            cublas_wrapper_,
-                                                            allocator_,
-                                                            is_free_buffer_after_forward_,
-                                                            sparse_);
-    }
-    else {
-        throw std::runtime_error(std::string("[FT][ERROR] Invalid attention type \n"));
-    }
-
-    ffn_layer_ = new ReluFfnLayerINT8<T>(max_batch_size_,
-                                         max_seq_len_,
-                                         1,
-                                         d_model_,
-                                         inter_size_,
-                                         int8_mode_,
-                                         stream_,
-                                         cublas_wrapper_,
-                                         allocator_,
-                                         is_free_buffer_after_forward_);
+    ernie_layer_ = new ErnieLayerINT8<T>(max_batch_size_,
+                                       max_seq_len_,
+                                       head_num_,
+                                       size_per_head_,
+                                       head_num_ * size_per_head_ * 4,
+                                       sm_,
+                                       q_scaling_,
+                                       int8_mode_,
+                                       stream_,
+                                       cublas_wrapper_,
+                                       allocator_,
+                                       is_free_buffer_after_forward_,
+                                       attention_type_,
+                                       sparse_);
     allocateBuffer();
 }
 
@@ -182,8 +155,7 @@ ErnieINT8<T>::~ErnieINT8()
     for (auto& it : cuda_graph_pool_)
         delete it.second;
     cuda_graph_pool_.clear();
-    delete attention_layer_;
-    delete ffn_layer_;
+    delete ernie_layer_;
 
     delete cublas_wrapper_mutex_fea_;
     delete cublas_algo_map_fea_;
@@ -195,10 +167,6 @@ ErnieINT8<T>::~ErnieINT8()
 template<typename T>
 void ErnieINT8<T>::setStream(cudaStream_t stream)
 {
-
-    attention_layer_->setStream(stream);
-    ffn_layer_->setStream(stream);
-
     BaseLayer::setStream(stream);
 }
 
@@ -344,8 +312,8 @@ void ErnieINT8<T>::forward(std::unordered_map<std::string, Tensor>* output_tenso
     // output tensors:
     //      attn_out [batch, seqlen, d_model]
 
-    // FIXME: ErnieINT8Weight cast to ErnieINT8LayerWeight ?
-    // const ErnieINT8LayerWeight<T>* ernie_layer_int8_weight = (const ErnieINT8LayerWeight<T>*)ernie_int8_weights;
+    // FIXME: ErnieINT8Weight cast to ErnieLayerINT8Weight ?
+    // const ErnieLayerINT8Weight<T>* ernie_layer_int8_weight = (const ErnieLayerINT8Weight<T>*)ernie_int8_weights;
     // const ScaleList* scale_list = &(ernie_layer_int8_weight->scale_list_);
 
     FT_LOG_DEBUG(__PRETTY_FUNCTION__);
@@ -514,76 +482,9 @@ void ErnieINT8<T>::forward(std::unordered_map<std::string, Tensor>* output_tenso
     //                       &(scale_list->d_scale_list_[36]));
     sync_check_cuda_error();
 
-    DataType data_type = getTensorType<int>();
+    DataType data_type = getTensorType<T>();
 
     for (uint i = 0; i < num_layer_; i++) {
-        T* from_tensor = (i == 0 ? ernie_encoder_input_ptr : ernie_encoder_output_ptr);
-        T* out_tensor = ernie_encoder_output_ptr;
-        ScaleList* scale_list = &(ernie_int8_weights->ernie_encoder_layer_weights[i]->scale_list_);
-        invokeQuantization(int8_buf_, from_tensor, h_token_num_ * d_model_, &(scale_list->d_scale_list_[3]), stream_);
-    
-        // attn
-        {
-            std::vector<Tensor> attn_input_tensors{
-                Tensor{MEMORY_GPU, data_type, std::vector<size_t>{h_token_num_, d_model_}, int8_buf_},
-                Tensor{MEMORY_GPU,
-                       data_type,
-                       std::vector<size_t>{request_batch_size_, 1, request_seq_len_, request_seq_len_},
-                       attention_mask_},
-                *padding_offset_tensor_ptr,
-                Tensor{MEMORY_GPU,
-                       data_type,
-                       std::vector<size_t>{1, head_num_, request_seq_len_, request_seq_len_},
-                       nullptr}};
-            std::vector<Tensor> attn_output_tensors{
-                Tensor{MEMORY_GPU, data_type, std::vector<size_t>{h_token_num_, d_model_}, attn_out_buf_}};
-
-            attention_layer_->forward(&attn_output_tensors,
-                                      &attn_input_tensors,
-                                      &ernie_int8_weights->ernie_encoder_layer_weights[i]->attention_weights);
-        }
-
-        // ln
-        invokeAddBiasResidualLayerNormCol32(
-            out_tensor,
-            (const int8_t*)attn_out_buf_,
-            (const int8_t*)from_tensor,
-            ernie_int8_weights->ernie_encoder_layer_weights[i]->attention_weights.attention_output_weight.bias,
-            ernie_int8_weights->ernie_encoder_layer_weights[i]->attn_layernorm_weights.gamma,
-            ernie_int8_weights->ernie_encoder_layer_weights[i]->attn_layernorm_weights.beta,
-            h_token_num_,
-            d_model_,
-            stream_,
-            &(scale_list->d_scale_list_[scale_list->p2_offset_ + 3 * hidden_units_]),
-            &(scale_list->d_scale_list_[36]));
-
-        invokeQuantization(int8_buf_, out_tensor, h_token_num_ * d_model_, &(scale_list->d_scale_list_[3]), stream_);
-        // invokeQuantization(normed_attn_out_buf_, normed_attn_out_buf_, h_token_num_ * d_model_,
-        // &(scale_list->d_scale_list_[3]), stream_);
-
-        // FFN
-        {
-            std::vector<Tensor> ffn_input_tensors{
-                Tensor{MEMORY_GPU, data_type, std::vector<size_t>{h_token_num_, d_model_}, int8_buf_}};
-            std::vector<Tensor> ffn_output_tensors{
-                Tensor{MEMORY_GPU, data_type, std::vector<size_t>{h_token_num_, d_model_}, out_tensor}};
-            ffn_layer_->forward(&ffn_output_tensors,
-                                &ffn_input_tensors,
-                                &ernie_int8_weights->ernie_encoder_layer_weights[i]->ffn_weights);
-        }
-        // ln
-        invokeAddBiasResidualLayerNormCol32(
-            out_tensor,
-            (const int8_t*)out_tensor,
-            (const int8_t*)attn_out_buf_,
-            ernie_int8_weights->ernie_encoder_layer_weights[i]->ffn_weights.output_weight.bias,
-            ernie_int8_weights->ernie_encoder_layer_weights[i]->ffn_layernorm_weights.gamma,
-            ernie_int8_weights->ernie_encoder_layer_weights[i]->ffn_layernorm_weights.beta,
-            h_token_num_,
-            d_model_,
-            stream_,
-            &(scale_list->d_scale_list_[scale_list->p2_offset_ + 3 * hidden_units_]),
-            &(scale_list->d_scale_list_[36]));
         sync_check_cuda_error();
     }
 
@@ -788,9 +689,6 @@ void ErnieINT8<T>::forward(const int* h_word_ids_,
     // output tensors:
     //      attn_out [batch, 1]
     
-    // const ErnieINT8LayerWeight<T>* ernie_layer_int8_weight = (const ErnieINT8LayerWeight<T>*)ernie_int8_weights;
-    // const ScaleList* scale_list = &(ernie_layer_int8_weight->scale_list_);
-
     FT_LOG_DEBUG(__PRETTY_FUNCTION__);
 
     request_batch_size_ = request_batch_size;
@@ -925,78 +823,31 @@ void ErnieINT8<T>::forward(const int* h_word_ids_,
                            stream_);
     sync_check_cuda_error();
 
-    DataType data_type = getTensorType<T>();
+    DataType            data_type          = getTensorType<T>();
+    std::vector<Tensor> tmp_output_tensors = {
+        Tensor{MEMORY_GPU, data_type, std::vector<size_t>{h_token_num_, hidden_units_}, ernie_encoder_output_ptr},
+    };
 
+    int num_layer_ptr[1] = {int(num_layer_)};
+    int layer_idx_ptr[1] = {-1};
     for (uint i = 0; i < num_layer_; i++) {
-        T* from_tensor = (i == 0 ? ernie_encoder_input_ptr : ernie_encoder_output_ptr);
-        T* out_tensor = ernie_encoder_output_ptr;
-        ScaleList* scale_list = &(ernie_int8_weights->ernie_encoder_layer_weights[i]->scale_list_);
-        invokeQuantization(int8_buf_, from_tensor, h_token_num_ * d_model_, &(scale_list->d_scale_list_[3]), stream_);
-
-        // attn
-        {
-            std::vector<Tensor> attn_input_tensors{
-                Tensor{MEMORY_GPU, data_type, std::vector<size_t>{h_token_num_, d_model_}, int8_buf_},
-                Tensor{MEMORY_GPU,
-                       data_type,
-                       std::vector<size_t>{request_batch_size_, 1, request_seq_len_, request_seq_len_},
-                       attention_mask_},
-                *padding_offset_tensor_ptr,
-                Tensor{MEMORY_GPU,
-                       data_type,
-                       std::vector<size_t>{1, head_num_, request_seq_len_, request_seq_len_},
-                       nullptr}};
-            std::vector<Tensor> attn_output_tensors{
-                Tensor{MEMORY_GPU, data_type, std::vector<size_t>{h_token_num_, d_model_}, attn_out_buf_}};
-
-            attention_layer_->forward(&attn_output_tensors,
-                                      &attn_input_tensors,
-                                      &ernie_int8_weights->ernie_encoder_layer_weights[i]->attention_weights);
-        }
-
-        // ln
-        invokeAddBiasResidualLayerNormCol32(
-            out_tensor,
-            (const int8_t*)attn_out_buf_,
-            (const int8_t*)from_tensor,
-            ernie_int8_weights->ernie_encoder_layer_weights[i]->attention_weights.attention_output_weight.bias,
-            ernie_int8_weights->ernie_encoder_layer_weights[i]->attn_layernorm_weights.gamma,
-            ernie_int8_weights->ernie_encoder_layer_weights[i]->attn_layernorm_weights.beta,
-            h_token_num_,
-            d_model_,
-            stream_,
-            &(scale_list->d_scale_list_[scale_list->p2_offset_ + 3 * hidden_units_]),
-            &(scale_list->d_scale_list_[36]));
-
-        invokeQuantization(int8_buf_, out_tensor, h_token_num_ * d_model_, &(scale_list->d_scale_list_[3]), stream_);
-        // invokeQuantization(normed_attn_out_buf_, normed_attn_out_buf_, h_token_num_ * d_model_,
-        // &(scale_list->d_scale_list_[3]), stream_);
-
-        // FFN
-        {
-            std::vector<Tensor> ffn_input_tensors{
-                Tensor{MEMORY_GPU, data_type, std::vector<size_t>{h_token_num_, d_model_}, int8_buf_}};
-            std::vector<Tensor> ffn_output_tensors{
-                Tensor{MEMORY_GPU, data_type, std::vector<size_t>{h_token_num_, d_model_}, out_tensor}};
-            ffn_layer_->forward(&ffn_output_tensors,
-                                &ffn_input_tensors,
-                                &ernie_int8_weights->ernie_encoder_layer_weights[i]->ffn_weights);
-        }
-        // ln
-        invokeAddBiasResidualLayerNormCol32(
-            out_tensor,
-            (const int8_t*)out_tensor,
-            (const int8_t*)attn_out_buf_,
-            ernie_int8_weights->ernie_encoder_layer_weights[i]->ffn_weights.output_weight.bias,
-            ernie_int8_weights->ernie_encoder_layer_weights[i]->ffn_layernorm_weights.gamma,
-            ernie_int8_weights->ernie_encoder_layer_weights[i]->ffn_layernorm_weights.beta,
-            h_token_num_,
-            d_model_,
-            stream_,
-            &(scale_list->d_scale_list_[scale_list->p2_offset_ + 3 * hidden_units_]),
-            &(scale_list->d_scale_list_[36]));
-        sync_check_cuda_error();
+        layer_idx_ptr[0] = i;
+        std::vector<Tensor> tmp_input_tensors{
+            Tensor{MEMORY_GPU,
+                   data_type,
+                   std::vector<size_t>{h_token_num_, hidden_units_},
+                   i == 0 ? ernie_encoder_input_ptr : ernie_encoder_output_ptr},
+            Tensor{MEMORY_GPU,
+                   data_type,
+                   std::vector<size_t>{request_batch_size, 1, request_seq_len, request_seq_len},
+                   attention_mask_},
+            *padding_offset_tensor_ptr,
+            Tensor{MEMORY_CPU, TYPE_INT32, std::vector<size_t>{1}, layer_idx_ptr},
+            Tensor{MEMORY_CPU, TYPE_INT32, std::vector<size_t>{1}, num_layer_ptr},
+        };
+        ernie_layer_->forward(&tmp_output_tensors, &tmp_input_tensors, ernie_int8_weights->ernie_encoder_layer_weights[i]);
     }
+
     // postemb
     invokePostEmbedding(d_multi_ids_,
                         ernie_int8_weights->multi_field_1,

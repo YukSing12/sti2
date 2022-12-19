@@ -25,17 +25,17 @@
 namespace fastertransformer {
 
 template<typename T>
-struct ErnieINT8LayerWeight {
+struct ErnieLayerINT8Weight {
 
-    ErnieINT8LayerWeight() = default;
-    ErnieINT8LayerWeight(const size_t layer_id,
+    ErnieLayerINT8Weight() = default;
+    ErnieLayerINT8Weight(const size_t layer_id,
                          const size_t head_num,
                          const size_t size_per_head,
                          const size_t d_model,
                          const size_t inter_size);
-    ~ErnieINT8LayerWeight();
-    ErnieINT8LayerWeight(const ErnieINT8LayerWeight& other);
-    ErnieINT8LayerWeight& operator=(const ErnieINT8LayerWeight& other);
+    ~ErnieLayerINT8Weight();
+    ErnieLayerINT8Weight(const ErnieLayerINT8Weight& other);
+    ErnieLayerINT8Weight& operator=(const ErnieLayerINT8Weight& other);
 
     AttentionINT8Weight<T> attention_weights;
     LayerNormWeight<T> attn_layernorm_weights;

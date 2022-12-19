@@ -30,8 +30,9 @@
 #include "src/fastertransformer/layers/attention_layers_int8/FusedAttentionLayerINT8.h"
 #include "src/fastertransformer/layers/attention_layers_int8/UnfusedAttentionLayerINT8.h"
 #include "src/fastertransformer/models/ernie/CudaGraph.h"
-#include "src/fastertransformer/models/ernie_int8/ErnieINT8LayerWeight.h"
+#include "src/fastertransformer/models/ernie_int8/ErnieLayerINT8Weight.h"
 #include "src/fastertransformer/models/ernie_int8/ErnieINT8Weight.h"
+#include "src/fastertransformer/models/ernie_int8/ErnieLayerINT8.h"
 #include "src/fastertransformer/utils/custom_ar_comm.h"
 
 namespace fastertransformer {
@@ -81,10 +82,7 @@ private:
     cublasHandle_t cublas_handle_fea_;
     cublasLtHandle_t cublaslt_handle_fea_;
 
-    // BaseAttentionLayer<T>* attention_layer_;
-    // FfnLayerINT8<T>*           ffn_layer_;
-    BaseAttentionLayer<T>* attention_layer_;
-    FfnLayerINT8<T>* ffn_layer_;
+    ErnieLayerINT8<T>* ernie_layer_ = nullptr;
 
     bool is_allocate_buffer_ = false;
 

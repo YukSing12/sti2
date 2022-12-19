@@ -49,7 +49,7 @@ ErnieINT8Weight<T>::ErnieINT8Weight(const size_t head_num,
     ernie_encoder_layer_weights.reserve(num_layer_);
     for (int l = 0; l < num_layer_; l++) {
         ernie_encoder_layer_weights.push_back(
-            new ErnieINT8LayerWeight<T>(l, head_num_, size_per_head, d_model_, inter_size_));
+            new ErnieLayerINT8Weight<T>(l, head_num_, size_per_head, d_model_, inter_size_));
     }
     FT_LOG_DEBUG("ErnieINT8Weight " + std::string(__func__) + " end");
 }
@@ -142,7 +142,7 @@ ErnieINT8Weight<T>::ErnieINT8Weight(const ErnieINT8Weight& other):
     ernie_encoder_layer_weights.clear();
     ernie_encoder_layer_weights.reserve(num_layer_);
     for (int i = 0; i < num_layer_; i++) {
-        ernie_encoder_layer_weights.push_back(new ErnieINT8LayerWeight<T>(*other.ernie_encoder_layer_weights[i]));
+        ernie_encoder_layer_weights.push_back(new ErnieLayerINT8Weight<T>(*other.ernie_encoder_layer_weights[i]));
     }
     FT_LOG_DEBUG("ErnieINT8Weight " + std::string(__func__) + " end");
 }
@@ -170,7 +170,7 @@ ErnieINT8Weight<T>& ErnieINT8Weight<T>::operator=(const ErnieINT8Weight& other)
     ernie_encoder_layer_weights.clear();
     ernie_encoder_layer_weights.reserve(num_layer_);
     for (int i = 0; i < num_layer_; i++) {
-        ernie_encoder_layer_weights.push_back(new ErnieINT8LayerWeight<T>(*other.ernie_encoder_layer_weights[i]));
+        ernie_encoder_layer_weights.push_back(new ErnieLayerINT8Weight<T>(*other.ernie_encoder_layer_weights[i]));
     }
     FT_LOG_DEBUG("ErnieINT8Weight " + std::string(__func__) + " end");
 
@@ -273,7 +273,7 @@ void ErnieINT8Weight<T>::resizeLayer(const int num_layer)
     num_layer_ = num_layer;
     ernie_encoder_layer_weights.reserve(num_layer_);
     for (int l = 0; l < num_layer_; l++) {
-        ernie_encoder_layer_weights.push_back(new ErnieINT8LayerWeight<T>());
+        ernie_encoder_layer_weights.push_back(new ErnieLayerINT8Weight<T>());
     }
     FT_LOG_DEBUG("ErnieINT8Weight " + std::string(__func__) + " end");
 }

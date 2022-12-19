@@ -14,7 +14,7 @@
 
 cmake_minimum_required(VERSION 3.8)
 
-add_library(ErnieINT8 STATIC ErnieINT8.cc ErnieINT8Weight.cc ErnieINT8LayerWeight.cc)
+add_library(ErnieINT8 STATIC ErnieINT8.cc ErnieINT8Weight.cc ErnieLayerINT8Weight.cc ErnieLayerINT8.cc)
 set_property(TARGET ErnieINT8 PROPERTY POSITION_INDEPENDENT_CODE  ON)
 set_property(TARGET ErnieINT8 PROPERTY CUDA_RESOLVE_DEVICE_SYMBOLS  ON)
 target_link_libraries(ErnieINT8 PUBLIC -lcudart -lcublas

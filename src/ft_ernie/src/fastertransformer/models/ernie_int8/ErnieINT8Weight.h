@@ -17,7 +17,7 @@
 #pragma once
 
 #include "src/fastertransformer/kernels/gen_relative_pos_bias.h"
-#include "src/fastertransformer/models/ernie_int8/ErnieINT8LayerWeight.h"
+#include "src/fastertransformer/models/ernie_int8/ErnieLayerINT8Weight.h"
 // #include "src/fastertransformer/models/ernie/ErnieWeight.h"
 
 namespace fastertransformer {
@@ -41,7 +41,7 @@ ErnieINT8Weight {
     ErnieINT8Weight(const ErnieINT8Weight& other);
     ErnieINT8Weight& operator=(const ErnieINT8Weight& other);
 
-    std::vector<ErnieINT8LayerWeight<T>*> ernie_encoder_layer_weights;
+    std::vector<ErnieLayerINT8Weight<T>*> ernie_encoder_layer_weights;
     LayerNormWeight<T> pre_transformer_layernorm_weights;
     T* word_embedding_table = nullptr;
     T* pos_embedding_table = nullptr;
