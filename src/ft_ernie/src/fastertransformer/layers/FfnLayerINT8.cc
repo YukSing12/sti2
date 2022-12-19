@@ -20,9 +20,9 @@
 namespace fastertransformer {
 
 template<typename T>
-void FfnLayerINT8<T>::forward(std::vector<fastertransformer::Tensor>*       output_tensors,
+void FfnLayerINT8<T>::forward(std::vector<fastertransformer::Tensor>* output_tensors,
                               const std::vector<fastertransformer::Tensor>* input_tensors,
-                              const FfnWeight<T>*                           ffn_weights)
+                              const FfnWeight<T>* ffn_weights)
 {
     // input_tensors: [input (token_num, hidden_dimension)]
     // output_tensors: [output (token_num, hidden_dimension)]
@@ -42,8 +42,8 @@ void FfnLayerINT8<T>::forward(std::vector<fastertransformer::Tensor>*       outp
     const int m_padded = m_tmp;
 #endif
 
-    int32_t*      output_tensor = (int32_t*)output_tensors->at(0).data;
-    const int8_t* input_tensor  = (const int8_t*)input_tensors->at(0).data;
+    int32_t* output_tensor = (int32_t*)output_tensors->at(0).data;
+    const int8_t* input_tensor = (const int8_t*)input_tensors->at(0).data;
 
     PUSH_RANGE("FFN gemm 1");
     if (int8_mode_ == 1) {
@@ -144,17 +144,17 @@ void FfnLayerINT8<T>::forward(std::vector<fastertransformer::Tensor>*       outp
 }
 
 template<typename T>
-FfnLayerINT8<T>::FfnLayerINT8(size_t           max_batch_size,
-                              size_t           max_seq_len,
-                              size_t           head_num,
-                              size_t           size_per_head,
-                              size_t           inter_size,
-                              int              int8_mode,
-                              cudaStream_t     stream,
+FfnLayerINT8<T>::FfnLayerINT8(size_t max_batch_size,
+                              size_t max_seq_len,
+                              size_t head_num,
+                              size_t size_per_head,
+                              size_t inter_size,
+                              int int8_mode,
+                              cudaStream_t stream,
                               cublasMMWrapper* cublas_wrapper,
-                              IAllocator*      allocator,
-                              bool             is_free_buffer_after_forward,
-                              bool             sparse):
+                              IAllocator* allocator,
+                              bool is_free_buffer_after_forward,
+                              bool sparse):
     BaseLayer(stream, cublas_wrapper, allocator, is_free_buffer_after_forward),
     max_token_num_(max_batch_size * max_seq_len),
     head_num_(head_num),
@@ -226,17 +226,17 @@ template class FfnLayerINT8<float>;
 template class FfnLayerINT8<half>;
 
 template<typename T>
-GeluFfnLayerINT8<T>::GeluFfnLayerINT8(size_t           max_batch_size,
-                                      size_t           max_seq_len,
-                                      size_t           head_num,
-                                      size_t           size_per_head,
-                                      size_t           inter_size,
-                                      int              int8_mode,
-                                      cudaStream_t     stream,
+GeluFfnLayerINT8<T>::GeluFfnLayerINT8(size_t max_batch_size,
+                                      size_t max_seq_len,
+                                      size_t head_num,
+                                      size_t size_per_head,
+                                      size_t inter_size,
+                                      int int8_mode,
+                                      cudaStream_t stream,
                                       cublasMMWrapper* cublas_wrapper,
-                                      IAllocator*      allocator,
-                                      bool             is_free_buffer_after_forward,
-                                      bool             sparse):
+                                      IAllocator* allocator,
+                                      bool is_free_buffer_after_forward,
+                                      bool sparse):
     FfnLayerINT8<T>(max_batch_size,
                     max_seq_len,
                     head_num,
@@ -302,16 +302,16 @@ template class GeluFfnLayerINT8<float>;
 template class GeluFfnLayerINT8<half>;
 
 template<typename T>
-ReluFfnLayerINT8<T>::ReluFfnLayerINT8(size_t           max_batch_size,
-                                      size_t           max_seq_len,
-                                      size_t           head_num,
-                                      size_t           size_per_head,
-                                      size_t           inter_size,
-                                      int              int8_mode,
-                                      cudaStream_t     stream,
+ReluFfnLayerINT8<T>::ReluFfnLayerINT8(size_t max_batch_size,
+                                      size_t max_seq_len,
+                                      size_t head_num,
+                                      size_t size_per_head,
+                                      size_t inter_size,
+                                      int int8_mode,
+                                      cudaStream_t stream,
                                       cublasMMWrapper* cublas_wrapper,
-                                      IAllocator*      allocator,
-                                      bool             is_free_buffer_after_forward):
+                                      IAllocator* allocator,
+                                      bool is_free_buffer_after_forward):
     FfnLayerINT8<T>(max_batch_size,
                     max_seq_len,
                     head_num,
@@ -333,7 +333,43 @@ ReluFfnLayerINT8<T>::ReluFfnLayerINT8(ReluFfnLayerINT8<T> const& relu_ffn_layer)
 template<typename T>
 void ReluFfnLayerINT8<T>::invokeAddBiasActivation(const int m, const T* bias, ScaleList* scale_list)
 {
-    // TODO
+    if (int8_mode_ == 1) {
+        invokeAddBiasReluCol32<T>(inter_buf_,
+                                  inter_int_buf_,
+                                  bias,
+                                  m,
+                                  inter_size_,
+                                  stream_,
+                                  &(scale_list->d_scale_list_[scale_list->p2_offset_ + 4 * hidden_units_]),
+                                  &(scale_list->d_scale_list_[44 + 2]),
+                                  &(scale_list->d_scale_list_[52 + 3]));
+    }
+    else if (int8_mode_ == 2 || int8_mode_ == 3) {
+#ifdef SPARSITY_ENABLED
+        if (sparse_) {
+            invokeAddBiasReluRow<T>(inter_buf_,
+                                    (const int8_t*)inter_int_buf_,
+                                    bias,
+                                    m,
+                                    inter_size_,
+                                    stream_,
+                                    &(scale_list->d_scale_list_[48 + 1]),
+                                    &(scale_list->d_scale_list_[52 + 3]));
+        }
+        else {
+#endif
+            invokeAddBiasReluCol32<T>(inter_buf_,
+                                      (const int8_t*)inter_int_buf_,
+                                      bias,
+                                      m,
+                                      inter_size_,
+                                      stream_,
+                                      &(scale_list->d_scale_list_[48 + 1]),
+                                      &(scale_list->d_scale_list_[52 + 3]));
+#ifdef SPARSITY_ENABLED
+        }
+#endif
+    }
 }
 
 template class ReluFfnLayerINT8<float>;

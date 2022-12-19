@@ -968,7 +968,7 @@ void ErnieINT8<T>::forward(const int* h_word_ids_,
             &(scale_list->d_scale_list_[scale_list->p2_offset_ + 3 * hidden_units_]),
             &(scale_list->d_scale_list_[36]));
 
-        invokeQuantization(int8_buf_, out_tensor, h_token_num_ * d_model_, &(scale_list->d_scale_list_[3]), stream_);
+        invokeQuantization(int8_buf_, out_tensor, h_token_num_ * d_model_, &(scale_list->d_scale_list_[39]), stream_);
         // invokeQuantization(normed_attn_out_buf_, normed_attn_out_buf_, h_token_num_ * d_model_,
         // &(scale_list->d_scale_list_[3]), stream_);
 
