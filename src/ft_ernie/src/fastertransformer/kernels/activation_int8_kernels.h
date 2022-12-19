@@ -63,4 +63,44 @@ void invokeAddBiasGeluRow(int8_t*       out,
                           const float*  input_deQFactor_ptr,
                           const float*  out_scale_ptr);
 
+// Relu
+template<typename T>
+void invokeAddBiasReluCol32(int8_t*        out,
+                            const int32_t* in,
+                            const T*       bias,
+                            const int      m,
+                            const int      n,
+                            cudaStream_t   stream,
+                            const float*   weight_amax,
+                            const float*   input_deQFactor_div127_ptr,
+                            const float*   out_scale_ptr);
+
+template<typename T>
+void invokeAddBiasReluCol32(int8_t*       out,
+                            const int8_t* in,
+                            const T*      bias,
+                            const int     m,
+                            const int     n,
+                            cudaStream_t  stream,
+                            const float*  input_deQFactor_ptr,
+                            const float*  out_scale_ptr);
+
+template<typename T>
+void invokeAddBiasReluCol32_v2(int8_t*      out,
+                               const T*     bias,
+                               const int    m,
+                               const int    n,
+                               cudaStream_t stream,
+                               const float* input_deQFactor_ptr,
+                               const float* out_scale_ptr);
+
+template<typename T>
+void invokeAddBiasReluRow(int8_t*       out,
+                          const int8_t* in,
+                          const T*      bias,
+                          const int     m,
+                          const int     n,
+                          cudaStream_t  stream,
+                          const float*  input_deQFactor_ptr,
+                          const float*  out_scale_ptr);
 }  // namespace fastertransformer

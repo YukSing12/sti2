@@ -333,7 +333,43 @@ ReluFfnLayerINT8<T>::ReluFfnLayerINT8(ReluFfnLayerINT8<T> const& relu_ffn_layer)
 template<typename T>
 void ReluFfnLayerINT8<T>::invokeAddBiasActivation(const int m, const T* bias, ScaleList* scale_list)
 {
-    // TODO
+    if (int8_mode_ == 1) {
+        invokeAddBiasReluCol32<T>(inter_buf_,
+                                  inter_int_buf_,
+                                  bias,
+                                  m,
+                                  inter_size_,
+                                  stream_,
+                                  &(scale_list->d_scale_list_[scale_list->p2_offset_ + 4 * hidden_units_]),
+                                  &(scale_list->d_scale_list_[44 + 2]),
+                                  &(scale_list->d_scale_list_[52 + 3]));
+    }
+    else if (int8_mode_ == 2 || int8_mode_ == 3) {
+#ifdef SPARSITY_ENABLED
+        if (sparse_) {
+            invokeAddBiasReluRow<T>(inter_buf_,
+                                    (const int8_t*)inter_int_buf_,
+                                    bias,
+                                    m,
+                                    inter_size_,
+                                    stream_,
+                                    &(scale_list->d_scale_list_[48 + 1]),
+                                    &(scale_list->d_scale_list_[52 + 3]));
+        }
+        else {
+#endif
+            invokeAddBiasReluCol32<T>(inter_buf_,
+                                      (const int8_t*)inter_int_buf_,
+                                      bias,
+                                      m,
+                                      inter_size_,
+                                      stream_,
+                                      &(scale_list->d_scale_list_[48 + 1]),
+                                      &(scale_list->d_scale_list_[52 + 3]));
+#ifdef SPARSITY_ENABLED
+        }
+#endif
+    }
 }
 
 template class ReluFfnLayerINT8<float>;
