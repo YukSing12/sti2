@@ -358,6 +358,7 @@ add_library(transformer-static STATIC
   $<TARGET_OBJECTS:softmax_int8_kernels>
   # $<TARGET_OBJECTS:stop_criteria>
   $<TARGET_OBJECTS:tensor>
+  $<TARGET_OBJECTS:debug_utils>
   $<TARGET_OBJECTS:transpose_int8_kernels>
   $<TARGET_OBJECTS:trt_fused_multi_head_attention>
   $<TARGET_OBJECTS:unfused_attention_kernels>
@@ -455,6 +456,7 @@ add_library(transformer-shared SHARED
   $<TARGET_OBJECTS:softmax_int8_kernels>
   # $<TARGET_OBJECTS:stop_criteria>
   $<TARGET_OBJECTS:tensor>
+  $<TARGET_OBJECTS:debug_utils>
   $<TARGET_OBJECTS:transpose_int8_kernels>
   $<TARGET_OBJECTS:trt_fused_multi_head_attention>
   $<TARGET_OBJECTS:unfused_attention_kernels>

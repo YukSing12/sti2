@@ -84,3 +84,8 @@ target_link_libraries(custom_ar_comm PUBLIC custom_ar_kernels memory_utils)
 add_library(tensor STATIC Tensor.cc)
 set_property(TARGET tensor PROPERTY POSITION_INDEPENDENT_CODE  ON)
 set_property(TARGET tensor PROPERTY CUDA_RESOLVE_DEVICE_SYMBOLS  ON)
+
+add_library(debug_utils STATIC debug_utils.cc)
+set_property(TARGET debug_utils PROPERTY POSITION_INDEPENDENT_CODE  ON)
+set_property(TARGET debug_utils PROPERTY CUDA_RESOLVE_DEVICE_SYMBOLS  ON)
+target_link_libraries(debug_utils PUBLIC memory_utils)
