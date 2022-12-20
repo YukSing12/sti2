@@ -34,6 +34,7 @@
 #include "src/fastertransformer/models/ernie_int8/ErnieINT8Weight.h"
 #include "src/fastertransformer/models/ernie_int8/ErnieLayerINT8.h"
 #include "src/fastertransformer/utils/custom_ar_comm.h"
+#include "src/fastertransformer/utils/debug_utils.h"
 
 namespace fastertransformer {
 
