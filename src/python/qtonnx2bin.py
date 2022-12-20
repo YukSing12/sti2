@@ -92,85 +92,85 @@ def dump_scales(nodes, nodes_dict):
             #   52-55, FC2_aftergemm_amax 56-59, F2BiasNorm_amax 60-63, reserve 64-71
             
             # input_amax
-            input_amax = q_flatten.outputs[0].outputs[0].inputs[1].values * 127
+            input_amax = 127 * q_flatten.outputs[0].outputs[0].inputs[1].values 
             idx = 0
             fill_part1_amax(scale_list[idx * 4: idx * 4 + 4], input_amax)
 
             # Q_aftergemm_amax
-            q_aftergemm_amax = q_mm.outputs[0].outputs[0].inputs[1].values * 127
+            q_aftergemm_amax = 127 * q_mm.outputs[0].outputs[0].inputs[1].values
             idx += 1
             fill_part1_amax(scale_list[idx * 4: idx * 4 + 4], q_aftergemm_amax)
 
             # Qbias_amax
-            q_bias_amax = q_bias.outputs[0].outputs[0].outputs[0].outputs[0].outputs[0].outputs[0].outputs[0].outputs[0].inputs[1].values * 127
+            q_bias_amax =  127 * q_bias.outputs[0].outputs[0].outputs[0].outputs[0].outputs[0].outputs[0].outputs[0].outputs[0].inputs[1].values
             idx += 1
             fill_part1_amax(scale_list[idx * 4: idx * 4 + 4], q_bias_amax)
 
             # K_aftergemm_amax
-            k_aftergemm_amax = k_mm.outputs[0].outputs[0].inputs[1].values * 127
+            k_aftergemm_amax = 127 * k_mm.outputs[0].outputs[0].inputs[1].values  
             idx += 1
             fill_part1_amax(scale_list[idx * 4: idx * 4 + 4], k_aftergemm_amax)
 
             # Kbias_amax
-            k_bias_amax = k_bias.outputs[0].outputs[0].outputs[0].outputs[0].outputs[0].outputs[0].inputs[1].values * 127
+            k_bias_amax = 127 * k_bias.outputs[0].outputs[0].outputs[0].outputs[0].outputs[0].outputs[0].inputs[1].values 
             idx += 1
             fill_part1_amax(scale_list[idx * 4: idx * 4 + 4], k_bias_amax)
             
             # V_aftergemm_amax
-            v_aftergemm_amax = v_mm.outputs[0].outputs[0].inputs[1].values * 127
+            v_aftergemm_amax = 127 * v_mm.outputs[0].outputs[0].inputs[1].values  
             idx += 1
             fill_part1_amax(scale_list[idx * 4: idx * 4 + 4], v_aftergemm_amax)
 
             # Vbias_amax
-            v_bias_amax = v_bias.outputs[0].outputs[0].outputs[0].outputs[0].outputs[0].outputs[0].inputs[1].values * 127
+            v_bias_amax =  127 * v_bias.outputs[0].outputs[0].outputs[0].outputs[0].outputs[0].outputs[0].inputs[1].values 
             idx += 1
             fill_part1_amax(scale_list[idx * 4: idx * 4 + 4], v_bias_amax)
 
             # bmm1_amax
-            bmm1_amax = bmm1.outputs[0].outputs[0].inputs[1].values * 127
+            bmm1_amax = 127 *  bmm1.outputs[0].outputs[0].inputs[1].values  
             idx += 1
             fill_part1_amax(scale_list[idx * 4: idx * 4 + 4], bmm1_amax)
 
             # Softmax_amax
-            softmax_amax = softmax.outputs[0].outputs[0].inputs[1].values * 127
+            softmax_amax = 127 * softmax.outputs[0].outputs[0].inputs[1].values 
             idx += 1
             fill_part1_amax(scale_list[idx * 4: idx * 4 + 4], softmax_amax)
 
             # bmm2_amax
-            bmm2_amax = bmm2.outputs[0].outputs[0].inputs[1].values * 127
+            bmm2_amax = 127 * bmm2.outputs[0].outputs[0].inputs[1].values 
             idx += 1
             fill_part1_amax(scale_list[idx * 4: idx * 4 + 4], bmm2_amax)
 
             # Proj_aftergemm_scale
-            proj_aftergemm_amax = proj_mm.outputs[0].outputs[0].inputs[1].values * 127
+            proj_aftergemm_amax = 127 * proj_mm.outputs[0].outputs[0].inputs[1].values  
             idx += 1
             fill_part1_amax(scale_list[idx * 4: idx * 4 + 4], proj_aftergemm_amax)
 
             # ProjBiasNorm_amax
-            proj_bias_norm_amax = proj_bias_norm.outputs[0].outputs[0].outputs[0].outputs[0].inputs[1].values * 127
+            proj_bias_norm_amax = 127 * proj_bias_norm.outputs[0].outputs[0].outputs[0].outputs[0].inputs[1].values  
             idx += 1
             fill_part1_amax(scale_list[idx * 4: idx * 4 + 4], proj_bias_norm_amax)
 
             # FC1_aftergemm_amax
-            fc1_amax = fc1_mm.outputs[0].outputs[0].inputs[1].values * 127
+            fc1_amax = 127 * fc1_mm.outputs[0].outputs[0].inputs[1].values
             idx += 1
             fill_part1_amax(scale_list[idx * 4: idx * 4 + 4], fc1_amax)
 
             # F1Bias_amax
-            fc1_bias_amax = fc1_bias.outputs[0].outputs[0].outputs[0].outputs[0].outputs[0].outputs[0].inputs[1].values * 127
+            fc1_bias_amax = 127 * fc1_bias.outputs[0].outputs[0].outputs[0].outputs[0].outputs[0].outputs[0].inputs[1].values
             idx += 1
             fill_part1_amax(scale_list[idx * 4: idx * 4 + 4], fc1_bias_amax)
 
             # FC2_aftergemm_amax
-            fc2_amax = fc2_mm.outputs[0].outputs[0].inputs[1].values * 127
+            fc2_amax = 127 * fc2_mm.outputs[0].outputs[0].inputs[1].values  
             idx += 1
             fill_part1_amax(scale_list[idx * 4: idx * 4 + 4], fc2_amax)
 
             # F2BiasNorm_amax
             if(layer_num == 11):    # A little different in the finaly layer
-                fc2_bias_norm_amax = fc2_bias_norm.outputs[0].outputs[0].outputs[0].outputs[0].outputs[0].outputs[0].inputs[1].values * 127
+                fc2_bias_norm_amax = 127 * fc2_bias_norm.outputs[0].outputs[0].outputs[0].outputs[0].outputs[0].outputs[0].inputs[1].values 
             else:
-                fc2_bias_norm_amax = fc2_bias_norm.outputs[0].outputs[0].outputs[0].outputs[0].inputs[1].values * 127
+                fc2_bias_norm_amax = 127 * fc2_bias_norm.outputs[0].outputs[0].outputs[0].outputs[0].inputs[1].values 
             idx += 1
             fill_part1_amax(scale_list[idx * 4: idx * 4 + 4], fc2_bias_norm_amax)
 
@@ -182,32 +182,32 @@ def dump_scales(nodes, nodes_dict):
             # query_weight_amax_list
             query_weight_amax = q_mm.inputs[1].inputs[0].inputs[1].values
             idx = 0
-            scale_list[p2_offset + idx * HIDDEN_DIM: p2_offset + idx * HIDDEN_DIM + HIDDEN_DIM] = query_weight_amax
+            scale_list[p2_offset + idx * HIDDEN_DIM: p2_offset + idx * HIDDEN_DIM + HIDDEN_DIM] = query_weight_amax * 127
 
             # key_weight_amax_list
             key_weight_amax = k_mm.inputs[1].inputs[0].inputs[1].values
             idx += 1
-            scale_list[p2_offset + idx * HIDDEN_DIM: p2_offset + idx * HIDDEN_DIM + HIDDEN_DIM] = key_weight_amax
+            scale_list[p2_offset + idx * HIDDEN_DIM: p2_offset + idx * HIDDEN_DIM + HIDDEN_DIM] = key_weight_amax * 127
 
             # value_weight_amax_list
             value_weight_amax = v_mm.inputs[1].inputs[0].inputs[1].values
             idx += 1
-            scale_list[p2_offset + idx * HIDDEN_DIM: p2_offset + idx * HIDDEN_DIM + HIDDEN_DIM] = value_weight_amax
+            scale_list[p2_offset + idx * HIDDEN_DIM: p2_offset + idx * HIDDEN_DIM + HIDDEN_DIM] = value_weight_amax * 127
 
             # proj_weight_amax_list
             proj_weight_amax = proj_mm.inputs[1].inputs[0].inputs[1].values
             idx += 1
-            scale_list[p2_offset + idx * HIDDEN_DIM: p2_offset + idx * HIDDEN_DIM + HIDDEN_DIM] = proj_weight_amax
+            scale_list[p2_offset + idx * HIDDEN_DIM: p2_offset + idx * HIDDEN_DIM + HIDDEN_DIM] = proj_weight_amax * 127 
 
             # fc1_weight_amax_list
             fc1_weight_amax = fc1_mm.inputs[1].inputs[0].inputs[1].values
             idx += 1
-            scale_list[p2_offset + idx * HIDDEN_DIM: p2_offset + idx * HIDDEN_DIM + HIDDEN_DIM] = fc1_weight_amax
+            scale_list[p2_offset + idx * HIDDEN_DIM: p2_offset + idx * HIDDEN_DIM + HIDDEN_DIM] = fc1_weight_amax * 127
 
             # fc2_weight_amax_list (4 x HIDDEN_DIM)
             fc2_weight_amax = fc2_mm.inputs[1].inputs[0].inputs[1].values
             idx += 1
-            scale_list[p2_offset + idx * HIDDEN_DIM: p2_offset + idx * HIDDEN_DIM + HIDDEN_DIM * 4] = fc2_weight_amax
+            scale_list[p2_offset + idx * HIDDEN_DIM: p2_offset + idx * HIDDEN_DIM + HIDDEN_DIM * 4] = fc2_weight_amax * 127
 
             # Part 3 -- 8:
             #   Int8 gemm deQFactor list (8 values): Q_deQ_scale, K_deQ_scale, V_deQ_scale, bmm1_deQ_scale, bmm2_deQ_scale,
@@ -215,37 +215,37 @@ def dump_scales(nodes, nodes_dict):
             p3_offset_    = ACTIVATION_AMAX_NUM + 9 * 768
             
             # Q_deQ_scale
-            q_deq_scale = q_mm.outputs[0].outputs[0].inputs[1].values
+            q_deq_scale = 1 / q_mm.outputs[0].outputs[0].inputs[1].values
             idx = 0
             scale_list[p3_offset_ + idx] = q_deq_scale
 
             # K_deQ_scale
-            k_deq_scale = k_mm.outputs[0].outputs[0].inputs[1].values
+            k_deq_scale = 1 / k_mm.outputs[0].outputs[0].inputs[1].values
             idx += 1
             scale_list[p3_offset_ + idx] = k_deq_scale
 
             # V_deQ_scale
-            v_deq_scale = v_mm.outputs[0].outputs[0].inputs[1].values
+            v_deq_scale = 1 / v_mm.outputs[0].outputs[0].inputs[1].values
             idx += 1
             scale_list[p3_offset_ + idx] = v_deq_scale
 
             # bmm1_deQ_scale
-            bmm1_deq_scale = bmm1.outputs[0].outputs[0].inputs[1].values
+            bmm1_deq_scale =1 / bmm1.outputs[0].outputs[0].inputs[1].values
             idx += 1
             scale_list[p3_offset_ + idx] = bmm1_deq_scale
 
             # bmm2_deQ_scale
-            bmm2_deq_scale = bmm2.outputs[0].outputs[0].inputs[1].values
+            bmm2_deq_scale =1 / bmm2.outputs[0].outputs[0].inputs[1].values
             idx += 1
             scale_list[p3_offset_ + idx] = bmm2_deq_scale
 
             # FC0_deQ_scale
-            fc1_mm_deq_scale = fc1_mm.outputs[0].outputs[0].inputs[1].values
+            fc1_mm_deq_scale =1 / fc1_mm.outputs[0].outputs[0].inputs[1].values
             idx += 1
             scale_list[p3_offset_ + idx] = fc1_mm_deq_scale
 
             # FC1_deQ_scale
-            fc2_mm_deq_scale = fc2_mm.outputs[0].outputs[0].inputs[1].values
+            fc2_mm_deq_scale = 1 / fc2_mm.outputs[0].outputs[0].inputs[1].values
             idx += 1
             scale_list[p3_offset_ + idx] = fc2_mm_deq_scale
             
@@ -256,9 +256,9 @@ def dump_scales(nodes, nodes_dict):
             #   Amax used in trt fused mha kernel (3 values) : QKVbias_amax, Softmax_amax, bmm2_amax
             p4_offset_    = ACTIVATION_AMAX_NUM + 9 * 768 + INT8O_GEMM_NUM
             QKVbias_amax = np.max([q_bias_amax, k_bias_amax, v_bias_amax])
-            scale_list[p4_offset_] = QKVbias_amax
-            scale_list[p4_offset_ + 1] = softmax_amax
-            scale_list[p4_offset_ + 2] = bmm2_amax
+            scale_list[p4_offset_] = QKVbias_amax * 127
+            scale_list[p4_offset_ + 1] = softmax_amax * 127
+            scale_list[p4_offset_ + 2] = bmm2_amax * 127
 
             # Part 5 -- 21: reverse
             layer_num += 1
