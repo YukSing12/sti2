@@ -20,7 +20,7 @@ namespace fastertransformer {
 
 template<typename T>
 void generate_encoder_gemm_config(
-    int batch_size, int seq_len, int head_num, int size_per_head, void* buffer_in, bool isAppend, int tensor_para_size)
+    int batch_size, int seq_len, int head_num, int size_per_head, void* buffer_in, bool isAppend, int tensor_para_size, bool compute_in_fp16)
 {
     void* cublas_workspace;
     void* buffer;
@@ -149,7 +149,7 @@ void generate_encoder_gemm_config(
         AType       = CUDA_R_16F;
         BType       = CUDA_R_16F;
         CType       = CUDA_R_16F;
-        computeType = CUDA_R_32F;
+        computeType = compute_in_fp16 ? CUDA_R_16F : CUDA_R_32F;
         startAlgo   = (int)CUBLAS_GEMM_DEFAULT_TENSOR_OP;
         endAlgo     = (int)CUBLAS_GEMM_ALGO15_TENSOR_OP;
     }
@@ -538,12 +538,12 @@ void generate_encoder_gemm_config(
 }
 
 template void generate_encoder_gemm_config<float>(
-    int batch_size, int seq_len, int head_num, int size_per_head, void* buffer, bool isAppend, int tensor_para_size);
+    int batch_size, int seq_len, int head_num, int size_per_head, void* buffer, bool isAppend, int tensor_para_size, bool compute_in_fp16);
 template void generate_encoder_gemm_config<half>(
-    int batch_size, int seq_len, int head_num, int size_per_head, void* buffer, bool isAppend, int tensor_para_size);
+    int batch_size, int seq_len, int head_num, int size_per_head, void* buffer, bool isAppend, int tensor_para_size, bool compute_in_fp16);
 #ifdef ENABLE_BF16
 template void generate_encoder_gemm_config<__nv_bfloat16>(
-    int batch_size, int seq_len, int head_num, int size_per_head, void* buffer, bool isAppend, int tensor_para_size);
+    int batch_size, int seq_len, int head_num, int size_per_head, void* buffer, bool isAppend, int tensor_para_size, bool compute_in_fp16);
 #endif
 
 }  // namespace fastertransformer

@@ -30,7 +30,7 @@ ErnieEngine<T>::ErnieEngine(const std::string& ckpt_path, const bool int8_mode, 
         printf("[Warning] Gemm file do not exist!\n");
         for (size_t b = 1; b <= m_.max_batch_size; b++) {
             for (size_t l = 16; l <= m_.max_seq_len; l++) {
-                int argv[8] = {
+                int argv[9] = {
                     0,
                     (int)b,
                     (int)l,  // seq_len, in case of OOM
@@ -39,6 +39,7 @@ ErnieEngine<T>::ErnieEngine(const std::string& ckpt_path, const bool int8_mode, 
                     std::is_same<T, half>::value ? 1 : 0,  // // 0 FP32, 1 FP16
                     (int)int8_mode_,                       // int8_mode mode
                     1,                                     // tensor_para_size
+                    (int)computeInFp16                     // compute in fp16
                 };
                 ernie_gemm(argv);
             }

@@ -40,6 +40,7 @@ void generate_encoder_gemm_config(int   batch_size,
                                   int   size_per_head,
                                   void* buffer,
                                   bool  isAppend         = true,
-                                  int   tensor_para_size = 1);
+                                  int   tensor_para_size = 1,
+                                  bool  compute_in_fp16 = false);
 
 }  // namespace fastertransformer

@@ -20,11 +20,11 @@
 
 namespace ft = fastertransformer;
 
-int ernie_gemm(int argv[8])
+int ernie_gemm(int argv[9])
 {
-    int argc = 8;
-    if (argc != 7 && argc != 8) {
-        FT_LOG_ERROR("bert_gemm batch_size seq_len head_number size_per_head data_type int8_mode tensor_para_size");
+    int argc = 9;
+    if (argc != 9) {
+        FT_LOG_ERROR("bert_gemm batch_size seq_len head_number size_per_head data_type int8_mode tensor_para_size compute_in_fp16");
         FT_LOG_ERROR("e.g. ./bin/bert_gemm 1 32 12 64 0 0 1 ");
         return 0;
     }
@@ -36,6 +36,7 @@ int ernie_gemm(int argv[8])
     const ft::CublasDataType data_type     = static_cast<ft::CublasDataType>(argv[5]);  // 0 FP32, 1 FP16, 2 BF 16
     const int                int8_mode     = argv[6];
     const int                tensor_para_size = argc < 8 ? 1 : argv[7];
+    const int                compute_in_fp16 = argv[8];
 
     const int inter_size = 4 * head_num * size_per_head;
     ft::FT_CHECK_WITH_INFO(head_num % tensor_para_size == 0, fmtstr("[ERROR] head_num (%d) %% tensor_para_size (%d) != 0", head_num, tensor_para_size));
@@ -46,6 +47,7 @@ int ernie_gemm(int argv[8])
     FT_LOG_INFO("  data_type: %d", data_type);
     FT_LOG_INFO("  int8_mode: %d", int8_mode);
     FT_LOG_INFO("  tensor_para_size: %d", tensor_para_size);
+    FT_LOG_INFO("  compute_in_fp16: %d", compute_in_fp16);
     std::cout << std::endl;
 
     void*  gemm_test_buf;
@@ -69,15 +71,15 @@ int ernie_gemm(int argv[8])
         ft::generate_encoder_igemm_config(batch_size, seq_len, head_num, size_per_head, gemm_test_buf, true);
     }
     else if (data_type == ft::FLOAT_DATATYPE) {
-        ft::generate_encoder_gemm_config<float>(batch_size, seq_len, head_num, size_per_head, gemm_test_buf, true);
+        ft::generate_encoder_gemm_config<float>(batch_size, seq_len, head_num, size_per_head, gemm_test_buf, true, compute_in_fp16 == 1);
     }
     else if (data_type == ft::HALF_DATATYPE) {
-        ft::generate_encoder_gemm_config<half>(batch_size, seq_len, head_num, size_per_head, gemm_test_buf, true);
+        ft::generate_encoder_gemm_config<half>(batch_size, seq_len, head_num, size_per_head, gemm_test_buf, true, compute_in_fp16 == 1);
     }
 #ifdef ENABLE_BF16
     else if (data_type == ft::BFLOAT16_DATATYPE) {
         ft::generate_encoder_gemm_config<__nv_bfloat16>(
-            batch_size, seq_len, head_num, size_per_head, gemm_test_buf, true);
+            batch_size, seq_len, head_num, size_per_head, gemm_test_buf, true, compute_in_fp16 == 1);
     }
 #endif
     else {
