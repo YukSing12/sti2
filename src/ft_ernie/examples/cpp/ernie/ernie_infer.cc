@@ -185,6 +185,7 @@ void printHelp()
               << "Options:\n"
               << "\t--help,-h            \tPrint usage information and exit.\n"
               << "\t--int8               \tEnable int8 precision (default = disabled).\n"
+              << "\t--computeInFp16      \tAccumulate all the dot products in FP16. Accumulating in FP32 will have higher accuracy while accumulating in FP16 will have better performance. (default = disabled).\n"
               << "\t--useCudaGraph       \tUse CUDA graph to capture engine execution and then launch inference (default = disabled).\n"
               << "Examples:\n"
               << "\t ernie_infer 1 model/bin data/label.test.txt label.res.txt\n"
@@ -192,7 +193,7 @@ void printHelp()
 }
 
 template<typename T>
-void ernieInference(const std::string& ckpt_path, std::vector<sample>& sample_vec, const bool int8_mode, const bool useCudaGraph);
+void ernieInference(const std::string& ckpt_path, std::vector<sample>& sample_vec, const bool int8_mode, const bool useCudaGraph, const bool computeInFp16);
 
 int main(int argc, char** argv)
 {
@@ -203,6 +204,7 @@ int main(int argc, char** argv)
     }
     bool int8_mode = false;
     bool useCudaGraph = false;
+    bool computeInFp16 = false;
     for (int i = 5; i < argc; ++i) {
         if (!strcmp(argv[i], "--help") || !strcmp(argv[i], "-h")) {
             printHelp();
@@ -215,6 +217,10 @@ int main(int argc, char** argv)
         else if (!strcmp(argv[i], "--useCudaGraph")) {
             printf("[INFO] Enable Cuda Graph\n");
             useCudaGraph = true;
+        }
+        else if (!strcmp(argv[i], "--computeInFp16")) {
+            printf("[INFO] Accumulate all the dot products in FP16.\n");
+            computeInFp16 = true;
         }
         else {
             printHelp();
@@ -246,7 +252,7 @@ int main(int argc, char** argv)
             throw std::runtime_error(std::string("[FT][ERROR] INT8 mode is not supported.\n "));
         }
         else {
-            ernieInference<float>(argv[2], sample_vec, int8_mode, useCudaGraph);
+            ernieInference<float>(argv[2], sample_vec, int8_mode, useCudaGraph, computeInFp16);
         }
     }
     else if (data_type == HALF_DATATYPE) {
@@ -255,7 +261,7 @@ int main(int argc, char** argv)
             throw std::runtime_error(std::string("[FT][ERROR] INT8 mode is not supported.\n "));
         }
         else {
-            ernieInference<half>(argv[2], sample_vec, int8_mode, useCudaGraph);
+            ernieInference<half>(argv[2], sample_vec, int8_mode, useCudaGraph, computeInFp16);
         }
     }else{
         throw std::runtime_error(std::string("[FT][ERROR] Input data type:" + std::string(argv[1]) + " is not supported.\n "));
@@ -283,10 +289,10 @@ int main(int argc, char** argv)
 }
 
 template<typename T>
-void ernieInference(const std::string& ckpt_path, std::vector<sample>& sample_vec, const bool int8_mode, const bool useCudaGraph)
+void ernieInference(const std::string& ckpt_path, std::vector<sample>& sample_vec, const bool int8_mode, const bool useCudaGraph, const bool computeInFp16)
 {
     // Init
-    auto engine = new ErnieEngine<T>(ckpt_path, int8_mode, useCudaGraph);
+    auto engine = new ErnieEngine<T>(ckpt_path, int8_mode, useCudaGraph, computeInFp16);
     auto stream = engine->getStream();
     auto max_batch_size = engine->getMaxBatch();
     auto max_seq_len = engine->getMaxSeqLen();

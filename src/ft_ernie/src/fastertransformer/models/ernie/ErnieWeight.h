@@ -38,7 +38,7 @@ struct ErnieWeight {
     ErnieWeight(const ErnieWeight& other);
     ErnieWeight& operator=(const ErnieWeight& other);
 
-    std::vector<ErnieLayerWeight<T>*> ernie_encoder_layer_weights;
+    std::vector<ErnieLayerWeight<T>*>     ernie_encoder_layer_weights;
     LayerNormWeight<T>                    pre_transformer_layernorm_weights;
     T*                                    word_embedding_table                    = nullptr;
     T*                                    pos_embedding_table                     = nullptr;

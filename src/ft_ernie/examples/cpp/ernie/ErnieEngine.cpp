@@ -3,8 +3,8 @@
 using namespace fastertransformer;
 
 template<typename T>
-ErnieEngine<T>::ErnieEngine(const std::string& ckpt_path, const bool int8_mode, const bool useCudaGraph):
-    int8_mode_(int8_mode), useCudaGraph_(useCudaGraph)
+ErnieEngine<T>::ErnieEngine(const std::string& ckpt_path, const bool int8_mode, const bool useCudaGraph, const bool computeInFp16):
+    int8_mode_(int8_mode), useCudaGraph_(useCudaGraph), computeInFp16_(computeInFp16)
 {
     struct cudaDeviceProp prop;
     cudaGetDeviceProperties(&prop, 0);
@@ -37,7 +37,7 @@ ErnieEngine<T>::ErnieEngine(const std::string& ckpt_path, const bool int8_mode, 
                     (int)m_.head_num,
                     (int)m_.size_per_head,
                     std::is_same<T, half>::value ? 1 : 0,  // // 0 FP32, 1 FP16
-                    (int)int8_mode_,                       // int8 mode
+                    (int)int8_mode_,                       // int8_mode mode
                     1,                                     // tensor_para_size
                 };
                 ernie_gemm(argv);
@@ -63,7 +63,12 @@ ErnieEngine<T>::ErnieEngine(const std::string& ckpt_path, const bool int8_mode, 
 #endif
 
     if (std::is_same<T, half>::value) {
-        cublas_wrapper_->setFP16GemmConfig();
+        if (computeInFp16_) {
+            cublas_wrapper_->setGemmConfig(CUDA_R_16F, CUDA_R_16F, CUDA_R_16F, CUDA_R_16F);
+        }
+        else {
+            cublas_wrapper_->setFP16GemmConfig();
+        }
     }
     else {
         cublas_wrapper_->setFP32GemmConfig();

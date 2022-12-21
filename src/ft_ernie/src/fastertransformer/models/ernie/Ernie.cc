@@ -152,6 +152,7 @@ void Ernie<T>::initialize()
                                                        custom_all_reduce_comm_,
                                                        enable_custom_all_reduce_);
     }
+    encoder_graph_ptr_ = new FTCudaGraph();
     allocateBuffer();
 }
 
@@ -412,7 +413,8 @@ void Ernie<T>::forward(std::vector<Tensor>* output_tensors,
     std::unordered_map<std::string, Tensor> input_tensors_map{{"word_ids", input_tensors->at(0)},
                                                               {"pos_ids", input_tensors->at(1)},
                                                               {"sent_ids", input_tensors->at(2)},
-                                                              {"seq_len", input_tensors->at(3)}};
+                                                              {"seq_len", input_tensors->at(3)},
+                                                              {"multi_ids", input_tensors->at(4)}};
 
     std::unordered_map<std::string, Tensor> output_tensors_map{{"attn_out", output_tensors->at(0)}};
     forward(&output_tensors_map, &input_tensors_map, ernie_weights);
@@ -994,11 +996,11 @@ void Ernie<T>::forward(const int* h_word_ids,
     sync_check_cuda_error();
 
     DataType data_type = getTensorType<T>();
-
+    
     for (uint i = 0; i < num_layer_; i++) {
         T* from_tensor = (i == 0 ? ernie_encoder_input_ptr : ernie_encoder_output_ptr);
         T* out_tensor = ernie_encoder_output_ptr;
-
+        
         // attn
         {
             std::vector<Tensor> attn_input_tensors{
@@ -1007,17 +1009,16 @@ void Ernie<T>::forward(const int* h_word_ids,
                        data_type,
                        std::vector<size_t>{request_batch_size_, 1, request_seq_len_, request_seq_len_},
                        attention_mask_},
-                *padding_offset_tensor_ptr,
-                Tensor{MEMORY_GPU,
-                       data_type,
-                       std::vector<size_t>{1, head_num_, request_seq_len_, request_seq_len_},
-                       nullptr}};
+                *padding_offset_tensor_ptr};
             std::vector<Tensor> attn_output_tensors{
                 Tensor{MEMORY_GPU, data_type, std::vector<size_t>{h_token_num_, d_model_}, attn_out_buf_}};
 
             attention_layer_->forward(&attn_output_tensors,
                                       &attn_input_tensors,
                                       &ernie_weights->ernie_encoder_layer_weights[i]->attention_weights);
+        }
+        if (is_enqueue_init_ && use_cuda_graph_) {
+            encoder_graph_ptr_->beginCapture(stream_);
         }
         // ln
         invokeGeneralAddBiasResidualPreLayerNorm(
@@ -1031,7 +1032,7 @@ void Ernie<T>::forward(const int* h_word_ids,
             h_token_num_,
             d_model_,
             stream_);
-
+        
         // FFN
         {
             std::vector<Tensor> ffn_input_tensors{
@@ -1044,6 +1045,7 @@ void Ernie<T>::forward(const int* h_word_ids,
             ffn_layer_->forward(
                 &ffn_output_tensors, &ffn_input_tensors, &ernie_weights->ernie_encoder_layer_weights[i]->ffn_weights);
         }
+        
         // ln
         invokeGeneralAddBiasResidualPreLayerNorm(
             out_tensor,
@@ -1056,6 +1058,10 @@ void Ernie<T>::forward(const int* h_word_ids,
             h_token_num_,
             d_model_,
             stream_);
+        if (is_enqueue_init_ && use_cuda_graph_) {
+            encoder_graph_ptr_->endCapture(stream_);
+            encoder_graph_ptr_->launch(stream_);
+        }
         sync_check_cuda_error();
     }
     // postemb

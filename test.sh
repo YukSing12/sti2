@@ -15,9 +15,9 @@ fi
 rm *.res.txt -f
 # rm gemm_config*.in
 if [ "$1" == "ernie_infer" ];then
-    ./bin/ernie_infer 1 ./model/bin ./data/label.test.txt ./label.res.txt --useCudaGraph
-    ./bin/ernie_infer 1 ./model/bin ./data/perf.test.txt ./perf.res.txt --useCudaGraph
-else
+    ./bin/ernie_infer 1 ./model/bin ./data/label.test.txt ./label.res.txt --useCudaGraph --computeInFp16
+    ./bin/ernie_infer 1 ./model/bin ./data/perf.test.txt ./perf.res.txt --useCudaGraph --computeInFp16
+else 
     ./bin/$1 ./model/Ernie.plan ./data/label.test.txt ./label.res.txt ./so/plugins
     ./bin/$1 ./model/Ernie.plan ./data/perf.test.txt ./perf.res.txt ./so/plugins
 fi

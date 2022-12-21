@@ -29,6 +29,7 @@
 #include "src/fastertransformer/layers/attention_layers/FusedAttentionLayer.h"
 #include "src/fastertransformer/layers/attention_layers/TensorParallelUnfusedAttentionLayer.h"
 #include "src/fastertransformer/models/ernie/CudaGraph.h"
+#include "src/fastertransformer/models/ernie/FTCudaGraph.h"
 #include "src/fastertransformer/models/ernie/ErnieWeight.h"
 #include "src/fastertransformer/utils/custom_ar_comm.h"
 
@@ -86,6 +87,7 @@ private:
 
     // for cuda graph
     CudaGraph* cur_graph_ptr_ = nullptr;
+    FTCudaGraph* encoder_graph_ptr_ = nullptr;
     bool is_enqueue_init_ = false;
     bool use_cuda_graph_ = true;
     std::unordered_map<std::string, CudaGraph*> cuda_graph_pool_;

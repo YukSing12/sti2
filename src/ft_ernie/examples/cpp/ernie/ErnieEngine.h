@@ -35,6 +35,7 @@ private:
 
     bool int8_mode_ = false;
     bool useCudaGraph_ = false;
+    bool computeInFp16_ = false;
     struct {
         // constructor parameter
         size_t max_batch_size = 10;
@@ -63,7 +64,7 @@ private:
     } m_;
 
 public:
-    ErnieEngine(const std::string& ckpt_path, const bool int8_mode, const bool useCudaGraph);
+    ErnieEngine(const std::string& ckpt_path, const bool int8_mode, const bool useCudaGraph, const bool computeInFp16);
     ErnieEngine() = delete;
     ErnieEngine(const ErnieEngine&) = delete;
     ErnieEngine& operator=(const ErnieEngine&) = delete;
