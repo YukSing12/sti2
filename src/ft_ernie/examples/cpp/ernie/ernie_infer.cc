@@ -179,7 +179,7 @@ int* HostFill(int size, int value)
 void printHelp()
 {
     std::cout << "Usage: ernie_infer <data_type> <ckpt_path> <input_data_file> <output_data_file> [options]\n"
-              << "\t<data_type>          \tPrecision of inference. (0: FP32 1: FP16 2: BF16)\n"
+              << "\t<data_type>          \tPrecision of inference. (0: FP32 1: FP16)\n"
               << "\t<ckpt_path>          \tPath of model weights.\n"
               << "\t<input_data_file>    \tPath of input data file to load.\n"
               << "\t<output_data_file>   \tPath of output data file to save.\n"
@@ -233,7 +233,7 @@ int main(int argc, char** argv)
         }
     }
 
-    const CublasDataType data_type = static_cast<CublasDataType>(atoi(argv[1]));  // 0 FP32, 1 FP16, 2 BF 16
+    const CublasDataType data_type = static_cast<CublasDataType>(atoi(argv[1]));  // 0 FP32, 1 FP16
 
     // preprocess
     std::string aline;
