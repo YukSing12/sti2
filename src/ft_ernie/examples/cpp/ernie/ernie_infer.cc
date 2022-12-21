@@ -1,6 +1,7 @@
 #include "ErnieEngine.h"
 #include "src/fastertransformer/utils/Tensor.h"
 #include "src/fastertransformer/utils/logger.h"
+#include <cublas_api.h>
 #include <assert.h>
 #include <chrono>
 #include <fstream>
@@ -197,6 +198,8 @@ void ernieInference(const std::string& ckpt_path, std::vector<sample>& sample_ve
 
 int main(int argc, char** argv)
 {
+    printf("[INFO] cuda runtime: %d.%d\n", CUDART_VERSION/1000, CUDART_VERSION%1000/10);
+    printf("[INFO] cublas: %d.%d.%d\n", CUBLAS_VER_MAJOR, CUBLAS_VER_MINOR, CUBLAS_VER_PATCH);
     printf("[INFO] Device: %s \n", getDeviceName().c_str());
     if (argc < 5) {
         printHelp();
