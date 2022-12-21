@@ -1,6 +1,7 @@
 #include "ErnieEngine.h"
 #include "src/fastertransformer/utils/Tensor.h"
 #include "src/fastertransformer/utils/logger.h"
+#include "src/fastertransformer/utils/debug_utils.h"
 #include <assert.h>
 #include <chrono>
 #include <fstream>
@@ -14,6 +15,7 @@
 #include <sys/time.h>
 #include <unordered_map>
 #include <vector>
+#include <cuda_fp16.h>
 
 using namespace fastertransformer;
 
@@ -199,6 +201,12 @@ void ernieInt8Inference(const std::string& ckpt_path, std::vector<sample>& sampl
 
 int main(int argc, char** argv)
 {
+    // argc=6;
+    // argv[1]="1";
+    // argv[2]="/workspace/cgc/sti2/model/bin";
+    // argv[3]="/workspace/cgc/sti2/data/label.test.txt";
+    // argv[4]="/workspace/cgc/sti2/label.res.txt";
+    // argv[5]="--int8";
     printf("[INFO] Device: %s \n", getDeviceName().c_str());
     if (argc < 5) {
         printHelp();
@@ -245,7 +253,6 @@ int main(int argc, char** argv)
         sample s;
         line2sample(aline, &s);
         sample_vec.push_back(s);
-        break;
     }
 
     // inference

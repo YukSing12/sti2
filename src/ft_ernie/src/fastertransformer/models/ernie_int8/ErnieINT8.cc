@@ -822,12 +822,12 @@ void ErnieINT8<T>::forward(const int* h_word_ids_,
                            d_model_,
                            stream_);
     sync_check_cuda_error();
-    DumpDeviceData("/workspace/xys/sti2/int8_embln.log", ernie_encoder_input_ptr, h_token_num_ * d_model_, ' ');
+    // DumpDeviceData("/workspace/xys/sti2/int8_embln.log", ernie_encoder_input_ptr, h_token_num_ * d_model_, ' ');
     DataType            data_type          = getTensorType<T>();
     std::vector<Tensor> tmp_output_tensors = {
         Tensor{MEMORY_GPU, data_type, std::vector<size_t>{h_token_num_, hidden_units_}, ernie_encoder_output_ptr},
     };
-
+    
     int num_layer_ptr[1] = {int(num_layer_)};
     int layer_idx_ptr[1] = {-1};
     for (uint i = 0; i < num_layer_; i++) {

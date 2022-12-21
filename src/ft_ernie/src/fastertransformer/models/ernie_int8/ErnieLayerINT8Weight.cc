@@ -212,7 +212,7 @@ void ErnieLayerINT8Weight<T>::mallocWeights()
     for (int i = 0; i < real_weights_num_; i++) {
         deviceMalloc(&weights_ptr[i], weights_size[i]);
     }
-    deviceMalloc(&scale_list_ptr[0], scale_list_.size_);   
+    deviceMalloc(&scale_list_ptr[0], scale_list_.size_);
     is_maintain_buffer = true;
     FT_LOG_DEBUG("ErnieLayerINT8Weight " + std::string(__func__) + " end");
 }
@@ -221,10 +221,21 @@ template<typename T>
 void ErnieLayerINT8Weight<T>::loadModel(std::string dir_path, FtCudaDataType model_file_type)
 {
     FT_LOG_DEBUG("ErnieLayerINT8Weight " + std::string(__func__) + " start");
-
+    int _div = 0;
+    switch (model_file_type) {
+        case FtCudaDataType::FP32:
+            _div = 4;
+            break;
+        case FtCudaDataType::FP16:
+            _div = 2;
+            break;
+        default:
+            throw std::runtime_error(std::string("[FT][ERROR] Data type ERROR.\n "));
+            break;
+    }
     FT_CHECK(is_maintain_buffer == true);
     loadWeightFromBin<T>(weights_ptr[0],
-                         {weights_size[0] / 4},
+                         {weights_size[0] / _div},
                          dir_path + "encoder_layer_" + std::to_string(layer_id_) + "_multi_head_att_query_fc.w_0"
                              + ".bin",
                          model_file_type);
@@ -234,7 +245,7 @@ void ErnieLayerINT8Weight<T>::loadModel(std::string dir_path, FtCudaDataType mod
                              + ".bin",
                          model_file_type);
     loadWeightFromBin<T>(weights_ptr[2],
-                         {weights_size[2] / 4},
+                         {weights_size[2] / _div},
                          dir_path + "encoder_layer_" + std::to_string(layer_id_) + "_multi_head_att_key_fc.w_0"
                              + ".bin",
                          model_file_type);
@@ -244,7 +255,7 @@ void ErnieLayerINT8Weight<T>::loadModel(std::string dir_path, FtCudaDataType mod
                              + ".bin",
                          model_file_type);
     loadWeightFromBin<T>(weights_ptr[4],
-                         {weights_size[4] / 4},
+                         {weights_size[4] / _div},
                          dir_path + "encoder_layer_" + std::to_string(layer_id_) + "_multi_head_att_value_fc.w_0"
                              + ".bin",
                          model_file_type);
@@ -254,7 +265,7 @@ void ErnieLayerINT8Weight<T>::loadModel(std::string dir_path, FtCudaDataType mod
                              + ".bin",
                          model_file_type);
     loadWeightFromBin<T>(weights_ptr[6],
-                         {weights_size[6] / 4},
+                         {weights_size[6] / _div},
                          dir_path + "encoder_layer_" + std::to_string(layer_id_) + "_multi_head_att_output_fc.w_0"
                              + ".bin",
                          model_file_type);
@@ -273,7 +284,7 @@ void ErnieLayerINT8Weight<T>::loadModel(std::string dir_path, FtCudaDataType mod
                          dir_path + "encoder_layer_" + std::to_string(layer_id_) + "_post_att_layer_norm_bias" + ".bin",
                          model_file_type);
     loadWeightFromBin<T>(weights_ptr[10],
-                         {weights_size[10] / 4},
+                         {weights_size[10] / _div},
                          dir_path + "encoder_layer_" + std::to_string(layer_id_) + "_ffn_fc_0.w_0" + ".bin",
                          model_file_type);
     loadWeightFromBin<T>(weights_ptr[11],
@@ -281,7 +292,7 @@ void ErnieLayerINT8Weight<T>::loadModel(std::string dir_path, FtCudaDataType mod
                          dir_path + "encoder_layer_" + std::to_string(layer_id_) + "_ffn_fc_0.b_0" + ".bin",
                          model_file_type);
     loadWeightFromBin<T>(weights_ptr[12],
-                         {weights_size[12] / 4},
+                         {weights_size[12] / _div},
                          dir_path + "encoder_layer_" + std::to_string(layer_id_) + "_ffn_fc_1.w_0" + ".bin",
                          model_file_type);
     loadWeightFromBin<T>(weights_ptr[13],
@@ -298,13 +309,13 @@ void ErnieLayerINT8Weight<T>::loadModel(std::string dir_path, FtCudaDataType mod
                          dir_path + "encoder_layer_" + std::to_string(layer_id_) + "_post_ffn_layer_norm_bias" + ".bin",
                          model_file_type);
 
-    loadWeightFromBin<float>(scale_list_ptr[0], {scale_list_.size_},
-                         dir_path + "encoder_layer_" +
-                             std::to_string(layer_id_) + "_scale_list" + ".bin",
-                         model_file_type);
+    loadWeightFromBin<float>(scale_list_ptr[0],
+                             {scale_list_.size_},
+                             dir_path + "encoder_layer_" + std::to_string(layer_id_) + "_scale_list" + ".bin",
+                             model_file_type);
     // FIXME: loadWeightFromBin() will load weights from host memory to device memory.
     //          However, scale_list_ptr[1] is a host pointer
-    
+
     cudaAutoCpy(scale_list_ptr[1], scale_list_ptr[0], scale_list_.size_);
     // loadWeightFromBin<float>(scale_list_ptr[1],
     //                          {scale_list_.size_},

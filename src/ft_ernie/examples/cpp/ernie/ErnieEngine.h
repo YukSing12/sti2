@@ -18,6 +18,8 @@
 #include <unordered_map>
 #include <vector>
 
+#include "src/fastertransformer/utils/debug_utils.h"
+
 using namespace fastertransformer;
 
 template<typename T>

@@ -59,6 +59,8 @@ def dump_scales(nodes, nodes_dict):
             k_bias = nodes_dict["p2o.Add.{}".format(12 + layer_num * 26)]
             v_bias = nodes_dict["p2o.Add.{}".format(14 + layer_num * 26)]
 
+            QKVbias = nodes_dict["p2o.Add.{}".format(18 + layer_num * 26)]
+            
             bmm1 = nodes_dict["p2o.MatMul.{}".format(8 + layer_num * 16)]
             softmax = nodes_dict["p2o.Softmax.{}".format(0 + layer_num * 1)]
             bmm2 = nodes_dict["p2o.MatMul.{}".format(10 + layer_num * 16)]
@@ -215,37 +217,37 @@ def dump_scales(nodes, nodes_dict):
             p3_offset_    = ACTIVATION_AMAX_NUM + 9 * 768
             
             # Q_deQ_scale
-            q_deq_scale = 1 / q_mm.outputs[0].outputs[0].inputs[1].values
+            q_deq_scale =  q_mm.outputs[0].outputs[0].inputs[1].values
             idx = 0
             scale_list[p3_offset_ + idx] = q_deq_scale
 
             # K_deQ_scale
-            k_deq_scale = 1 / k_mm.outputs[0].outputs[0].inputs[1].values
+            k_deq_scale =  k_mm.outputs[0].outputs[0].inputs[1].values
             idx += 1
             scale_list[p3_offset_ + idx] = k_deq_scale
 
             # V_deQ_scale
-            v_deq_scale = 1 / v_mm.outputs[0].outputs[0].inputs[1].values
+            v_deq_scale =  v_mm.outputs[0].outputs[0].inputs[1].values
             idx += 1
             scale_list[p3_offset_ + idx] = v_deq_scale
 
             # bmm1_deQ_scale
-            bmm1_deq_scale =1 / bmm1.outputs[0].outputs[0].inputs[1].values
+            bmm1_deq_scale = bmm1.outputs[0].outputs[0].inputs[1].values
             idx += 1
             scale_list[p3_offset_ + idx] = bmm1_deq_scale
 
             # bmm2_deQ_scale
-            bmm2_deq_scale =1 / bmm2.outputs[0].outputs[0].inputs[1].values
+            bmm2_deq_scale = bmm2.outputs[0].outputs[0].inputs[1].values
             idx += 1
             scale_list[p3_offset_ + idx] = bmm2_deq_scale
 
             # FC0_deQ_scale
-            fc1_mm_deq_scale =1 / fc1_mm.outputs[0].outputs[0].inputs[1].values
+            fc1_mm_deq_scale = fc1_mm.outputs[0].outputs[0].inputs[1].values
             idx += 1
             scale_list[p3_offset_ + idx] = fc1_mm_deq_scale
 
             # FC1_deQ_scale
-            fc2_mm_deq_scale = 1 / fc2_mm.outputs[0].outputs[0].inputs[1].values
+            fc2_mm_deq_scale =  fc2_mm.outputs[0].outputs[0].inputs[1].values
             idx += 1
             scale_list[p3_offset_ + idx] = fc2_mm_deq_scale
             
@@ -255,7 +257,8 @@ def dump_scales(nodes, nodes_dict):
             # Part 4 -- 3:
             #   Amax used in trt fused mha kernel (3 values) : QKVbias_amax, Softmax_amax, bmm2_amax
             p4_offset_    = ACTIVATION_AMAX_NUM + 9 * 768 + INT8O_GEMM_NUM
-            QKVbias_amax = np.max([q_bias_amax, k_bias_amax, v_bias_amax])
+            # print( QKVbias.inputs[0].inputs[0].inputs[0].inputs[0].inputs[1].values)
+            QKVbias_amax = QKVbias.inputs[0].inputs[0].inputs[0].inputs[0].inputs[1].values
             scale_list[p4_offset_] = QKVbias_amax * 127
             scale_list[p4_offset_ + 1] = softmax_amax * 127
             scale_list[p4_offset_ + 2] = bmm2_amax * 127
@@ -298,7 +301,7 @@ if __name__ == "__main__":
     for name,value in weights.items():
         saved_path = os.path.join(args.bin, name+".bin")
         print(name, value.shape)
-        value.astype(value.dtype).tofile(saved_path)
+        value.astype(npDataType).tofile(saved_path)
     print("Succeed extracting weights of Ernie!")
 
 
