@@ -35,8 +35,8 @@ namespace fastertransformer {
 
 #define MAX_CONFIG_NUM 1280
 #define COL32_ 32
-// workspace for cublas gemm : 1GB
-#define CUBLAS_WORKSPACE_SIZE 1073741824
+// workspace for cublas gemm : 32MB
+#define CUBLAS_WORKSPACE_SIZE 33554432
 
 typedef struct half4 {
     half x, y, z, w;
