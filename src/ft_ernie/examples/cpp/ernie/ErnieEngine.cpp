@@ -106,7 +106,6 @@ ErnieEngine<T>::ErnieEngine(const std::string& ckpt_path, const bool int8_mode, 
                           m_.is_free_buffer_after_forward,
                           m_.attention_type,
                           m_.is_sparse,
-                          m_.activation_type,
                           m_.layernorm_type,
                           NcclParam(0, 1),  // tensor_para
                           NcclParam(0, 1)   // pipeline_para

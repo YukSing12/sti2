@@ -23,9 +23,7 @@
 #include "src/fastertransformer/kernels/bert_preprocess_kernels.h"
 #include "src/fastertransformer/kernels/gpt_kernels.h"
 #include "src/fastertransformer/kernels/layernorm_kernels.h"
-#include "src/fastertransformer/layers/TensorParallelGeluFfnLayer.h"
-#include "src/fastertransformer/layers/TensorParallelReluFfnLayer.h"
-#include "src/fastertransformer/layers/TensorParallelSiluFfnLayer.h"
+#include "src/fastertransformer/layers/ErnieFFNLayer.h"
 #include "src/fastertransformer/layers/attention_layers/FusedAttentionLayer.h"
 #include "src/fastertransformer/layers/attention_layers/TensorParallelUnfusedAttentionLayer.h"
 #include "src/fastertransformer/models/ernie/CudaGraph.h"
@@ -81,7 +79,7 @@ private:
     cublasLtHandle_t cublaslt_handle_fea_;
 
     BaseAttentionLayer<T>* attention_layer_;
-    FfnLayer<T>* ffn_layer_;
+    ErnieFFNLayer<T>* ffn_layer_;
 
     bool is_allocate_buffer_ = false;
 
@@ -100,7 +98,6 @@ private:
     bool isFirstLayerParallelId(uint l);
     bool isLastLayerParallelId(uint l);
     int getFirstLayerParallelId();
-    const ActivationType activation_type_;
     const LayerNormType layernorm_type_;
 
     const NcclParam tensor_para_;
@@ -149,7 +146,6 @@ public:
           bool is_free_buffer_after_forward,
           AttentionType attention_type,
           bool sparse,
-          ActivationType activation_type,
           LayerNormType layernorm_type,
           NcclParam tensor_para,
           NcclParam pipeline_para,

@@ -25,6 +25,11 @@ set_property(TARGET FfnLayer PROPERTY POSITION_INDEPENDENT_CODE  ON)
 set_property(TARGET FfnLayer PROPERTY CUDA_RESOLVE_DEVICE_SYMBOLS  ON)
 target_link_libraries(FfnLayer PUBLIC -lcublas -lcudart cublasMMWrapper activation_kernels memory_utils matrix_vector_multiplication tensor)
 
+add_library(ErnieFFNLayer STATIC ErnieFFNLayer.cc)
+set_property(TARGET ErnieFFNLayer PROPERTY POSITION_INDEPENDENT_CODE  ON)
+set_property(TARGET ErnieFFNLayer PROPERTY CUDA_RESOLVE_DEVICE_SYMBOLS  ON)
+target_link_libraries(ErnieFFNLayer PUBLIC -lcublas -lcudart cublasMMWrapper activation_kernels memory_utils matrix_vector_multiplication tensor)
+
 add_library(FfnLayerINT8 STATIC FfnLayerINT8.cc)
 set_property(TARGET FfnLayerINT8 PROPERTY POSITION_INDEPENDENT_CODE  ON)
 set_property(TARGET FfnLayerINT8 PROPERTY CUDA_RESOLVE_DEVICE_SYMBOLS  ON)

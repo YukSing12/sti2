@@ -97,61 +97,18 @@ void Ernie<T>::initialize()
         throw std::runtime_error(std::string("[FT][ERROR] Invalid attention type \n"));
     }
 
-    bool use_gated_activation = activation_type_ == ActivationType::GeGLU || activation_type_ == ActivationType::ReGLU
-                                || activation_type_ == ActivationType::SiGLU;
-    if (activation_type_ == ActivationType::Gelu || activation_type_ == ActivationType::GeGLU) {
-        ffn_layer_ = new TensorParallelGeluFfnLayer<T>(max_batch_size_,
-                                                       max_seq_len_,
-                                                       1,
-                                                       d_model_,
-                                                       inter_size_,
-                                                       tensor_para_,
-                                                       stream_,
-                                                       cublas_wrapper_,
-                                                       allocator_,
-                                                       true,
-                                                       is_free_buffer_after_forward_,
-                                                       sparse_,
-                                                       0,
-                                                       use_gated_activation,  // don't use GeGLU
-                                                       custom_all_reduce_comm_,
-                                                       enable_custom_all_reduce_);
-    }
-    else if (activation_type_ == ActivationType::Relu || activation_type_ == ActivationType::ReGLU) {
-        ffn_layer_ = new TensorParallelReluFfnLayer<T>(max_batch_size_,
-                                                       max_seq_len_,
-                                                       1,
-                                                       d_model_,
-                                                       inter_size_,
-                                                       tensor_para_,
-                                                       stream_,
-                                                       cublas_wrapper_,
-                                                       allocator_,
-                                                       true,
-                                                       is_free_buffer_after_forward_,
-                                                       sparse_,
-                                                       use_gated_activation,
-                                                       custom_all_reduce_comm_,
-                                                       enable_custom_all_reduce_);
-    }
-    else if (activation_type_ == ActivationType::Silu || activation_type_ == ActivationType::SiGLU) {
-
-        ffn_layer_ = new TensorParallelSiluFfnLayer<T>(max_batch_size_,
-                                                       max_seq_len_,
-                                                       1,
-                                                       d_model_,
-                                                       inter_size_,
-                                                       tensor_para_,
-                                                       stream_,
-                                                       cublas_wrapper_,
-                                                       allocator_,
-                                                       true,
-                                                       is_free_buffer_after_forward_,
-                                                       sparse_,
-                                                       use_gated_activation,
-                                                       custom_all_reduce_comm_,
-                                                       enable_custom_all_reduce_);
-    }
+    ffn_layer_ = new ErnieFFNLayer<T>(max_batch_size_,
+                                     max_seq_len_,
+                                     head_num_,
+                                     size_per_head_,
+                                     inter_size_,
+                                     stream_,
+                                     cublas_wrapper_,
+                                     allocator_,
+                                     is_free_buffer_after_forward_,
+                                     sparse_,
+                                     0,
+                                     false);
     encoder_graph_ptr_ = new FTCudaGraph();
     allocateBuffer();
 }
@@ -175,7 +132,6 @@ Ernie<T>::Ernie(size_t max_batch_size,
                 bool is_free_buffer_after_forward,
                 AttentionType attention_type,
                 bool sparse,
-                ActivationType activation_type,
                 LayerNormType layernorm_type,
                 NcclParam tensor_para,
                 NcclParam pipeline_para,
@@ -197,7 +153,6 @@ Ernie<T>::Ernie(size_t max_batch_size,
     q_scaling_(q_scaling),
     attention_type_(attention_type),
     sparse_(sparse),
-    activation_type_(activation_type),
     layernorm_type_(layernorm_type),
     tensor_para_(tensor_para),
     pipeline_para_(pipeline_para),
@@ -225,7 +180,6 @@ Ernie<T>::Ernie(Ernie<T> const& ernie_encoder):
     q_scaling_(ernie_encoder.q_scaling_),
     attention_type_(ernie_encoder.attention_type_),
     sparse_(ernie_encoder.sparse_),
-    activation_type_(ernie_encoder.activation_type_),
     layernorm_type_(ernie_encoder.layernorm_type_),
     tensor_para_(ernie_encoder.tensor_para_),
     pipeline_para_(ernie_encoder.pipeline_para_),

@@ -142,7 +142,6 @@ private:
         bool                              is_free_buffer_after_forward = false;
         bool                              is_sparse                    = false;
         AttentionType                     attention_type               = AttentionType::FUSED_MHA;
-        fastertransformer::ActivationType activation_type              = fastertransformer::ActivationType::Relu;
         LayerNormType                     layernorm_type               = LayerNormType::post_layernorm;
         // runtime parameter
         size_t batch_size     = 0;

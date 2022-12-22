@@ -408,7 +408,7 @@ void cublasMMWrapper::Gemm(cublasOperation_t transa,
 
     cublasLtMatmulDesc_t   operationDesc = NULL;
     cublasLtMatrixLayout_t Adesc = NULL, Bdesc = NULL, Cdesc = NULL;
-    cublasLtEpilogue_t     epi = CUBLASLT_EPILOGUE_BIAS;
+    cublasLtEpilogue_t     epi = CUBLASLT_EPILOGUE_RELU_BIAS;
     cublasLtMatrixLayoutCreate(&Adesc, Atype, (transa == CUBLAS_OP_N) ? m : k, (transa == CUBLAS_OP_N) ? k : m, lda);
     cublasLtMatrixLayoutCreate(&Bdesc, Btype, (transb == CUBLAS_OP_N) ? k : n, (transb == CUBLAS_OP_N) ? n : k, ldb);
     cublasLtMatrixLayoutCreate(&Cdesc, Ctype, m, n, ldc);

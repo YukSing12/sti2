@@ -22,9 +22,7 @@ bert_preprocess_kernels
 cublasMMWrapper 
 TensorParallelUnfusedAttentionLayer 
 FusedAttentionLayer 
-TensorParallelReluFfnLayer
-TensorParallelGeluFfnLayer 
-TensorParallelSiluFfnLayer 
+ErnieFFNLayer
 layernorm_kernels 
 add_residual_kernels 
 decoding_kernels
