@@ -1,4 +1,4 @@
-tensorrt    # 8.2.1.5
+tensorrt    # 8.5.1.7
 onnx
 onnxruntime
 nvidia-pyindex

@@ -17,8 +17,9 @@
 #endif
 #include "cookbookHelper.hpp"
 
-static Logger gLogger(ILogger::Severity::kERROR);
-static int    MAX_SEQ = 128;
+
+static Logger    gLogger(ILogger::Severity::kERROR);
+static  int MAX_SEQ = 128;
 
 std::list<std::string> GetFileNameFromDir(const std::string& dir, const char* filter) {
     std::list<std::string> files;
@@ -75,10 +76,33 @@ struct sample {
     std::vector<int>   i2;
     int                size3;
     std::vector<int>   shape_info_3;
-    std::vector<int>   i3;
+    std::vector<float> i3;
     int                size4;
     std::vector<int>   shape_info_4;
     std::vector<int>   i4;
+#ifndef POSTEMB
+    int              size5;
+    std::vector<int> shape_info_5;
+    std::vector<int> i5;
+    int              size6;
+    std::vector<int> shape_info_6;
+    std::vector<int> i6;
+    int              size7;
+    std::vector<int> shape_info_7;
+    std::vector<int> i7;
+    int              size8;
+    std::vector<int> shape_info_8;
+    std::vector<int> i8;
+    int              size9;
+    std::vector<int> shape_info_9;
+    std::vector<int> i9;
+    int              size10;
+    std::vector<int> shape_info_10;
+    std::vector<int> i10;
+    int              size11;
+    std::vector<int> shape_info_11;
+    std::vector<int> i11;
+#endif
     std::vector<float> out_data;
     int                batchsize;
     uint64_t           timestamp;
@@ -113,15 +137,20 @@ void field2vec(const std::string& input_str, bool padding, int& size_i, std::vec
     int batch_size = shape_info->at(0);
     int seq_len    = shape_info->at(1);
     if (padding) {
+#ifdef DYMSHAPE
         if (seq_len < 32) {
             (*shape_info)[1] = 32;
         }
-        if (seq_len < 32) {
-            MAX_SEQ = 32;
-        }
-        else {
-            padding = false;
-        }
+#else
+        (*shape_info)[1] = MAX_SEQ;
+#endif
+    }
+    if(seq_len<32)
+    {
+      MAX_SEQ=32;
+    }
+    else{
+      padding=false;
     }
     if (i32_vec) {
         for (int i = 0; i < batch_size; ++i) {
@@ -145,9 +174,7 @@ void field2vec(const std::string& input_str, bool padding, int& size_i, std::vec
             }
         }
     }
-    if (padding) {
-        (*shape_info)[1] = MAX_SEQ;
-    }
+
     int size = 1;
     for (int i = 0; i < 2; i++) {
         size *= (*shape_info)[i];
@@ -167,16 +194,15 @@ void line2sample(const std::string& line, sample* sout) {
     std::vector<std::string> label_f;
     split_string(fields[1], ":", label_f);
     sout->label = label_f[1];
-    std::vector<std::vector<int>> shape_info(8);
-    std::vector<std::vector<int>> f_vec(8);
-    int                           _tmp_size;
-
-    std::vector<float> mask_f;
+    int _tmp_size;
     // Parse input field
     field2vec(fields[2], true, sout->size0, &(sout->shape_info_0), &(sout->i0));
     field2vec(fields[3], true, sout->size1, &(sout->shape_info_1), &(sout->i1));
     field2vec(fields[4], true, sout->size2, &(sout->shape_info_2), &(sout->i2));
-    field2vec(fields[5], true, sout->size3, &(sout->shape_info_3), nullptr, &mask_f);
+    field2vec(fields[5], true, sout->size3, &(sout->shape_info_3), nullptr, &(sout->i3));
+#ifdef POSTEMB
+    std::vector<std::vector<int>> shape_info(8);
+    std::vector<std::vector<int>> f_vec(8);
     field2vec(fields[6], false, _tmp_size, &shape_info[0], &f_vec[0]);
     field2vec(fields[7], false, _tmp_size, &shape_info[1], &f_vec[1]);
     field2vec(fields[8], false, _tmp_size, &shape_info[2], &f_vec[2]);
@@ -185,33 +211,26 @@ void line2sample(const std::string& line, sample* sout) {
     field2vec(fields[11], false, _tmp_size, &shape_info[5], &f_vec[5]);
     field2vec(fields[12], false, _tmp_size, &shape_info[6], &f_vec[6]);
     field2vec(fields[13], false, _tmp_size, &shape_info[7], &f_vec[7]);
-    // get seq_len on cpu
-    sout->i3.resize(sout->shape_info_3[0]);
-    for (size_t i = 0; i < sout->shape_info_3[0]; i++)  // batch
-    {
-        sout->i3[i] = sout->shape_info_3[1];
-        for (size_t j = 0; j < sout->shape_info_3[1]; j++)  // seq_len
-        {
-            if (mask_f[i * sout->shape_info_3[1] + j] == 0.0f) {
-                sout->i3[i] = j;
-                break;
-            }
-        }
-    }
-    sout->shape_info_3[1] = 1;
-    sout->size3           = sout->shape_info_3[0];
-    // postemb
     for (size_t j = 0; j < shape_info[0][0]; j++) {
         for (size_t i = 0; i < f_vec.size(); i++) {
             (sout->i4).push_back(f_vec[i][j]);
         }
     }
-
     (sout->shape_info_4).resize(2);
     (sout->shape_info_4)[0] = shape_info[0][0];
     (sout->shape_info_4)[1] = 8;
     (sout->size4)           = shape_info[0][0] * 8;
-    (sout->batchsize)       = shape_info[0][0];
+#else
+    field2vec(fields[6], false, sout->size4, &(sout->shape_info_4), &(sout->i4));
+    field2vec(fields[7], false, sout->size5, &(sout->shape_info_5), &(sout->i5));
+    field2vec(fields[8], false, sout->size6, &(sout->shape_info_6), &(sout->i6));
+    field2vec(fields[9], false, sout->size7, &(sout->shape_info_7), &(sout->i7));
+    field2vec(fields[10], false, sout->size8, &(sout->shape_info_8), &(sout->i8));
+    field2vec(fields[11], false, sout->size9, &(sout->shape_info_9), &(sout->i9));
+    field2vec(fields[12], false, sout->size10, &(sout->shape_info_10), &(sout->i10));
+    field2vec(fields[13], false, sout->size11, &(sout->shape_info_11), &(sout->i11));
+#endif
+    (sout->batchsize) = (sout->shape_info_0)[0];
     (sout->out_data).resize(sout->batchsize);
     return;
 }
@@ -247,34 +266,52 @@ ICudaEngine* InitEngine(const std::string& engine_file) {
         return engine;
     }
     else {
-        std::cout << "Failed finding " << engine_file << " file!" << std::endl;
+        std::cout << "Failed finding .plan file!" << std::endl;
         return nullptr;
     }
 }
 
-void pre_data(IExecutionContext* context, cudaStream_t& stream, sample& s, std::vector<void*>& vBufferH, std::vector<void*>& vBufferD) {
+void run(ICudaEngine* engine, IExecutionContext* context, cudaStream_t stream, sample& s, std::vector<void*>& vBufferH, std::vector<void*>& vBufferD) {
+    context->setBindingDimensions(0, Dims32{ 3, { s.batchsize, s.shape_info_0[1], s.shape_info_0[2] } });
+    context->setBindingDimensions(1, Dims32{ 3, { s.batchsize, s.shape_info_1[1], s.shape_info_1[2] } });
+    context->setBindingDimensions(2, Dims32{ 3, { s.batchsize, s.shape_info_2[1], s.shape_info_2[2] } });
+    context->setBindingDimensions(3, Dims32{ 3, { s.batchsize, s.shape_info_3[1], s.shape_info_3[2] } });
+#ifdef POSTEMB
+    context->setBindingDimensions(4, Dims32{ 2, { s.batchsize, 8 } });
+#else
+    context->setBindingDimensions(4, Dims32{ 3, { s.batchsize, s.shape_info_4[1], s.shape_info_4[2] } });
+    context->setBindingDimensions(5, Dims32{ 3, { s.batchsize, s.shape_info_5[1], s.shape_info_5[2] } });
+    context->setBindingDimensions(6, Dims32{ 3, { s.batchsize, s.shape_info_6[1], s.shape_info_6[2] } });
+    context->setBindingDimensions(7, Dims32{ 3, { s.batchsize, s.shape_info_7[1], s.shape_info_7[2] } });
+    context->setBindingDimensions(8, Dims32{ 3, { s.batchsize, s.shape_info_8[1], s.shape_info_8[2] } });
+    context->setBindingDimensions(9, Dims32{ 3, { s.batchsize, s.shape_info_9[1], s.shape_info_9[2] } });
+    context->setBindingDimensions(10, Dims32{ 3, { s.batchsize, s.shape_info_10[1], s.shape_info_10[2] } });
+    context->setBindingDimensions(11, Dims32{ 3, { s.batchsize, s.shape_info_11[1], s.shape_info_11[2] } });
+#endif
+    CHECK(cudaMemcpyAsync(vBufferD[0], s.i0.data(), s.size0 * dataTypeToSize(engine->getBindingDataType(0)), cudaMemcpyHostToDevice, stream));
+    CHECK(cudaMemcpyAsync(vBufferD[1], s.i1.data(), s.size1 * dataTypeToSize(engine->getBindingDataType(1)), cudaMemcpyHostToDevice, stream));
+    CHECK(cudaMemcpyAsync(vBufferD[2], s.i2.data(), s.size2 * dataTypeToSize(engine->getBindingDataType(2)), cudaMemcpyHostToDevice, stream));
+    CHECK(cudaMemcpyAsync(vBufferD[3], s.i3.data(), s.size3 * dataTypeToSize(engine->getBindingDataType(3)), cudaMemcpyHostToDevice, stream));
+    CHECK(cudaMemcpyAsync(vBufferD[4], s.i4.data(), s.size4 * dataTypeToSize(engine->getBindingDataType(4)), cudaMemcpyHostToDevice, stream));
+#ifndef POSTEMB
+    CHECK(cudaMemcpyAsync(vBufferD[5], s.i5.data(), s.size5 * dataTypeToSize(engine->getBindingDataType(5)), cudaMemcpyHostToDevice, stream));
+    CHECK(cudaMemcpyAsync(vBufferD[6], s.i6.data(), s.size6 * dataTypeToSize(engine->getBindingDataType(6)), cudaMemcpyHostToDevice, stream));
+    CHECK(cudaMemcpyAsync(vBufferD[7], s.i7.data(), s.size7 * dataTypeToSize(engine->getBindingDataType(7)), cudaMemcpyHostToDevice, stream));
+    CHECK(cudaMemcpyAsync(vBufferD[8], s.i8.data(), s.size8 * dataTypeToSize(engine->getBindingDataType(8)), cudaMemcpyHostToDevice, stream));
+    CHECK(cudaMemcpyAsync(vBufferD[9], s.i9.data(), s.size9 * dataTypeToSize(engine->getBindingDataType(9)), cudaMemcpyHostToDevice, stream));
+    CHECK(cudaMemcpyAsync(vBufferD[10], s.i10.data(), s.size10 * dataTypeToSize(engine->getBindingDataType(10)), cudaMemcpyHostToDevice, stream));
+    CHECK(cudaMemcpyAsync(vBufferD[11], s.i11.data(), s.size11 * dataTypeToSize(engine->getBindingDataType(11)), cudaMemcpyHostToDevice, stream));
+#endif
 
-    memcpy(vBufferH[0], s.i0.data(), s.size0 * dataTypeToSize(DataType::kINT32));
-    memcpy(vBufferH[1], s.i1.data(), s.size1 * dataTypeToSize(DataType::kINT32));
-    memcpy(vBufferH[2], s.i2.data(), s.size2 * dataTypeToSize(DataType::kINT32));
-    memcpy(vBufferH[3], s.i3.data(), s.size3 * dataTypeToSize(DataType::kINT32));
-    memcpy(vBufferH[4], s.i4.data(), s.size4 * dataTypeToSize(DataType::kINT32));
+    // Inference
+    context->enqueueV2(vBufferD.data(), stream, nullptr);
 
-    context->setInputShape("read_file_0.tmp_0", Dims32{ 3, { s.batchsize, s.shape_info_0[1], 1 } });
-    context->setInputShape("read_file_0.tmp_1", Dims32{ 3, { s.batchsize, s.shape_info_1[1], 1 } });
-    context->setInputShape("read_file_0.tmp_2", Dims32{ 3, { s.batchsize, s.shape_info_2[1], 1 } });
-    context->setInputShape("read_file_0.seq_len", Dims32{ 2, { s.batchsize, 1 } });
-    context->setInputShape("read_file_0.tmp_6-13", Dims32{ 2, { s.batchsize, 8 } });
-
-    CHECK(cudaMemcpyAsync(vBufferD[0], vBufferH[0], s.size0 * dataTypeToSize(DataType::kINT32), cudaMemcpyHostToDevice, stream));
-    CHECK(cudaMemcpyAsync(vBufferD[1], vBufferH[1], s.size1 * dataTypeToSize(DataType::kINT32), cudaMemcpyHostToDevice, stream));
-    CHECK(cudaMemcpyAsync(vBufferD[2], vBufferH[2], s.size2 * dataTypeToSize(DataType::kINT32), cudaMemcpyHostToDevice, stream));
-    CHECK(cudaMemcpyAsync(vBufferD[3], vBufferH[3], s.size3 * dataTypeToSize(DataType::kINT32), cudaMemcpyHostToDevice, stream));
-    CHECK(cudaMemcpyAsync(vBufferD[4], vBufferH[4], s.size4 * dataTypeToSize(DataType::kINT32), cudaMemcpyHostToDevice, stream));
-}
-void run(IExecutionContext* context, cudaStream_t& stream, sample& s, std::vector<void*>& vBufferD) {
-    context->enqueueV3(stream);
-    CHECK(cudaMemcpyAsync(s.out_data.data(), vBufferD[5], s.batchsize * dataTypeToSize(DataType::kFLOAT), cudaMemcpyDeviceToHost, stream));
+    // Get output from device to host
+#ifdef POSTEMB
+    CHECK(cudaMemcpyAsync(s.out_data.data(), vBufferD[5], s.batchsize * dataTypeToSize(engine->getBindingDataType(5)), cudaMemcpyDeviceToHost, stream));
+#else
+    CHECK(cudaMemcpyAsync(s.out_data.data(), vBufferD[12], s.batchsize * dataTypeToSize(engine->getBindingDataType(12)), cudaMemcpyDeviceToHost, stream));
+#endif
 
     struct timeval tv;
     gettimeofday(&tv, NULL);
@@ -283,8 +320,9 @@ void run(IExecutionContext* context, cudaStream_t& stream, sample& s, std::vecto
 }
 
 int main(int argc, char* argv[]) {
+    std::cout << "TensorRT: " << NV_TENSORRT_MAJOR << "." << NV_TENSORRT_MINOR << "." << NV_TENSORRT_PATCH << "." << NV_TENSORRT_BUILD << std::endl;
     if (argc < 4) {
-        std::cout << "Usage: multiprofile <engine_file> <input_data_file> <output_data_file> [plugins_path]" << std::endl;
+        std::cout << "Usage: main.exe <engine_file> <input_data_file> <output_data_file> [plugins_path]" << std::endl;
         return -1;
     }
     else if (argc == 5) {
@@ -295,51 +333,51 @@ int main(int argc, char* argv[]) {
             loadLibrary(so_file);
         }
     }
-    std::cout << "TensorRT: " << NV_TENSORRT_MAJOR << "." << NV_TENSORRT_MINOR << "." << NV_TENSORRT_PATCH << "." << NV_TENSORRT_BUILD << std::endl;
+
     // init
     std::string        engine_file = argv[1];
     auto               engine      = InitEngine(engine_file);
-    auto               profiles    = engine->getNbOptimizationProfiles();
-    auto               streams     = 2;
-    int                nBinding    = 6;
-    IExecutionContext* contexts[streams];
-    cudaStream_t       stream[streams];
+    IExecutionContext* context     = engine->createExecutionContext();
+    int                nBinding    = engine->getNbBindings();
+    // stream
+    cudaStream_t stream;
+    CHECK(cudaStreamCreate(&stream));
+    // graph
+    cudaGraph_t     graph;
+    cudaGraphExec_t graphExec = nullptr;
 
     // allocate memory
-    std::vector<std::vector<void*>> vBufferH{ streams, { nBinding, nullptr } };
-    std::vector<std::vector<void*>> vBufferD{ streams, { nBinding, nullptr } };
+    // TODO(pinned memory)
+    std::vector<void*> vBufferH{ nBinding, nullptr };
+    std::vector<void*> vBufferD{ nBinding, nullptr };
     // tmp_0 ~ tmp_2
-    // stream
-    std::cout << "Engine have " << streams << " streams." << std::endl;
-    std::cout << "Engine have " << profiles << " profiles." << std::endl;
-
-    for (size_t ns = 0; ns < streams; ns++) {
-        for (size_t i = 0; i < 3; i++) {
-            CHECK(cudaHostAlloc(&vBufferH[ns][i], 10 * 128 * 1 * sizeof(int), cudaHostAllocMapped));
-            CHECK(cudaMalloc(&vBufferD[ns][i], 10 * 128 * 1 * sizeof(int)));
-        }
-        // tmp_3
-        CHECK(cudaHostAlloc(&vBufferH[ns][3], 10 * 1 * sizeof(int), cudaHostAllocMapped));
-        CHECK(cudaMalloc(&vBufferD[ns][3], 10 * 1 * sizeof(int)));
-
-        // tmp_6 ~ tmp_13
-        CHECK(cudaHostAlloc(&vBufferH[ns][4], 10 * 8 * 1 * sizeof(int), cudaHostAllocMapped));
-        CHECK(cudaMalloc(&vBufferD[ns][4], 10 * 8 * 1 * sizeof(int)));
-        // output
-        CHECK(cudaHostAlloc(&vBufferH[ns][5], 10 * 1 * 1 * sizeof(float), cudaHostAllocMapped));
-        CHECK(cudaMalloc(&vBufferD[ns][5], 10 * 1 * 1 * sizeof(float)));
-
-        CHECK(cudaStreamCreate(&stream[ns]));
-        contexts[ns] = engine->createExecutionContext();
-        contexts[ns]->setOptimizationProfileAsync(ns, stream[ns]);
-        contexts[ns]->setInputTensorAddress("read_file_0.tmp_0", vBufferD[ns][0]);
-        contexts[ns]->setInputTensorAddress("read_file_0.tmp_1", vBufferD[ns][1]);
-        contexts[ns]->setInputTensorAddress("read_file_0.tmp_2", vBufferD[ns][2]);
-        contexts[ns]->setInputTensorAddress("read_file_0.seq_len", vBufferD[ns][3]);
-        contexts[ns]->setInputTensorAddress("read_file_0.tmp_6-13", vBufferD[ns][4]);
-        contexts[ns]->setTensorAddress("save_infer_model/scale_0.tmp_0", vBufferD[ns][5]);
+    for (size_t i = 0; i < 3; i++) {
+        vBufferH[i] = ( void* )new char[10 * 128 * 1 * sizeof(int)];
+        CHECK(cudaMalloc(&vBufferD[i], 10 * 128 * 1 * sizeof(int)));
     }
+    // tmp_3
+    vBufferH[3] = ( void* )new char[10 * 128 * 1 * sizeof(float)];
+    CHECK(cudaMalloc(&vBufferD[3], 10 * 128 * 1 * sizeof(float)));
 
+#ifdef POSTEMB
+    // tmp_6 ~ tmp_13
+    vBufferH[4] = ( void* )new char[10 * 8 * sizeof(int)];
+    CHECK(cudaMalloc(&vBufferD[4], 10 * 8 * sizeof(int)));
+
+    // output
+    vBufferH[5] = ( void* )new char[10 * 1 * 1 * sizeof(float)];
+    CHECK(cudaMalloc(&vBufferD[5], 10 * 1 * 1 * sizeof(float)));
+#else
+    for (size_t i = 4; i < 12; i++) {
+        vBufferH[i] = ( void* )new char[10 * 1 * 1 * sizeof(float)];
+        CHECK(cudaMalloc(&vBufferD[i], 10 * 1 * 1 * sizeof(float)));
+    }
+    // output
+    for (size_t i = 12; i < 13; i++) {
+        vBufferH[i] = ( void* )new char[10 * 1 * 1 * sizeof(float)];
+        CHECK(cudaMalloc(&vBufferD[i], 10 * 1 * 1 * sizeof(float)));
+    }
+#endif
     // preprocess
     std::string   aline;
     std::ifstream ifs;
@@ -352,24 +390,13 @@ int main(int argc, char* argv[]) {
         line2sample(aline, &s);
         sample_vec.push_back(s);
     }
-    sample_vec.push_back(sample_vec[0]);
-    // Warmup
-    std::cout << "--------Start Warmup-------" << std::endl;
-    int exec_idx = 0;
-    int pre_idx  = 0;
-    pre_data(contexts[pre_idx], stream[pre_idx], sample_vec[pre_idx], vBufferH[pre_idx], vBufferD[pre_idx]);
     // inference
-    std::cout << "--------Inference Start----------" << std::endl;
-    for (size_t s_num = 0; s_num < sample_vec.size()-1; s_num++) {
-        exec_idx = s_num % 2;
-        pre_idx  = (s_num + 1) % 2;
-        pre_data(contexts[pre_idx], stream[pre_idx], sample_vec[s_num + 1], vBufferH[pre_idx], vBufferD[pre_idx]);
-        run(contexts[exec_idx], stream[exec_idx], sample_vec[s_num], vBufferD[exec_idx]);
+    for (auto& s : sample_vec) {
+        run(engine, context, stream, s, vBufferH, vBufferD);
     }
-    std::cout << "--------Inference Finished----------" << std::endl;
+
     // postprocess
-    for (size_t s_num = 0; s_num < sample_vec.size()-1; s_num++) {
-        auto s=sample_vec[s_num];
+    for (auto& s : sample_vec) {
         std::ostringstream oss;
         oss << s.qid << "\t";
         oss << s.label << "\t";
@@ -389,11 +416,9 @@ int main(int argc, char* argv[]) {
     ifs.close();
 
     // Release memory
-    for (int ns = 0; ns < streams; ns++) {
-        for (int i = 0; i < nBinding; ++i) {
-            CHECK(cudaFreeHost(vBufferH[ns][i]));
-            CHECK(cudaFree(vBufferD[ns][i]));
-        }
+    for (int i = 0; i < nBinding; ++i) {
+        delete[] vBufferH[i];
+        CHECK(cudaFree(vBufferD[i]));
     }
 
     return 0;

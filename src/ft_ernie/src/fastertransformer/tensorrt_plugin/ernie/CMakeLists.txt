@@ -22,3 +22,5 @@ ernie_gemm_func
 -lcublasLt 
 -lcudart 
 -lnvinfer)
+
+install(TARGETS ErniePlugin LIBRARY DESTINATION ${CMAKE_INSTALL_PREFIX}/so/plugins)

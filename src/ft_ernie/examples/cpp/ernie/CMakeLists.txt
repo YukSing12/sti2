@@ -13,7 +13,8 @@
 # limitations under the License.
 
 
-add_executable(ernie_infer ernie_infer.cc ErnieGemm.cc ErnieEngine.cpp)
+add_executable(ft_infer ft_infer.cc ErnieGemm.cc ErnieEngine.cpp)
 
-target_link_libraries(ernie_infer PUBLIC -lcublas -lcublasLt -lcudart Ernie encoder_gemm_func encoder_igemm_func)
+target_link_libraries(ft_infer PUBLIC -lcublas -lcublasLt -lcudart Ernie encoder_gemm_func encoder_igemm_func)
 
+install(TARGETS ft_infer RUNTIME DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)

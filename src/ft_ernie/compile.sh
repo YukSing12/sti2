@@ -4,7 +4,7 @@ rm -rf build
 mkdir -p build
 
 STI2_ROOT=${CUR_DIR}/../..
-INSTALL_PREFIX=${STI2_ROOT}/install
+INSTALL_PREFIX=${STI2_ROOT}
 
 cd ${CUR_DIR}/build
 cmake \
@@ -18,7 +18,5 @@ cmake \
 	-DUSE_NVTX=OFF \
 	..
 
-
 make -j$(nproc) 
-cp ${CUR_DIR}/build/lib/libErniePlugin.so ${STI2_ROOT}/so/plugins/libErniePlugin.so
-cp ${CUR_DIR}/build/bin/ernie_infer ${STI2_ROOT}/bin
+make install

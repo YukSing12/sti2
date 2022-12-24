@@ -465,36 +465,36 @@ configure_package_config_file(
   INSTALL_DESTINATION ${INSTALL_CONFIGDIR}
 )
 
-install(
-  FILES
-  ${CMAKE_CURRENT_BINARY_DIR}/FasterTransformerConfig.cmake
-  DESTINATION ${INSTALL_CONFIGDIR}
-)
+# install(
+#   FILES
+#   ${CMAKE_CURRENT_BINARY_DIR}/FasterTransformerConfig.cmake
+#   DESTINATION ${INSTALL_CONFIGDIR}
+# )
 
-install(
-  TARGETS
-    transformer-shared
-  EXPORT
-    transformer-shared-targets
-  LIBRARY DESTINATION ${CMAKE_INSTALL_PREFIX}/backends/fastertransformer
-  ARCHIVE DESTINATION ${CMAKE_INSTALL_PREFIX}/backends/fastertransformer
-)
+# install(
+#   TARGETS
+#     transformer-shared
+#   EXPORT
+#     transformer-shared-targets
+#   LIBRARY DESTINATION ${CMAKE_INSTALL_PREFIX}/backends/fastertransformer
+#   ARCHIVE DESTINATION ${CMAKE_INSTALL_PREFIX}/backends/fastertransformer
+# )
 
-install(
-  EXPORT
-    transformer-shared-targets
-  FILE
-    FasterTransformerTargets.cmake
-  DESTINATION
-    ${INSTALL_CONFIGDIR}
-)
+# install(
+#   EXPORT
+#     transformer-shared-targets
+#   FILE
+#     FasterTransformerTargets.cmake
+#   DESTINATION
+#     ${INSTALL_CONFIGDIR}
+# )
 
-file(GLOB_RECURSE HEADER_FILES "*.h" "*.hpp" "*.cuh")
-foreach ( file ${HEADER_FILES} )
-    file( RELATIVE_PATH rfile ${CMAKE_CURRENT_SOURCE_DIR} ${file} )
-    get_filename_component( dir ${rfile} DIRECTORY )
-    install( FILES ${file} DESTINATION  ${CMAKE_INSTALL_PREFIX}/include/${dir} )
-endforeach()
+# file(GLOB_RECURSE HEADER_FILES "*.h" "*.hpp" "*.cuh")
+# foreach ( file ${HEADER_FILES} )
+#     file( RELATIVE_PATH rfile ${CMAKE_CURRENT_SOURCE_DIR} ${file} )
+#     get_filename_component( dir ${rfile} DIRECTORY )
+#     install( FILES ${file} DESTINATION  ${CMAKE_INSTALL_PREFIX}/include/${dir} )
+# endforeach()
 
 
 ################################################################################
@@ -502,13 +502,13 @@ endforeach()
 # target_link_libraries(gpt PUBLIC -lcublas -lcublasLt -lcudart -lcurand -lnccl -lmpi transformer-static)
 # target_link_libraries(gpt PUBLIC -lcublas -lcublasLt -lcudart -lcurand -lnccl -lmpi decoder decoding)
 
-export(
-  EXPORT
-    transformer-shared-targets
-  FILE
-    ${CMAKE_CURRENT_BINARY_DIR}/FasterTransformerTargets.cmake
-  NAMESPACE
-    TritonCore::
-)
+# export(
+#   EXPORT
+#     transformer-shared-targets
+#   FILE
+#     ${CMAKE_CURRENT_BINARY_DIR}/FasterTransformerTargets.cmake
+#   NAMESPACE
+#     TritonCore::
+# )
 
-export(PACKAGE FasterTransformer)
+# export(PACKAGE FasterTransformer)
