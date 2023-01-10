@@ -27,4 +27,7 @@
 # add_subdirectory(swin_int8)
 # add_subdirectory(vit)
 # add_subdirectory(vit_int8)
+
 add_subdirectory(ernie)
+add_subdirectory(ernie_int8)
+

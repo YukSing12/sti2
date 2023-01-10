@@ -361,7 +361,7 @@ void FusedAttentionLayerINT8<T>::forward(std::vector<fastertransformer::Tensor>*
 
     FT_CHECK(isValidBatchSize(input_tensors->at(1).shape[0]));
     FT_CHECK(isValidSeqLen(input_tensors->at(1).shape[2]));
-    allocateBuffer();
+    // allocateBuffer();
 
     int32_t*      attention_out  = (int32_t*)output_tensors->at(0).data;
     const int8_t* from_tensor    = (const int8_t*)input_tensors->at(0).data;
@@ -642,6 +642,7 @@ FusedAttentionLayerINT8<T>::FusedAttentionLayerINT8(size_t           max_batch_s
         throw std::runtime_error(std::string("[FT][ERROR] FusedAttentionLayerINT8 not support \n"));
     }
     hidden_units_ = head_num_ * size_per_head_;
+    allocateBuffer();
 }
 
 template<typename T>
@@ -666,6 +667,7 @@ FusedAttentionLayerINT8<T>::FusedAttentionLayerINT8(FusedAttentionLayerINT8<T> c
     else {
         throw std::runtime_error(std::string("[FT][ERROR] FusedAttentionLayerINT8 not support \n"));
     }
+    allocateBuffer();
 }
 
 template<typename T>

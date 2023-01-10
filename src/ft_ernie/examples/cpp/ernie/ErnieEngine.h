@@ -1,8 +1,13 @@
 #pragma once
 #include "ErnieGemm.h"
+#include "src/fastertransformer/layers/attention_layers_int8/AttentionINT8Weight.h"
 #include "src/fastertransformer/models/ernie/Ernie.h"
 #include "src/fastertransformer/models/ernie/ErnieWeight.h"
+#include "src/fastertransformer/models/ernie_int8/ErnieINT8.h"
+#include "src/fastertransformer/models/ernie_int8/ErnieINT8Weight.h"
 #include "src/fastertransformer/utils/Tensor.h"
+#include "src/fastertransformer/utils/cublasINT8MMWrapper.h"
+#include "src/fastertransformer/utils/cublasMMWrapper.h"
 #include "src/fastertransformer/utils/cuda_utils.h"
 #include <cstdio>
 #include <cstring>
@@ -12,6 +17,8 @@
 #include <cuda_fp16.h>
 #include <unordered_map>
 #include <vector>
+
+#include "src/fastertransformer/utils/debug_utils.h"
 
 using namespace fastertransformer;
 
@@ -28,10 +35,13 @@ private:
     Allocator<AllocatorType::CUDA>* allocator_ = nullptr;
     std::mutex* cublas_wrapper_mutex_ = nullptr;
     cublasMMWrapper* cublas_wrapper_ = nullptr;
+    cublasINT8MMWrapper* cublas_wrapper_int8_ = nullptr;
 
     ErnieWeight<T>* ernie_weights_ = nullptr;
-
     Ernie<T>* ernie_ = nullptr;
+
+    ErnieINT8Weight<T>* ernie_weights_int8_ = nullptr;
+    ErnieINT8<T>* ernie_int8_ = nullptr;
 
     bool int8_mode_ = false;
     bool useCudaGraph_ = false;
@@ -78,6 +88,16 @@ public:
              const int request_batch_size,
              const int request_seq_len);
     void copyToCpu(float* h_attn_out, const int request_batch_size);
+
+    void runInt8(const int* h_word_ids_,
+             const int* h_pos_ids_,
+             const int* h_sent_ids_,
+             const int* h_seq_len_,
+             const int* h_multi_ids_,
+             const int request_batch_size,
+             const int request_seq_len);
+    void copyToCpuInt8(float* h_attn_out, const int request_batch_size);
+
     cudaStream_t getStream()
     {
         return stream_;

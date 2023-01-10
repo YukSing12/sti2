@@ -2,6 +2,7 @@
 #include "src/fastertransformer/utils/Tensor.h"
 #include "src/fastertransformer/utils/logger.h"
 #include <cublas_api.h>
+#include "src/fastertransformer/utils/debug_utils.h"
 #include <assert.h>
 #include <chrono>
 #include <fstream>
@@ -15,6 +16,7 @@
 #include <sys/time.h>
 #include <unordered_map>
 #include <vector>
+#include <cuda_fp16.h>
 
 using namespace fastertransformer;
 
@@ -188,13 +190,16 @@ void printHelp()
               << "\t--int8               \tEnable int8 precision (default = disabled).\n"
               << "\t--computeInFp16      \tAccumulate all the dot products in FP16. Accumulating in FP32 will have higher accuracy while accumulating in FP16 will have better performance. (default = disabled).\n"
               << "\t--useCudaGraph       \tUse CUDA graph to capture engine execution and then launch inference (default = disabled).\n"
+              << "\t--warmUp             \tRun for B * L times to warmup before measuring performance"
               << "Examples:\n"
               << "\t ernie_infer 1 model/bin data/label.test.txt label.res.txt\n"
               << std::endl;
 }
 
 template<typename T>
-void ernieInference(const std::string& ckpt_path, std::vector<sample>& sample_vec, const bool int8_mode, const bool useCudaGraph, const bool computeInFp16);
+void ernieInference(const std::string& ckpt_path, std::vector<sample>& sample_vec, const bool useCudaGraph, const bool computeInFp16, const bool warmUp);
+template<typename T>
+void ernieInt8Inference(const std::string& ckpt_path, std::vector<sample>& sample_vec, const bool useCudaGraph, const bool computeInFp16, const bool warmUp);
 
 int main(int argc, char** argv)
 {
@@ -208,12 +213,13 @@ int main(int argc, char** argv)
     bool int8_mode = false;
     bool useCudaGraph = false;
     bool computeInFp16 = false;
+    bool warmUp = false;
     for (int i = 5; i < argc; ++i) {
         if (!strcmp(argv[i], "--help") || !strcmp(argv[i], "-h")) {
             printHelp();
             return -1;
         }
-        else if (!strcmp(argv[i], "--int8_mode")) {
+        else if (!strcmp(argv[i], "--int8")) {
             printf("[INFO] Enable INT8 mode\n");
             int8_mode = true;
         }
@@ -224,6 +230,10 @@ int main(int argc, char** argv)
         else if (!strcmp(argv[i], "--computeInFp16")) {
             printf("[INFO] Accumulate all the dot products in FP16.\n");
             computeInFp16 = true;
+        }
+        else if (!strcmp(argv[i], "--warmUp")) {
+            printf("[INFO] Enable warmUp\n");
+            warmUp = true;
         }
         else {
             printHelp();
@@ -252,19 +262,19 @@ int main(int argc, char** argv)
     if (data_type == FLOAT_DATATYPE) {
         printf("[INFO] Input data type is FP32.\n");
         if (int8_mode) {
-            throw std::runtime_error(std::string("[FT][ERROR] INT8 mode is not supported.\n "));
+            ernieInt8Inference<float>(argv[2], sample_vec, useCudaGraph, computeInFp16, warmUp);
         }
         else {
-            ernieInference<float>(argv[2], sample_vec, int8_mode, useCudaGraph, computeInFp16);
+            ernieInference<float>(argv[2], sample_vec, useCudaGraph, computeInFp16, warmUp);
         }
     }
     else if (data_type == HALF_DATATYPE) {
         printf("[INFO] Input data type is FP16.\n");
         if (int8_mode) {
-            throw std::runtime_error(std::string("[FT][ERROR] INT8 mode is not supported.\n "));
+            ernieInt8Inference<half>(argv[2], sample_vec, useCudaGraph, computeInFp16, warmUp);
         }
         else {
-            ernieInference<half>(argv[2], sample_vec, int8_mode, useCudaGraph, computeInFp16);
+            ernieInference<half>(argv[2], sample_vec, useCudaGraph, computeInFp16, warmUp);
         }
     }else{
         throw std::runtime_error(std::string("[FT][ERROR] Input data type:" + std::string(argv[1]) + " is not supported.\n "));
@@ -292,10 +302,10 @@ int main(int argc, char** argv)
 }
 
 template<typename T>
-void ernieInference(const std::string& ckpt_path, std::vector<sample>& sample_vec, const bool int8_mode, const bool useCudaGraph, const bool computeInFp16)
+void ernieInference(const std::string& ckpt_path, std::vector<sample>& sample_vec, const bool useCudaGraph, const bool computeInFp16, const bool warmUp)
 {
     // Init
-    auto engine = new ErnieEngine<T>(ckpt_path, int8_mode, useCudaGraph, computeInFp16);
+    auto engine = new ErnieEngine<T>(ckpt_path, false, useCudaGraph, computeInFp16);
     auto stream = engine->getStream();
     auto max_batch_size = engine->getMaxBatch();
     auto max_seq_len = engine->getMaxSeqLen();
@@ -312,21 +322,23 @@ void ernieInference(const std::string& ckpt_path, std::vector<sample>& sample_ve
     cudaHostAlloc(&h_seq_len, max_batch_size * 1 * sizeof(int), cudaHostAllocWriteCombined);
     cudaHostAlloc(&h_multi_ids, max_batch_size * 8 * sizeof(int), cudaHostAllocWriteCombined);
 
-    // Warmup
-    unsigned int seed = 0;
-    for (size_t i = 1; i <= 10; i++) {
-        for (size_t j = 1; j <= 128; j++) {
-            auto temp1 = HostFill(i * j, 1);
-            memcpy(h_word_ids, temp1, i * j * sizeof(int));
-            auto temp2 = HostFill(i * j, 2);
-            memcpy(h_pos_ids, temp2, i * j * sizeof(int));
-            auto temp3 = HostFill(i * j, 3);
-            memcpy(h_sent_ids, temp3, i * j * sizeof(int));
-            auto temp4 = HostFill(i, (int)j);
-            memcpy(h_seq_len, temp4, i * sizeof(int));
-            auto temp5 = HostFill(i * 8, 1);
-            memcpy(h_multi_ids, temp5, i * 8 * sizeof(int));
-            engine->run(h_word_ids, h_pos_ids, h_sent_ids, h_seq_len, h_multi_ids, i, j);
+    if (warmUp) {
+        // Warmup
+        unsigned int seed = 0;
+        for (size_t i = 1; i <= 10; i++) {
+            for (size_t j = 1; j <= 128; j++) {
+                auto temp1 = HostFill(i * j, 1);
+                memcpy(h_word_ids, temp1, i * j * sizeof(int));
+                auto temp2 = HostFill(i * j, 2);
+                memcpy(h_pos_ids, temp2, i * j * sizeof(int));
+                auto temp3 = HostFill(i * j, 3);
+                memcpy(h_sent_ids, temp3, i * j * sizeof(int));
+                auto temp4 = HostFill(i, (int)j);
+                memcpy(h_seq_len, temp4, i * sizeof(int));
+                auto temp5 = HostFill(i * 8, 1);
+                memcpy(h_multi_ids, temp5, i * 8 * sizeof(int));
+                engine->run(h_word_ids, h_pos_ids, h_sent_ids, h_seq_len, h_multi_ids, i, j);
+            }
         }
     }
 
@@ -340,6 +352,64 @@ void ernieInference(const std::string& ckpt_path, std::vector<sample>& sample_ve
         // Host ptr must fixed when using cuda graph
         engine->run(h_word_ids, h_pos_ids, h_sent_ids, h_seq_len, h_multi_ids, s.batch_size, s.shape_info_0[1]);
         engine->copyToCpu(s.out_data.data(), s.batch_size);
+
+        struct timeval tv;
+        gettimeofday(&tv, NULL);
+        s.timestamp = tv.tv_sec * 1000000 + tv.tv_usec;
+    }
+}
+
+template<typename T>
+void ernieInt8Inference(const std::string& ckpt_path, std::vector<sample>& sample_vec, const bool useCudaGraph, const bool computeInFp16, const bool warmUp)
+{
+    // Init
+    auto ernie_int8_ = new ErnieEngine<T>(ckpt_path, true, useCudaGraph, computeInFp16);
+    auto stream = ernie_int8_->getStream();
+    auto max_batch_size = ernie_int8_->getMaxBatch();
+    auto max_seq_len = ernie_int8_->getMaxSeqLen();
+    
+    // Allocate memory
+    int* h_word_ids;
+    int* h_pos_ids;
+    int* h_sent_ids;
+    int* h_seq_len;
+    int* h_multi_ids;
+    cudaHostAlloc(&h_word_ids, max_batch_size * max_seq_len * sizeof(int), cudaHostAllocWriteCombined);
+    cudaHostAlloc(&h_pos_ids, max_batch_size * max_seq_len * sizeof(int), cudaHostAllocWriteCombined);
+    cudaHostAlloc(&h_sent_ids, max_batch_size * max_seq_len * sizeof(int), cudaHostAllocWriteCombined);
+    cudaHostAlloc(&h_seq_len, max_batch_size * 1 * sizeof(int), cudaHostAllocWriteCombined);
+    cudaHostAlloc(&h_multi_ids, max_batch_size * 8 * sizeof(int), cudaHostAllocWriteCombined);
+
+    if (warmUp) {
+        // Warmup
+        unsigned int seed = 0;
+        for (size_t i = 1; i <= 10; i++) {
+            for (size_t j = 1; j <= 128; j++) {
+                auto temp1 = HostFill(i * j, 1);
+                memcpy(h_word_ids, temp1, i * j * sizeof(int));
+                auto temp2 = HostFill(i * j, 2);
+                memcpy(h_pos_ids, temp2, i * j * sizeof(int));
+                auto temp3 = HostFill(i * j, 3);
+                memcpy(h_sent_ids, temp3, i * j * sizeof(int));
+                auto temp4 = HostFill(i, (int)j);
+                memcpy(h_seq_len, temp4, i * sizeof(int));
+                auto temp5 = HostFill(i * 8, 1);
+                memcpy(h_multi_ids, temp5, i * 8 * sizeof(int));
+                ernie_int8_->runInt8(h_word_ids, h_pos_ids, h_sent_ids, h_seq_len, h_multi_ids, i, j);
+            }
+        }
+    }
+
+    // Inference
+    for (auto& s : sample_vec) {
+        memcpy(h_word_ids, s.i0.data(), s.batch_size * s.shape_info_0[1] * sizeof(int));
+        memcpy(h_pos_ids, s.i1.data(), s.batch_size * s.shape_info_0[1] * sizeof(int));
+        memcpy(h_sent_ids, s.i2.data(), s.batch_size * s.shape_info_0[1] * sizeof(int));
+        memcpy(h_seq_len, s.i3.data(), s.batch_size * 1 * sizeof(int));
+        memcpy(h_multi_ids, s.i4.data(), s.batch_size * 8 * sizeof(int));
+        // Host ptr must fixed when using cuda graph
+        ernie_int8_->runInt8(h_word_ids, h_pos_ids, h_sent_ids, h_seq_len, h_multi_ids, s.batch_size, s.shape_info_0[1]);
+        ernie_int8_->copyToCpuInt8(s.out_data.data(), s.batch_size);
 
         struct timeval tv;
         gettimeofday(&tv, NULL);

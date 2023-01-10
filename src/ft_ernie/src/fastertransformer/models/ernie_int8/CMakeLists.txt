@@ -12,9 +12,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+cmake_minimum_required(VERSION 3.8)
 
-add_executable(ft_infer ft_infer.cc ErnieGemm.cc ErnieEngine.cpp)
-
-target_link_libraries(ft_infer PUBLIC -lcublas -lcublasLt -lcudart Ernie ErnieINT8 encoder_gemm_func encoder_igemm_func debug_utils)
-
-install(TARGETS ft_infer RUNTIME DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
+add_library(ErnieINT8 STATIC ErnieINT8.cc ErnieINT8Weight.cc ErnieLayerINT8Weight.cc ErnieLayerINT8.cc)
+set_property(TARGET ErnieINT8 PROPERTY POSITION_INDEPENDENT_CODE  ON)
+set_property(TARGET ErnieINT8 PROPERTY CUDA_RESOLVE_DEVICE_SYMBOLS  ON)
+target_link_libraries(ErnieINT8 PUBLIC -lcudart -lcublas
+bert_preprocess_kernels 
+cublasMMWrapper 
+cublasINT8MMWrapper 
+UnfusedAttentionLayerINT8 
+FusedAttentionLayerINT8 
+FfnLayerINT8
+layernorm_int8_kernels 
+add_residual_kernels 
+decoding_kernels 
+quantization_int8_kernels 
+dequantize_kernels 
+ernie_kernels 
+nccl_utils 
+tensor)

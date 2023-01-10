@@ -117,20 +117,20 @@ __global__ void ErniegetPaddingOffsetKernel(size_t*    valid_word_num,
                                             const int  batch_size,
                                             const int  max_seq_len)
 {
-            // do cumulated sum
-            int total_seq_len = 0;
-            int cum_offset    = 0;
-            int index         = 0;
-            for (int i = 0; i < batch_size; i++) {
-                const int seq_len = sequence_length[i];
-                for (int j = 0; j < seq_len; j++) {
-                        tmp_mask_offset[index] = cum_offset;
-                        index++;
-                    }
-                cum_offset += max_seq_len - seq_len;
-                total_seq_len += seq_len;
+    // do cumulated sum
+    int total_seq_len = 0;
+    int cum_offset    = 0;
+    int index         = 0;
+    for (int i = 0; i < batch_size; i++) {
+        const int seq_len = sequence_length[i];
+        for (int j = 0; j < seq_len; j++) {
+                tmp_mask_offset[index] = cum_offset;
+                index++;
             }
-            valid_word_num[0] = (size_t)total_seq_len;
+        cum_offset += max_seq_len - seq_len;
+        total_seq_len += seq_len;
+    }
+    valid_word_num[0] = (size_t)total_seq_len;
 }
 
 void invokeGetPaddingOffsetErnie(size_t*      d_token_num,
