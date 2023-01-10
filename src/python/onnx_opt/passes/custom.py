@@ -272,7 +272,7 @@ class FFNReluPass(RemovePass):
                     add0_node = node.inputs[0].inputs[0]
                     reshape0_node = add0_node.inputs[0].inputs[0]
                     concat0_node = reshape0_node.inputs[1].inputs[0]
-                    concat0_node.inputs[1].values = np.array([768],dtype=np.int64)
+                    concat0_node.inputs[1] = gs.Constant(concat0_node.inputs[1].name, values=np.array([768],dtype=np.int64))
                     matmul0_node = reshape0_node.inputs[0].inputs[0]
                     add0_node.inputs[0] = matmul0_node.outputs[0]
                     reshape0_node.inputs[0] = add1_node.outputs[0]

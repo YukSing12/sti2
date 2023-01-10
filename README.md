@@ -77,16 +77,38 @@ eg:bash test.sh ft_infer
 ```
 ## 项目特性
 ### （一）部分算子融合推理
-- 说明：融合算子分为两部分，
-- 1. 改变输入的算子融合,有POSTEMB和DYNAMIC SHAPE两种。
-- 2. 不改变输入的算子融合,有LayernormPlugin、AddResidualLayernormPlugin、EmbLayernormPlugin。</br>
-- 该推理使用static_trt_infer.cpp 和 static_onnx2trt.cpp 
+说明：融合算子分为两部分，
+1. 改变输入的算子融合,有POSTEMB和DYNAMIC SHAPE两种。
+2. 不改变输入的算子融合,有LayernormPlugin、AddResidualLayernormPlugin、EmbLayernormPlugin。</br>
+该推理使用static_trt_infer.cpp 和 static_onnx2trt.cpp 
 ### （二）优化推理机制
-- 说明: 此方式采用了multiprofile和cuda graph技术，仅支持第二维为dynamic shape的情况
-- 该推理使用dynamic_trt_infer.cpp 和 dynamic_onnx2trt.cpp 
+说明: 此方式采用了multiprofile和cuda graph技术，仅支持第二维为dynamic shape的情况
+该推理使用dynamic_trt_infer.cpp 和 dynamic_onnx2trt.cpp 
 ### （三）使用Faster Transformer
-- 说明: 此方式采用了英伟达Faster Transformer框架，分为ft tensorRT Plugin和C++两种推理方式，本项目默认采用C++的方式推理
-- ft_trt_infer.cpp 和 ft_onnx2trt.cpp为将Faster Transformer编译为tensorRT的plugin方式进行推理
-- ft_ernie为C++方式推理，详见[src/ft_ernie]
+说明: 此方式采用了英伟达Faster Transformer框架，分为ft tensorRT Plugin和C++两种推理方式，本项目默认采用C++的方式推理
+ft_trt_infer.cpp 和 ft_onnx2trt.cpp为将Faster Transformer编译为tensorRT的plugin方式进行推理
+ft_ernie为C++方式推理，详见[src/ft_ernie]
 ### （四）使用方法
-- 使用不同的推理方式。需要修改build.sh,详见 build.sh
+1. 第二维度固定的TRT推理：
+```
+bash build_static_trt.sh
+bash test.sh static_trt_infer
+```
+
+2. 第二维度动态的TRT推理:
+```
+bash build_dynamic_trt.sh
+bash test.sh dynamic_trt_infer
+```
+
+3. 插入Ernie的TRT推理:
+```
+bash build_ft_trt.sh
+bash test.sh ft_trt_infer
+```
+
+4. 基于FT的Ernie推理(默认):
+```
+bash build.sh
+bash test.sh ft_infer
+```

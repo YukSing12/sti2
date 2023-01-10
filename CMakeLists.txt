@@ -4,17 +4,6 @@ project(sti2 LANGUAGES CXX CUDA)
 find_package(CUDA 10.2 REQUIRED)
 
 option(BUILD_FAST_MATH "Build in fast math mode" ON)
-option(POSTEMB "Whether or not to merge input5~12" ON)
-option(DYMSHAPE "Whether or not to enable dim2 dynamic" ON)
-
-if(POSTEMB)
-  message(STATUS "POSTEMB is enabled.")
-  add_definitions("-DPOSTEMB")
-endif()
-if(DYMSHAPE)
-  message(STATUS "DYMSHAPE is enabled.")
-  add_definitions("-DDYMSHAPE")
-endif()
 
 set(CXX_STD "14" CACHE STRING "C++ standard")
 set(CUDA_PATH ${CUDA_TOOLKIT_ROOT_DIR})

@@ -163,12 +163,6 @@ if ENABLE_PREEMBEDDING_PLUGIN:
     passes.append(PreEmbeddingPass())
     dst_onnx_path = dst_onnx_path.replace(".onnx", "_preemb.onnx")
 
-if ENABLE_FFNRELU:
-    from onnx_opt.passes import FFNReluPass
-
-    passes.append(FFNReluPass())
-    dst_onnx_path = dst_onnx_path.replace(".onnx", "_ffnrelu.onnx")
-
 if ENABLE_FASTERTRANSFORMER:
     from onnx_opt.passes import FTErnie
     graph.inputs = graph.inputs[:5]
