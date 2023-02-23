@@ -6,9 +6,9 @@ if [ $# != 1 ]; then
     echo -e "Usage test.sh <exe>"
     echo -e "  <exe>  Execute program for testing."
     echo -e "         Supported exe: static_trt_infer: static shape inference using TensorRT"
-    echo -e "                        dynamic_trt_infer: dynamic shape and multiprofile inference using TensorRT"
-    echo -e "                        ft_trt_infer: dynamic shape inference using FasterTransformer with TensorRT"
-    echo -e "                        ft_infer: dynamic shape inference using FasterTransformer only cpp"
+    echo -e "                        dynamic_trt_infer: dynamic shape inference using TensorRT"
+    echo -e "                        ft_trt_infer: insert Fastertransformer as plugin and inference using TensorRT"
+    echo -e "                        ft_infer: dynamic shape inference using FasterTransformer only"
     exit 1
 fi
 
