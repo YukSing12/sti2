@@ -1,7 +1,10 @@
 # STI2
 
 ## 介绍
-百度搜索技术创新挑战赛-赛道2
+百度搜索首届技术创新挑战赛赛道二冠军方案
+
+### 大赛简介
+[百度搜索技术创新挑战赛](https://aistudio.baidu.com/aistudio/competition/detail/674/0/introduction)（简称STI）是由百度搜索和百度飞桨共同发起，联合四大区域高校、学会共同举办的一项全国性科技竞赛。本次大赛以“新智能·新搜索”为主题，围绕人工智能、检索技术，为参赛团队提供海量百度搜索脱敏业务数据进行训练及测试。本次大赛面向全国企业、高校、科研机构、项目团队及个人广发英雄帖，旨在挖掘和培育搜索AI人才，促进业内交流、产教融合，推动算法和技术应用创新。
 
 ## 目录架构
 目录架构说明
@@ -9,6 +12,7 @@
 sti2/
 |-- bin
 |-- data
+|-- docs
 |-- include
 |   |-- plugins
 |   `-- tensorrt
@@ -76,6 +80,12 @@ bash test.sh [exe]
 eg:bash test.sh ft_infer
 ```
 ## 项目特性
+<div align="center">
+    
+<img src="./docs/perf.png" >
+    
+</div>
+
 ### （一）部分算子融合推理
 说明：融合算子分为两部分，
 1. 改变输入的算子融合,有POSTEMB和DYNAMIC SHAPE两种。
@@ -88,7 +98,8 @@ eg:bash test.sh ft_infer
 说明: 此方式采用了英伟达Faster Transformer框架，分为ft tensorRT Plugin和C++两种推理方式，本项目默认采用C++的方式推理
 ft_trt_infer.cpp 和 ft_onnx2trt.cpp为将Faster Transformer编译为tensorRT的plugin方式进行推理
 ft_ernie为C++方式推理，详见[src/ft_ernie]
-### （四）使用方法
+
+## 使用方法
 1. 第二维度固定的TRT推理：
 ```
 bash build_static_trt.sh
@@ -112,3 +123,7 @@ bash test.sh ft_trt_infer
 bash build.sh
 bash test.sh ft_infer
 ```
+
+## 未来工作
+- [ ] int8
+- [ ] paddleslim
