@@ -48,7 +48,7 @@ git clone https://gitee.com/YukSing12/sti2.git
 ```
 2.  从[官网](https://aistudio.baidu.com/aistudio/competition/detail/674/0/introduction)下载数据集
 3.  解压数据集，将数据集下model.onnx  复制到  sti2/model下
-4.  准备TensorRT环境(准备NV NGC TensorRT Docker 或者使用AIStudio  基于tensorRT 8.5.1.7 Cuda11.2  cuDnn 8.2)
+4.  准备TensorRT环境(准备NV NGC TensorRT Docker 或者使用AIStudio  基于TensorRT 8.5.1.7 Cuda11.2  cuDnn 8.2)
 ```
 cd sti2
 ln -s /[tensorrt dir]/include sti2/include/tensorrt/include
@@ -65,7 +65,7 @@ pip install -r requirements.txt
 ## 使用说明
 
 1.  从paddlepaddle模型导出成onnx模型(可选)
-2.  构建trt引擎、编译可执行文件
+2.  导出模型权重、构建trt引擎、编译可执行文件
 ```
 bash build.sh
 ```
@@ -77,8 +77,8 @@ bash run.sh data/perf.test.txt
 4. 本地测试
 ```
 bash test.sh [exe]
-eg:bash test.sh ft_infer
 ```
+
 ## 项目特性
 <div align="center">
     
@@ -92,12 +92,14 @@ eg:bash test.sh ft_infer
 2. 不改变输入的算子融合,有LayernormPlugin、AddResidualLayernormPlugin、EmbLayernormPlugin。</br>
 该推理使用[static_trt_infer.cpp](./src/static_trt_infer.cpp) 和 [static_onnx2trt.cpp ](./src/static_onnx2trt.cpp)
 ### （二）优化推理机制
-说明: 此方式采用了multiprofile和cuda graph技术，仅支持第二维为dynamic shape的情况
-该推理使用[dynamic_trt_infer.cpp](./src/dynamic_trt_infer.cpp) 和 dynamic_onnx2trt.cpp 
+说明: 此方式采用了multiprofile和cuda graph技术，仅支持第二维为dynamic shape的情况。
+该推理使用[dynamic_trt_infer.cpp](./src/dynamic_trt_infer.cpp) 和 [dynamic_onnx2trt.cpp](./src/dynamic_onnx2trt.cpp)
 ### （三）使用Faster Transformer
-说明: 此方式采用了英伟达Faster Transformer框架，分为ft tensorRT Plugin和C++两种推理方式，本项目默认采用C++的方式推理
-ft_trt_infer.cpp 和 ft_onnx2trt.cpp为将Faster Transformer编译为tensorRT的plugin方式进行推理
-ft_ernie为C++方式推理
+说明: 此方式采用了英伟达Faster Transformer框架，分为ft TensorRT Plugin和C++两种推理方式，本项目默认采用C++的方式推理。
+
+[ft_trt_infer.cpp](./src/ft_trt_infer.cpp)和[ft_onnx2trt.cpp](./src/ft_onnx2trt.cpp)将Faster Transformer编译为TensorRT的plugin方式进行推理。
+
+[ft_ernie.cc](.src/ft_ernie/examples/cpp/ernie/ft_infer.cc)仅采用Faster Transformer和C++方式进行推理
 
 ## 使用方法
 1. 第二维度固定的TRT推理：
