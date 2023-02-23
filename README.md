@@ -127,3 +127,4 @@ bash test.sh ft_infer
 ## 未来工作
 - [ ] int8
 - [ ] paddleslim
+- [ ] sparse gemm
