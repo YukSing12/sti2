@@ -357,6 +357,13 @@ void ernieInference(const std::string& ckpt_path, std::vector<sample>& sample_ve
         gettimeofday(&tv, NULL);
         s.timestamp = tv.tv_sec * 1000000 + tv.tv_usec;
     }
+
+    // Release memory
+    cudaFreeHost(h_word_ids);
+    cudaFreeHost(h_pos_ids);
+    cudaFreeHost(h_sent_ids);
+    cudaFreeHost(h_seq_len);
+    cudaFreeHost(h_multi_ids);
 }
 
 template<typename T>
@@ -415,4 +422,11 @@ void ernieInt8Inference(const std::string& ckpt_path, std::vector<sample>& sampl
         gettimeofday(&tv, NULL);
         s.timestamp = tv.tv_sec * 1000000 + tv.tv_usec;
     }
+
+    // Release memory
+    cudaFreeHost(h_word_ids);
+    cudaFreeHost(h_pos_ids);
+    cudaFreeHost(h_sent_ids);
+    cudaFreeHost(h_seq_len);
+    cudaFreeHost(h_multi_ids);
 }
