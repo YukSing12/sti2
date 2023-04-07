@@ -15,6 +15,6 @@
 
 add_executable(ft_infer ft_infer.cc ErnieGemm.cc ErnieEngine.cpp)
 
-target_link_libraries(ft_infer PUBLIC -lcublas -lcublasLt -lcudart Ernie ErnieINT8 encoder_gemm_func encoder_igemm_func debug_utils)
+target_link_libraries(ft_infer PUBLIC -lcublas -lcublasLt -lcudart Ernie ErnieINT8 encoder_gemm_func encoder_igemm_func debug_utils nvtx_utils)
 
 install(TARGETS ft_infer RUNTIME DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
